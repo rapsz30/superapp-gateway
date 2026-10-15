@@ -1,0 +1,6 @@
+Bahasa Pemrograman: Python
+Framework Backend: FastAPI
+Server Aplikasi: Uvicorn
+Layanan AI & API (Otak Sistem)
+- Google Gemini (Model: gemini-1.5-flash)
+- Groq (Model: llama3-8b-Instant) ---> yang dipakai sekarang

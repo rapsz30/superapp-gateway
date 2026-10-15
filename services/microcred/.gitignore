@@ -1,0 +1,24 @@
+# Python cache artifacts
+__pycache__/
+*.py[cod]
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Environment + local config
+.env
+.env.*
+!.env.example
+.vscode/
+
+# OS junk
+.DS_Store
+
+# Project-specific
+trash/
+docs/
+scripts/
+skripsi/
+Revisi/

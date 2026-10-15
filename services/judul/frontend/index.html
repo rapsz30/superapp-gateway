@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chatbot AI Rekomendasi Judul Tugas Akhir</title>
+
+    <!-- Bootstrap 5 CSS (CDN) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+    <!-- Bootstrap Icons (untuk icons) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="assets/css/style.css" />
+  </head>
+  <body>
+    <!-- HEADER SECTION -->
+    <header class="header-section">
+      <div class="container">
+        <div class="header-content">
+          <!-- Icon -->
+          <div class="logo">
+            <i class="bi bi-robot"></i>
+          </div>
+          <!-- Title -->
+          <h1 class="main-title">Chatbot Rekomendasi Judul Tugas Akhir</h1>
+          <!-- Subtitle -->
+          <p class="subtitle">Temukan ide tugas akhir yang tepat dengan bantuan AI</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN CONTENT SECTION -->
+    <main class="main-section">
+      <div class="container">
+        <!-- Input Card -->
+        <div class="card-body">
+          <!-- Info Text -->
+          <p class="input-label">
+            <i class="bi bi-lightbulb me-2"></i>
+            Saran mengenai apa yang harus ditanyakan ke AI
+          </p>
+
+          <!-- Suggestion -->
+          <div class="suggestion-pills mb-3">
+            <button class="pill-btn" data-suggestion="machine learning"><i class="bi bi-cpu"></i> Machine Learning</button>
+            <button class="pill-btn" data-suggestion="web development"><i class="bi bi-code-slash"></i> Web Development</button>
+            <button class="pill-btn" data-suggestion="mobile app"><i class="bi bi-phone"></i> Mobile App</button>
+          </div>
+
+          <!-- Main Input Forms -->
+          <form action="#" id="recommendationForm">
+            <div class="input-group">
+              <!-- Input Field -->
+              <input type="text" class="form-control input-field" id="interestsInput" placeholder="Ceritakan topik yang ingin anda eksplorasi untuk TA..." required />
+
+              <!-- Submit Button -->
+              <button class="btn btn-submit" type="submit" id="submitBtn">
+                <i class="bi bi-send-fill"></i>
+                <span>Cari Rekomendasi</span>
+              </button>
+            </div>
+            <small class="helper-text">
+              <i class="bi bi-info-circle me-1"> Contoh: "Saya tertarik dengan pengembangan aplikasi mobile menggunakan Flutter dan AI." </i>
+            </small>
+          </form>
+        </div>
+      </div>
+
+      <!-- LOADING SECTION -->
+      <div class="loading-section" id="loadingSection" style="display: none">
+        <div class="loading-card">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="loading-text mt-3">
+            <i class="bi bi-stars me-2"></i>
+            AI sedang menganalisis dan mencari rekomendasi terbaik untuk Anda...
+          </p>
+          <div class="progress mt-3" style="height: 4px">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Error Section -->
+      <div class="alert alert-danger alert-dismissible fade show" id="errorSection" style="display: none" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me 2"></i>
+        <strong>Terjadi Kesalahan!</strong>
+        <span id="errorMessage"></span>
+        <button type="button" class="btn-close" data-bs-dismis="alert"></button>
+      </div>
+
+      <!-- RESULTS SECTION -->
+      <div class="results-section" id="resultsSection" style="display: none">
+        <div class="exoport-actions mb-4">
+          <button class="btn btn-outline-primary" id="exportPdfBtn">
+            <i class="bi bi-file-pdf me-2"></i>
+            Export ke PDF
+          </button>
+          <button class="btn btn-outline-secondary" id="printBtn">
+            <i class="bi bi-printer me-2"></i>
+            Print
+          </button>
+        </div>
+        <!-- Recommendation Grid -->
+        <div class="row g-4" id="recommendationsGrid"></div>
+      </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer-section">
+      <div class="container text-center">
+        <p class="footer-text">
+          <i class="bi bi-robot me-2"></i>
+          Powered by Me | Chatbot Rekomendasi Judul Tugas Akhir &copy; 2026
+        </p>
+      </div>
+    </footer>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Custom JavaScripts -->
+    <script src="assets/js/app.js"></script>
+  </body>
+</html>
