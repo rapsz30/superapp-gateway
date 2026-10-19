@@ -28,7 +28,13 @@ type KhsPreview = {
   nilai?: KhsRow[];
 
   // fallback compat (kalau AI masih return "matkul")
-  matkul?: Array<{ kode?: string; nama?: string; sks?: number; nilai?: string; semester?: any }>;
+  matkul?: Array<{
+    kode?: string;
+    nama?: string;
+    sks?: number;
+    nilai?: string;
+    semester?: any;
+  }>;
 
   _debugTextSample?: string;
 };
@@ -46,8 +52,8 @@ function normalizePreview(ai: any, text: string): KhsPreview {
   const rowsRaw: any[] = Array.isArray(p.nilai)
     ? p.nilai
     : Array.isArray(p.matkul)
-    ? p.matkul
-    : [];
+      ? p.matkul
+      : [];
 
   const rows: KhsRow[] = rowsRaw.map((r: any) => ({
     kode: String(r?.kode ?? "").trim(),
@@ -80,7 +86,10 @@ export async function POST(req: Request) {
     const file = form.get("file");
 
     if (!(file instanceof File)) {
-      return NextResponse.json({ ok: false, error: "file wajib PDF" }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: "file wajib PDF" },
+        { status: 400 },
+      );
     }
 
     const buf = Buffer.from(await file.arrayBuffer());
@@ -90,7 +99,7 @@ export async function POST(req: Request) {
     if (typeof pdfParse !== "function") {
       return NextResponse.json(
         { ok: false, error: "pdf-parse tidak terbaca sebagai function" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -103,7 +112,7 @@ export async function POST(req: Request) {
     if (!text) {
       return NextResponse.json(
         { ok: false, error: "Teks PDF kosong. Jika scan, perlu OCR." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -111,7 +120,7 @@ export async function POST(req: Request) {
     const ai = await extractKhsFromText(text);
     console.log("=== HASIL EKSTRAKSI AI ===");
     console.log(JSON.stringify(ai, null, 2));
-    console.log("=== JUMLAH ROW ===", (ai?.nilai ?? ai?.matkul ?? []).length);
+    console.log("=== JUMLAH ROW ===", (ai?.nilai ?? []).length);
     const preview = normalizePreview(ai, text);
 
     // minimal validation biar ketahuan kalau AI gagal parse matkul
@@ -119,13 +128,17 @@ export async function POST(req: Request) {
       return NextResponse.json({
         ok: true,
         preview,
-        warning: "AI tidak menemukan daftar mata kuliah. Cek format KHS / hasil ekstraksi.",
+        warning:
+          "AI tidak menemukan daftar mata kuliah. Cek format KHS / hasil ekstraksi.",
       });
     }
 
     return NextResponse.json({ ok: true, preview });
   } catch (err: any) {
     console.error("UPLOAD_KHS_ERROR:", err);
-    return NextResponse.json({ ok: false, error: err?.message ?? "Unknown error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: err?.message ?? "Unknown error" },
+      { status: 500 },
+    );
   }
 }

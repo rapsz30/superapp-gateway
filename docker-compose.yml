@@ -1,0 +1,121 @@
+name: superapp
+
+# Tahap 1: semua layanan hidup di satu network, belum ada gateway.
+# Port dipublikasikan ke 127.0.0.1 hanya untuk pengujian. Hapus bagian "ports"
+# setelah NGINX dipasang, karena hanya gateway yang boleh terbuka ke luar.
+
+services:
+  # ---------- Micro-credential ----------
+  # Nama service db dan redis dipertahankan karena DATABASE_URL dan REDIS_URL
+  # di .env Micro-cred sudah menunjuk ke host "db" dan "redis".
+  microcred-api:
+    build:
+      context: ./services/microcred
+      dockerfile: infra/docker/Dockerfile.api
+    env_file: ./services/microcred/.env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  microcred-worker:
+    build:
+      context: ./services/microcred
+      dockerfile: infra/docker/Dockerfile.worker
+    command: poetry run python -m src.workers.worker
+    env_file: ./services/microcred/.env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  db:
+    image: postgres:15.5
+    env_file: ./services/microcred/.env
+    volumes:
+      - microcred_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.2
+    volumes:
+      - microcred_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------- Judul TA ----------
+  judul-api:
+    build:
+      context: ./services/judul
+    env_file: ./services/judul/.env
+    ports:
+      - "127.0.0.1:8001:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ---------- Matkul ----------
+  pocketbase:
+    build:
+      context: ./infra/pocketbase
+    volumes:
+      - pb_data:/pb/pb_data
+      # pb_migrations sengaja tidak di-mount. Riwayat migrasi Matkul hanya berisi
+      # "updated_*" tanpa "created_*", jadi PocketBase kosong bisa gagal start.
+      # Schema diimpor lewat Export/Import collections di admin UI.
+    ports:
+      - "127.0.0.1:8090:8090"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8090/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  matkul:
+    build:
+      context: ./services/matkul
+      args:
+        NEXT_PUBLIC_POCKETBASE_URL: http://pocketbase:8090
+        NEXT_PUBLIC_PB_URL: http://pocketbase:8090
+    env_file: ./services/matkul/.env.local
+    environment:
+      # environment menimpa env_file, jadi path Windows di .env.local tidak terbawa
+      PDFTOTEXT_PATH: /usr/bin/pdftotext
+      NEXT_PUBLIC_POCKETBASE_URL: http://pocketbase:8090
+      NEXT_PUBLIC_PB_URL: http://pocketbase:8090
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  microcred_pg:
+  microcred_redis:
+  pb_data:
