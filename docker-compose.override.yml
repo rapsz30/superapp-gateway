@@ -1,0 +1,16 @@
+# Hanya untuk debugging dan admin UI PocketBase (dimuat otomatis oleh Docker Compose).
+# Mode gateway saja: docker compose -f docker-compose.yml up -d
+services:
+  microcred-api:
+    ports:
+      - "127.0.0.1:8000:8000"
+  judul-api:
+    ports:
+      - "127.0.0.1:8001:8001"
+  matkul:
+    ports:
+      - "127.0.0.1:3000:3000"
+  pocketbase:
+    ports:
+      - "127.0.0.1:8090:8090"
+
