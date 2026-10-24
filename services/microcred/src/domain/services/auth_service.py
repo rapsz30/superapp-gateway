@@ -77,6 +77,9 @@ class AuthService:
         email: str,
         password: str,
         full_name: str | None = None,
+        nim: str | None = None,
+        faculty: str | None = None,
+        study_program: str | None = None,
         role: str = "student",
     ) -> dict:
         """
@@ -97,6 +100,21 @@ class AuthService:
         if user_role == UserRole.ADMIN:
             raise SelfRegistrationRoleNotAllowedError("Self-registration as admin is not allowed")
 
+        # Email duplikat diperiksa lebih dulu agar pesannya tetap konsisten
+        existing_email = await self.session.execute(
+            select(UserModel.id).where(UserModel.email == email.lower())
+        )
+        if existing_email.first() is not None:
+            await logger.awarning("register_duplicate_email", email=email)
+            raise UserExistsError(f"User with email {email} already exists")
+
+        # Tolak NIM duplikat lebih awal (constraint unik di DB tetap jadi pengaman balapan)
+        if nim is not None:
+            existing = await self.session.execute(select(UserModel.id).where(UserModel.nim == nim))
+            if existing.first() is not None:
+                await logger.awarning("register_duplicate_nim")
+                raise UserExistsError(f"User with NIM {nim} already exists")
+
         # Hash password
         hashed_password = hash_password(password)
 
@@ -105,6 +123,9 @@ class AuthService:
             email=email.lower(),
             hashed_password=hashed_password,
             full_name=full_name,
+            nim=nim,
+            faculty=faculty,
+            study_program=study_program,
             role=user_role,
             status=UserStatus.ACTIVE,
             is_verified=False,
@@ -116,6 +137,10 @@ class AuthService:
             await self.session.refresh(user)
         except IntegrityError as exc:
             await self.session.rollback()
+            # Bedakan pelanggaran unik NIM dan email (mis. balapan permintaan)
+            if "nim" in str(exc.orig).lower():
+                await logger.awarning("register_duplicate_nim")
+                raise UserExistsError(f"User with NIM {nim} already exists") from exc
             await logger.awarning("register_duplicate_email", email=email)
             raise UserExistsError(f"User with email {email} already exists") from exc
 
@@ -243,6 +268,9 @@ class AuthService:
             "id": user.id,
             "email": user.email,
             "full_name": user.full_name,
+            "nim": user.nim,
+            "faculty": user.faculty,
+            "study_program": user.study_program,
             "role": user.role.value,
             "status": user.status.value,
             "is_verified": user.is_verified,

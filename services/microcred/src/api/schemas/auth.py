@@ -4,9 +4,14 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
+from typing import Annotated
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, StringConstraints
 
+
+# Aturan panjang NIM. Format NIM UII belum dikonfirmasi, jadi batasnya sengaja longgar.
+NIM_MIN_LENGTH = 6
+NIM_MAX_LENGTH = 15
 
 class UserRole(str, Enum):
     """User role enum."""
@@ -29,10 +34,24 @@ class RegisterRequest(BaseModel):
         max_length=128,
         description="Password (min 8 characters)",
     )
-    full_name: str | None = Field(
-        None,
-        max_length=128,
+    full_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=128)] = Field(
+        ...,
         description="User's full name",
+    )
+    nim: Annotated[
+        str,
+        StringConstraints(
+            strip_whitespace=True,
+            pattern=r"^[0-9]+$",
+            min_length=NIM_MIN_LENGTH,
+            max_length=NIM_MAX_LENGTH,
+        ),
+    ] = Field(..., description="Student ID number (digits only)")
+    faculty: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=100)] = Field(
+        ..., description="Faculty name"
+    )
+    study_program: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=100)] = Field(
+        ..., description="Study program name"
     )
     role: UserRole = Field(
         default=UserRole.STUDENT,
@@ -83,6 +102,9 @@ class UserResponse(BaseModel):
     id: str = Field(..., description="User ID")
     email: str = Field(..., description="User email")
     full_name: str | None = Field(None, description="User's full name")
+    nim: str | None = Field(None, description="Student ID number")
+    faculty: str | None = Field(None, description="Faculty name")
+    study_program: str | None = Field(None, description="Study program name")
     role: str = Field(..., description="User role")
     status: str = Field(..., description="Account status")
     is_verified: bool = Field(..., description="Email verification status")

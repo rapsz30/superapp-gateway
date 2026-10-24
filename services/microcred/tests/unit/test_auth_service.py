@@ -8,6 +8,15 @@ from src.api.schemas.auth import LoginRequest, RegisterRequest, UserResponse
 from src.domain.services.auth_service import hash_password, verify_password
 
 
+# Data identitas mahasiswa yang wajib pada RegisterRequest
+IDENTITY = {
+    "full_name": "Test User",
+    "nim": "12345678",
+    "faculty": "Fakultas Teknologi Industri",
+    "study_program": "Informatika",
+}
+
+
 class TestPasswordHashing:
     """Tests for password hashing functions."""
 
@@ -68,8 +77,12 @@ class TestAuthSchemas:
             email="test@example.com",
             password="password123",
             full_name="Test User",
+            nim="12345678",
+            faculty="Fakultas Teknologi Industri",
+            study_program="Informatika",
         )
 
+        assert request.nim == "12345678"
         assert request.email == "test@example.com"
         assert request.password == "password123"
         assert request.full_name == "Test User"
@@ -81,6 +94,7 @@ class TestAuthSchemas:
             RegisterRequest(
                 email="test@example.com",
                 password="short",
+                **IDENTITY,
             )
 
         assert "String should have at least 8 characters" in str(exc_info.value)
@@ -91,9 +105,44 @@ class TestAuthSchemas:
             RegisterRequest(
                 email="not-an-email",
                 password="password123",
+                **IDENTITY,
             )
 
         assert "value is not a valid email address" in str(exc_info.value)
+
+    def test_register_request_nim_letters_rejected(self) -> None:
+        """NIM berisi huruf harus ditolak."""
+        with pytest.raises(ValidationError):
+            RegisterRequest(email="test@example.com", password="password123", **{**IDENTITY, "nim": "abc12345"})
+
+    def test_register_request_nim_length_bounds(self) -> None:
+        """NIM di luar batas panjang harus ditolak."""
+        for nim in ("12345", "1" * 16):
+            with pytest.raises(ValidationError):
+                RegisterRequest(email="test@example.com", password="password123", **{**IDENTITY, "nim": nim})
+
+    def test_register_request_missing_identity_rejected(self) -> None:
+        """Field identitas yang hilang harus ditolak."""
+        for missing in IDENTITY:
+            data = {k: v for k, v in IDENTITY.items() if k != missing}
+            with pytest.raises(ValidationError):
+                RegisterRequest(email="test@example.com", password="password123", **data)
+
+    def test_register_request_strips_whitespace(self) -> None:
+        """Spasi di awal dan akhir harus di-strip."""
+        request = RegisterRequest(
+            email="test@example.com",
+            password="password123",
+            full_name="  Test User ",
+            nim=" 12345678 ",
+            faculty=" Fakultas ",
+            study_program=" Informatika ",
+        )
+
+        assert request.full_name == "Test User"
+        assert request.nim == "12345678"
+        assert request.faculty == "Fakultas"
+        assert request.study_program == "Informatika"
 
     def test_login_request_valid(self) -> None:
         """Valid login request should pass validation."""

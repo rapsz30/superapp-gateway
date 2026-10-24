@@ -83,6 +83,10 @@ class UserModel(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     full_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # Identitas mahasiswa (nullable agar akun lama tetap valid)
+    nim: Mapped[str | None] = mapped_column(String(32), unique=True, nullable=True, index=True)
+    faculty: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    study_program: Mapped[str | None] = mapped_column(String(100), nullable=True)
     role: Mapped[UserRole] = mapped_column(
         Enum(UserRole, name="user_role", values_callable=lambda e: [x.value for x in e]),
         default=UserRole.STUDENT,

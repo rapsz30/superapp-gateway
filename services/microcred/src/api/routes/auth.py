@@ -35,7 +35,7 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
     response_model=RegisterResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Register new user",
-    description="Create a new user account with email, password, and optional name.",
+    description="Create a new user account with email, password, name, NIM, faculty, and study program.",
 )
 async def register(
     payload: RegisterRequest,
@@ -49,6 +49,9 @@ async def register(
             email=payload.email,
             password=payload.password,
             full_name=payload.full_name,
+            nim=payload.nim,
+            faculty=payload.faculty,
+            study_program=payload.study_program,
             role=payload.role.value,
         )
     except UserExistsError as exc:

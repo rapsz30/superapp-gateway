@@ -7,13 +7,22 @@ from fastapi import status
 from httpx import AsyncClient
 
 
+# Data identitas mahasiswa yang kini wajib saat registrasi
+IDENTITY = {
+    "full_name": "Test User",
+    "nim": "12345678",
+    "faculty": "Fakultas Teknologi Industri",
+    "study_program": "Informatika",
+}
+
+
 @pytest.fixture
 def test_user() -> dict:
     """Test user data."""
     return {
         "email": "testuser@example.com",
         "password": "testpassword123",
-        "full_name": "Test User",
+        **IDENTITY,
     }
 
 
@@ -31,6 +40,9 @@ class TestRegisterEndpoint:
         assert data["message"] == "Registration successful"
         assert data["user"]["email"] == test_user["email"]
         assert data["user"]["full_name"] == test_user["full_name"]
+        assert data["user"]["nim"] == test_user["nim"]
+        assert data["user"]["faculty"] == test_user["faculty"]
+        assert data["user"]["study_program"] == test_user["study_program"]
         assert data["user"]["role"] == "student"
         assert data["user"]["status"] == "active"
         assert "access_token" in data["tokens"]
@@ -50,6 +62,81 @@ class TestRegisterEndpoint:
 
         assert response.status_code == status.HTTP_409_CONFLICT
         assert "already exists" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_register_duplicate_nim(self, async_client: AsyncClient, test_user: dict) -> None:
+        """NIM yang sudah terdaftar (email berbeda) harus ditolak 409."""
+        await async_client.post("/auth/register", json=test_user)
+
+        response = await async_client.post(
+            "/auth/register", json={**test_user, "email": "other@example.com"}
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert "NIM" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_register_nim_with_letters_rejected(
+        self, async_client: AsyncClient, test_user: dict
+    ) -> None:
+        """NIM berisi huruf harus 422."""
+        response = await async_client.post(
+            "/auth/register", json={**test_user, "nim": "abc12345"}
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("missing", ["full_name", "nim", "faculty", "study_program"])
+    async def test_register_missing_identity_field_rejected(
+        self, async_client: AsyncClient, test_user: dict, missing: str
+    ) -> None:
+        """Field identitas yang hilang harus 422."""
+        payload = {k: v for k, v in test_user.items() if k != missing}
+
+        response = await async_client.post("/auth/register", json=payload)
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    @pytest.mark.asyncio
+    async def test_register_strips_whitespace(
+        self, async_client: AsyncClient, test_user: dict
+    ) -> None:
+        """Spasi di awal dan akhir field identitas harus di-strip."""
+        payload = {
+            **test_user,
+            "full_name": "  Test User  ",
+            "nim": "  12345678  ",
+            "faculty": " Fakultas Teknologi Industri ",
+            "study_program": " Informatika ",
+        }
+
+        response = await async_client.post("/auth/register", json=payload)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        user = response.json()["user"]
+        assert user["full_name"] == "Test User"
+        assert user["nim"] == "12345678"
+        assert user["faculty"] == "Fakultas Teknologi Industri"
+        assert user["study_program"] == "Informatika"
+
+    @pytest.mark.asyncio
+    async def test_me_includes_identity_fields(
+        self, async_client: AsyncClient, test_user: dict
+    ) -> None:
+        """GET /auth/me harus memuat nim, faculty, dan study_program."""
+        register = await async_client.post("/auth/register", json=test_user)
+        token = register.json()["tokens"]["access_token"]
+
+        response = await async_client.get(
+            "/auth/me", headers={"Authorization": f"Bearer {token}"}
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        user = response.json()["user"]
+        assert user["nim"] == test_user["nim"]
+        assert user["faculty"] == test_user["faculty"]
+        assert user["study_program"] == test_user["study_program"]
 
     @pytest.mark.asyncio
     async def test_register_invalid_email(self, async_client: AsyncClient) -> None:
@@ -85,6 +172,7 @@ class TestRegisterEndpoint:
             json={
                 "email": "advisor@example.com",
                 "password": "password123",
+                **IDENTITY,
                 "role": "advisor",
             },
         )
@@ -100,6 +188,7 @@ class TestRegisterEndpoint:
             json={
                 "email": "admin-self-register@example.com",
                 "password": "password123",
+                **IDENTITY,
                 "role": "admin",
             },
         )

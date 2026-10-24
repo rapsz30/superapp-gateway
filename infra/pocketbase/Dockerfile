@@ -1,6 +1,5 @@
 FROM alpine:3.20
 
-# Versi mengikuti script dev:pb di package.json Matkul (0.35.0)
 ARG PB_VERSION=0.35.0
 
 RUN apk add --no-cache ca-certificates unzip wget \

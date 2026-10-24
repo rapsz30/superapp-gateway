@@ -4,14 +4,20 @@ Lokasi: D:\File\Kuliah\Semester 6\Penelitian Tugas Akhir\SuperApp\superapp-gatew
 
 superapp-gateway/
 ├── docs
-│   └── baseline
-│       ├── judul-ta-local-changes.patch
-│       ├── matkul-local-changes.patch
-│       ├── microcred-local-changes.patch
-│       └── README.md
+│   ├── baseline
+│   │   ├── judul-ta-local-changes.patch
+│   │   ├── matkul-local-changes.patch
+│   │   ├── microcred-local-changes.patch
+│   │   └── README.md
+│   ├── nginx-routing.md
+│   └── port-map.md
 ├── gateway
 │   ├── auth
 │   └── nginx
+│       └── nginx.conf
+├── infra
+│   └── pocketbase
+│       └── Dockerfile
 ├── services
 │   ├── judul
 │   │   ├── config
@@ -32,11 +38,13 @@ superapp-gateway/
 │   │   │   ├── ai_service.py
 │   │   │   ├── prompt_service.py
 │   │   │   └── reference_service.py
+│   │   ├── .dockerignore
 │   │   ├── .env
 │   │   ├── .gitignore
 │   │   ├── .hintrc
 │   │   ├── app_frontend.py
 │   │   ├── coba.html
+│   │   ├── Dockerfile
 │   │   ├── main.py
 │   │   ├── main_backup.py
 │   │   ├── Procfile
@@ -126,8 +134,10 @@ superapp-gateway/
 │   │   │   │   └── uii-grade.ts
 │   │   │   └── types
 │   │   │       └── pdf-parse.d.ts
+│   │   ├── .dockerignore
 │   │   ├── .env.local
 │   │   ├── .gitignore
+│   │   ├── Dockerfile
 │   │   ├── eslint.config.mjs
 │   │   ├── next-env.d.ts
 │   │   ├── next.config.ts
@@ -315,12 +325,13 @@ superapp-gateway/
 │       │   ├── __init__.py
 │       │   ├── conftest.py
 │       │   └── utils.py
+│       ├── .dockerignore
 │       ├── .env
 │       ├── .env.example
 │       ├── .gitignore
 │       ├── .pre-commit-config.yaml
 │       ├── alembic.ini
-│       ├── docker-compose.yml
+│       ├── docker-compose.standalone.yml
 │       ├── poetry.lock
 │       ├── pyproject.toml
 │       ├── pytest.ini
@@ -329,4 +340,6 @@ superapp-gateway/
 │       └── render.yaml
 ├── .gitattributes
 ├── .gitignore
+├── docker-compose.override.yml
+├── docker-compose.yml
 └── struktur_proyek.py
