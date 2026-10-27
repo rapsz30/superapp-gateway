@@ -10,6 +10,9 @@ services:
   matkul:
     ports:
       - "127.0.0.1:3000:3000"
+  auth-verifier:
+    ports:
+      - "127.0.0.1:8100:8100"
   pocketbase:
     ports:
       - "127.0.0.1:8090:8090"

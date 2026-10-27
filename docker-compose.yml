@@ -9,6 +9,7 @@ services:
   # Nama service db dan redis dipertahankan karena DATABASE_URL dan REDIS_URL
   # di .env Micro-cred sudah menunjuk ke host "db" dan "redis".
   microcred-api:
+    restart: unless-stopped
     build:
       context: ./services/microcred
       dockerfile: infra/docker/Dockerfile.api
@@ -26,6 +27,7 @@ services:
       start_period: 30s
 
   microcred-worker:
+    restart: unless-stopped
     build:
       context: ./services/microcred
       dockerfile: infra/docker/Dockerfile.worker
@@ -38,6 +40,7 @@ services:
         condition: service_healthy
 
   db:
+    restart: unless-stopped
     image: postgres:15.5
     env_file: ./services/microcred/.env
     volumes:
@@ -49,6 +52,7 @@ services:
       retries: 5
 
   redis:
+    restart: unless-stopped
     image: redis:7.2
     volumes:
       - microcred_redis:/data
@@ -60,6 +64,7 @@ services:
 
   # ---------- Judul TA ----------
   judul-api:
+    restart: unless-stopped
     build:
       context: ./services/judul
     env_file: ./services/judul/.env
@@ -72,6 +77,7 @@ services:
 
   # ---------- Matkul ----------
   pocketbase:
+    restart: unless-stopped
     build:
       context: ./infra/pocketbase
     volumes:
@@ -86,6 +92,7 @@ services:
       retries: 5
 
   matkul:
+    restart: unless-stopped
     build:
       context: ./services/matkul
       args:
@@ -108,7 +115,22 @@ services:
       start_period: 40s
 
   # ---------- Gateway ----------
+  # Verifier JWT untuk NGINX auth_request. env_file dipakai supaya JWT_SECRET selalu
+  # sinkron dengan Micro-cred (catatan: verifier menerima seluruh .env Micro-cred).
+  auth-verifier:
+    restart: unless-stopped
+    build:
+      context: ./gateway/auth
+    env_file: ./services/microcred/.env
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8100/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   nginx:
+    restart: unless-stopped
     image: nginx:1.27-alpine
     volumes:
       - ./gateway/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
@@ -117,6 +139,9 @@ services:
     # restart: true -> NGINX ikut restart bila backend dibuat ulang oleh compose,
     # karena NGINX me-resolve IP upstream hanya saat start (IP lama jadi basi).
     depends_on:
+      auth-verifier:
+        condition: service_healthy
+        restart: true
       microcred-api:
         condition: service_healthy
         restart: true

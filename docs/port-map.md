@@ -11,6 +11,8 @@ Semua klien memakai satu alamat: `http://127.0.0.1:8080`.
 | `/api/micro-cred/*` | `microcred-api:8000` | `/*` |
 | `/healthz` | dijawab NGINX | - |
 
+Semua rute `/api/*` wajib token JWT (`Authorization: Bearer ...`) kecuali `POST /api/micro-cred/auth/register`, `POST /api/micro-cred/auth/login`, dan `GET /api/micro-cred/health`. Detail di [auth-gateway.md](auth-gateway.md).
+
 Detail batas upload dan timeout ada di [nginx-routing.md](nginx-routing.md).
 
 ## Port
@@ -18,6 +20,7 @@ Detail batas upload dan timeout ada di [nginx-routing.md](nginx-routing.md).
 | Service | Port internal | Port debug (`docker-compose.override.yml`) | Port publik gateway |
 |---|---|---|---|
 | nginx | 80 | - | `127.0.0.1:8080` |
+| auth-verifier | 8100 | `127.0.0.1:8100` | - (hanya dipanggil NGINX) |
 | microcred-api | 8000 | `127.0.0.1:8000` | lewat `/api/micro-cred` |
 | judul-api | 8001 | `127.0.0.1:8001` | lewat `/api/judul-recommender` |
 | matkul | 3000 | `127.0.0.1:3000` | lewat `/api/matkul-recommender` (hanya API) |

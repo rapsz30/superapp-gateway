@@ -9,10 +9,16 @@ superapp-gateway/
 │   │   ├── matkul-local-changes.patch
 │   │   ├── microcred-local-changes.patch
 │   │   └── README.md
+│   ├── auth-gateway.md
+│   ├── microcred-roles.md
 │   ├── nginx-routing.md
 │   └── port-map.md
 ├── gateway
 │   ├── auth
+│   │   ├── app.py
+│   │   ├── Dockerfile
+│   │   ├── requirements.txt
+│   │   └── smoke-test.ps1
 │   └── nginx
 │       └── nginx.conf
 ├── infra
@@ -192,6 +198,7 @@ superapp-gateway/
 │       │   │   ├── 202602140001_update_profile_q7_to_total_projects.py
 │       │   │   ├── 202602150001_add_advanced_threshold_to_role_catalog.py
 │       │   │   ├── 202602170001_add_item_ratings_to_feedbacks.py
+│       │   │   ├── 202610240001_add_student_identity_to_users.py
 │       │   │   └── fe375ee7f2f9_add_missing_columns_to_assessment_.py
 │       │   ├── env.py
 │       │   └── script.py.mako

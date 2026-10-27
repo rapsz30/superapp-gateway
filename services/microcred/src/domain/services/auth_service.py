@@ -55,6 +55,25 @@ class SelfRegistrationRoleNotAllowedError(AuthError):
     pass
 
 
+# Nama index unik NIM (lihat revisi Alembic 202610240001)
+NIM_UNIQUE_CONSTRAINT = "ix_users_nim"
+
+
+def _is_nim_violation(exc: IntegrityError) -> bool:
+    """True bila pelanggaran unik berasal dari NIM, dibedakan lewat nama constraint.
+
+    Tidak memakai substring "nim" karena email seperti nimas@example.com ikut cocok.
+    """
+    orig = exc.orig
+    for candidate in (orig, getattr(orig, "__cause__", None)):
+        name = getattr(candidate, "constraint_name", None)
+        if name:
+            return name == NIM_UNIQUE_CONSTRAINT
+    message = str(orig)
+    # Cadangan bila driver tidak memberi nama constraint (mis. SQLite: "UNIQUE constraint failed: users.nim")
+    return NIM_UNIQUE_CONSTRAINT in message or "users.nim" in message
+
+
 def hash_password(password: str) -> str:
     """Hash a password using bcrypt."""
     return pwd_context.hash(password)
@@ -138,7 +157,7 @@ class AuthService:
         except IntegrityError as exc:
             await self.session.rollback()
             # Bedakan pelanggaran unik NIM dan email (mis. balapan permintaan)
-            if "nim" in str(exc.orig).lower():
+            if _is_nim_violation(exc):
                 await logger.awarning("register_duplicate_nim")
                 raise UserExistsError(f"User with NIM {nim} already exists") from exc
             await logger.awarning("register_duplicate_email", email=email)

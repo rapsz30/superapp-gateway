@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
 from src.api.schemas.auth import LoginRequest, RegisterRequest, UserResponse
-from src.domain.services.auth_service import hash_password, verify_password
+from src.domain.services.auth_service import (
+    AuthService,
+    UserExistsError,
+    hash_password,
+    verify_password,
+)
 
 
 # Data identitas mahasiswa yang wajib pada RegisterRequest
@@ -172,3 +180,88 @@ class TestAuthSchemas:
         assert response.id == "user-123"
         assert response.email == "test@example.com"
         assert response.role == "student"
+
+class _DriverError(Exception):
+    """Tiruan error driver database dengan atribut constraint_name."""
+
+    def __init__(self, message: str, constraint_name: str | None = None) -> None:
+        super().__init__(message)
+        if constraint_name is not None:
+            self.constraint_name = constraint_name
+
+
+class TestRegisterDuplicateDetection:
+    """Pelanggaran unik dibedakan lewat nama constraint, bukan substring."""
+
+    @staticmethod
+    def _service_failing_with(orig: Exception) -> AuthService:
+        session = MagicMock()
+        no_row = MagicMock()
+        no_row.first.return_value = None
+        session.execute = AsyncMock(return_value=no_row)  # pra-cek email/NIM: belum ada
+        session.add = MagicMock()
+        session.commit = AsyncMock(side_effect=IntegrityError("INSERT", {}, orig))
+        session.rollback = AsyncMock()
+        return AuthService(session)
+
+    @pytest.mark.asyncio
+    async def test_email_constraint_with_nim_like_email_reports_email(self) -> None:
+        orig = _DriverError(
+            'duplicate key value violates unique constraint "users_email_key" '
+            "Key (email)=(nimas@example.com) already exists.",
+            constraint_name="users_email_key",
+        )
+        service = self._service_failing_with(orig)
+
+        with pytest.raises(UserExistsError) as exc_info:
+            await service.register_user(
+                email="nimas@example.com",
+                password="password123",
+                full_name="Nimas",
+                nim="12345678",
+                faculty="Fakultas",
+                study_program="Informatika",
+            )
+
+        assert "email" in str(exc_info.value)
+        assert "NIM" not in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_email_violation_without_constraint_name_reports_email(self) -> None:
+        orig = _DriverError(
+            'duplicate key value violates unique constraint "users_email_key" '
+            "Key (email)=(nimas@example.com) already exists."
+        )
+        service = self._service_failing_with(orig)
+
+        with pytest.raises(UserExistsError) as exc_info:
+            await service.register_user(
+                email="nimas@example.com",
+                password="password123",
+                full_name="Nimas",
+                nim="12345678",
+                faculty="Fakultas",
+                study_program="Informatika",
+            )
+
+        assert "email" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_nim_constraint_reports_nim(self) -> None:
+        orig = _DriverError(
+            'duplicate key value violates unique constraint "ix_users_nim"',
+            constraint_name="ix_users_nim",
+        )
+        service = self._service_failing_with(orig)
+
+        with pytest.raises(UserExistsError) as exc_info:
+            await service.register_user(
+                email="orang@example.com",
+                password="password123",
+                full_name="Orang",
+                nim="12345678",
+                faculty="Fakultas",
+                study_program="Informatika",
+            )
+
+        assert "NIM" in str(exc_info.value)
