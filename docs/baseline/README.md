@@ -62,3 +62,4 @@ Respons `GET /auth/me`:
 
 ### Catatan
 Penanganan `role` sengaja tidak diubah dan menunggu keputusan. Klien masih dapat memilih `student` atau `advisor` saat registrasi, dan `admin` ditolak (403). Matriks peran lengkap ada di `docs/microcred-roles.md`.
+- microcred: auth_service.py membedakan NIM duplikat dan email duplikat lewat nama constraint (ix_users_nim), bukan substring.
