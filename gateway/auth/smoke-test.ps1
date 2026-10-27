@@ -41,6 +41,21 @@ print(jwt.encode(p, '$OtherSecret' or os.environ['JWT_SECRET'], algorithm=os.env
     ($code | docker compose exec -T auth-verifier python - 2>$null | Select-Object -Last 1).Trim()
 }
 
+# Token bebas bentuk dibuat di dalam container (secret dari environment container, tidak dicetak).
+# $PyBody adalah kode Python yang harus mencetak token. Tersedia: S (secret), ALG, now, b64().
+function NewRawToken([string]$PyBody) {
+    $pre = @'
+import os, time, jwt, json, base64
+S = os.environ['JWT_SECRET']
+ALG = os.environ.get('JWT_ALGORITHM', 'HS256')
+now = int(time.time())
+def b64(d):
+    return base64.urlsafe_b64encode(json.dumps(d, separators=(',', ':')).encode()).rstrip(b'=').decode()
+'@
+    $out = ($pre + "`n" + $PyBody) | docker compose exec -T auth-verifier python - 2>$null | Select-Object -Last 1
+    if ($out) { $out.Trim() } else { '' }
+}
+
 function JsonDetail($r) { try { ($r.Body | ConvertFrom-Json).detail } catch { '' } }
 
 # --- Persiapan akun uji ---
@@ -128,15 +143,65 @@ Report '401 memuat header CORS' ($r.Code -eq 401 -and $r.Head -match "(?im)^Acce
 $r = Req POST '/api/micro-cred/tracks' -Token $student -Json '{}' -Extra @('-H', 'X-User-Id: 999', '-H', 'X-User-Roles: admin')
 Report 'student + header admin palsu tetap 403' ($r.Code -eq 403) $r.Code
 
+"== 10b. Token berbahaya dibuat di container"
+$me = '/api/micro-cred/auth/me'
+
+# 1. alg "none" (tanpa tanda tangan), roles admin -> 401
+$t = NewRawToken @'
+h = b64({'alg': 'none', 'typ': 'JWT'})
+p = b64({'sub': 'uji-none', 'roles': ['admin'], 'iat': now, 'exp': now + 600})
+print(h + '.' + p + '.')
+'@
+if ($t) { $r = Req GET $me -Token $t; Report 'token alg none' ($r.Code -eq 401) $r.Code } else { Report 'token alg none' $false 'token gagal dibuat' }
+
+# 2. HS512 dengan secret ASLI (algoritma dikunci ke satu nilai) -> 401
+$t = NewRawToken @'
+print(jwt.encode({'sub': 'uji-hs512', 'roles': ['admin'], 'iat': now, 'exp': now + 600}, S, algorithm='HS512'))
+'@
+if ($t) { $r = Req GET $me -Token $t; Report 'token HS512 secret asli' ($r.Code -eq 401) $r.Code } else { Report 'token HS512 secret asli' $false 'token gagal dibuat' }
+
+# 3. roles tidak sah dan roles kosong -> 403
+$t = NewRawToken @'
+print(jwt.encode({'sub': 'uji-superadmin', 'roles': ['superadmin'], 'iat': now, 'exp': now + 600}, S, algorithm=ALG))
+'@
+if ($t) { $r = Req GET $me -Token $t; Report 'roles ["superadmin"]' ($r.Code -eq 403) $r.Code } else { Report 'roles ["superadmin"]' $false 'token gagal dibuat' }
+$t = NewRawToken @'
+print(jwt.encode({'sub': 'uji-roles-kosong', 'roles': [], 'iat': now, 'exp': now + 600}, S, algorithm=ALG))
+'@
+if ($t) { $r = Req GET $me -Token $t; Report 'roles []' ($r.Code -eq 403) $r.Code } else { Report 'roles []' $false 'token gagal dibuat' }
+
+# 4. sub kosong -> 401
+$t = NewRawToken @'
+print(jwt.encode({'sub': '', 'roles': ['student'], 'iat': now, 'exp': now + 600}, S, algorithm=ALG))
+'@
+if ($t) { $r = Req GET $me -Token $t; Report 'sub ""' ($r.Code -eq 401) $r.Code } else { Report 'sub ""' $false 'token gagal dibuat' }
+
+# 5. Token sah dengan email non-ASCII -> bukan 503 (verifier tidak crash) dan bukan 401
+$t = NewRawToken @'
+print(jwt.encode({'sub': 'uji-nonascii', 'roles': ['student'], 'email': 'n\u00e4ndu-\u4f8b@example.com', 'iat': now, 'exp': now + 600}, S, algorithm=ALG))
+'@
+if ($t) { $r = Req GET $me -Token $t; Report 'email non-ASCII' ($r.Code -notin 401, 503) $r.Code } else { Report 'email non-ASCII' $false 'token gagal dibuat' }
+
+"== 10c. Rute publik eksak dengan method salah dan slash akhir"
+$r = Req GET '/api/micro-cred/auth/login'
+Report 'GET /auth/login -> 405 JSON' ($r.Code -eq 405 -and (JsonDetail $r) -eq 'Method not allowed') "$($r.Code) $(JsonDetail $r)"
+$r = Req POST '/api/micro-cred/auth/register/' -Json '{}'
+Report 'POST /auth/register/ tanpa token -> 401' ($r.Code -eq 401) $r.Code
+
 "== 11. Verifier mati (fail closed)"
-docker compose stop auth-verifier 2>&1 | Out-Null
-$r = Req GET '/api/judul-recommender/' -Token $student
-Report 'rute terproteksi -> 503' ($r.Code -eq 503 -and (JsonDetail $r) -eq 'Layanan autentikasi tidak tersedia') "$($r.Code) $(JsonDetail $r)"
-$r = Req GET '/api/micro-cred/health'; Report 'health publik tetap 200' ($r.Code -eq 200) $r.Code
-docker compose start auth-verifier 2>&1 | Out-Null
-Start-Sleep 15
-docker compose restart nginx 2>&1 | Out-Null
-Start-Sleep 12
+try {
+    docker compose stop auth-verifier 2>&1 | Out-Null
+    $r = Req GET '/api/judul-recommender/' -Token $student
+    Report 'rute terproteksi -> 503' ($r.Code -eq 503 -and (JsonDetail $r) -eq 'Layanan autentikasi tidak tersedia') "$($r.Code) $(JsonDetail $r)"
+    $r = Req GET '/api/micro-cred/health'; Report 'health publik tetap 200' ($r.Code -eq 200) $r.Code
+}
+finally {
+    # Selalu pulihkan stack walau uji di atas gagal atau error
+    docker compose start auth-verifier 2>&1 | Out-Null
+    Start-Sleep 15
+    docker compose restart nginx 2>&1 | Out-Null
+    Start-Sleep 12
+}
 $r = Req GET '/api/micro-cred/auth/me' -Token $student; Report 'pulih setelah start verifier + restart nginx' ($r.Code -eq 200) $r.Code
 docker compose ps --format '{{.Service}} {{.Status}}'
 
