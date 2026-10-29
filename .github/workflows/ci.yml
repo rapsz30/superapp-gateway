@@ -131,7 +131,7 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-root
 
-      - name: Run deterministic unit tests
+      - name: Run Micro-cred test suite
         env:
           APP_ENV: test
           JWT_SECRET: ci-unit-test-secret-not-for-production-0123456789abcdef
@@ -145,7 +145,7 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
           RQ_REDIS_URL: redis://localhost:6379/0
           AUTO_PROCESS_JOBS: "false"
-        run: poetry run pytest tests/unit/test_auth_service.py -v
+        run: poetry run pytest tests -q -p no:cacheprovider
 
   build:
     name: Build Service Images
