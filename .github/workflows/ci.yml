@@ -1,0 +1,297 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate Compose, NGINX & Workflows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Create mock environment files
+        run: |
+          MOCK_JWT_SECRET="$(openssl rand -hex 32)"
+          echo "::add-mask::${MOCK_JWT_SECRET}"
+
+          sed "s|^JWT_SECRET=.*|JWT_SECRET=${MOCK_JWT_SECRET}|" services/microcred/.env.example > services/microcred/.env
+          sed -i "s|^AUTO_PROCESS_JOBS=.*|AUTO_PROCESS_JOBS=true|" services/microcred/.env
+
+          cat << 'EOF' > services/judul/.env
+          GROQ_API_KEY=gsk_ci_dummy_key_not_for_production
+          EOF
+
+          cat << 'EOF' > services/matkul/.env.local
+          OPENAI_API_KEY=sk-ci-dummy-key-not-for-production
+          PB_ADMIN_EMAIL=admin@example.com
+          PB_ADMIN_PASSWORD=ci-dummy-password-12345
+          EOF
+
+      - name: Validate Docker Compose (gateway-only mode)
+        run: docker compose -f docker-compose.yml config -q
+
+      - name: Validate Docker Compose (debug override mode)
+        run: docker compose config -q
+
+      - name: Validate NGINX configuration (nginx -t)
+        run: |
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}/gateway/nginx/nginx.conf:/etc/nginx/nginx.conf:ro" \
+            --add-host microcred-api:127.0.0.1 \
+            --add-host judul-api:127.0.0.1 \
+            --add-host matkul:127.0.0.1 \
+            --add-host auth-verifier:127.0.0.1 \
+            nginx:1.27-alpine nginx -t
+
+      - name: Validate YAML syntax
+        run: |
+          python - << 'PY'
+          import pathlib, sys, yaml
+
+          files = [
+              pathlib.Path(".github/workflows/ci.yml"),
+              pathlib.Path(".github/workflows/cd.yml"),
+              pathlib.Path("services/microcred/.github/workflows/ci.yml"),
+              pathlib.Path("docker-compose.yml"),
+              pathlib.Path("docker-compose.override.yml"),
+          ]
+          for path in files:
+              with path.open("r", encoding="utf-8") as fh:
+                  yaml.safe_load(fh)
+              print(f"YAML OK: {path}")
+          PY
+
+  test-microcred:
+    name: Unit Tests (Micro-cred)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/microcred
+    services:
+      postgres:
+        image: postgres:15.5
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_DB: microcred
+          POSTGRES_USER: microcred
+          POSTGRES_PASSWORD: postgres-password
+        options: >-
+          --health-cmd "pg_isready -U microcred -d microcred"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7.2
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        run: pip install poetry==1.8.2
+
+      - name: Configure Poetry
+        run: poetry config virtualenvs.create false
+
+      - name: Install dependencies
+        run: poetry install --no-root
+
+      - name: Run deterministic unit tests
+        env:
+          APP_ENV: test
+          JWT_SECRET: ci-unit-test-secret-not-for-production-0123456789abcdef
+          OPENAI_API_KEY: placeholder-openai-key
+          RESEND_API_KEY: placeholder-resend-key
+          RESEND_FROM_EMAIL: onboarding@resend.dev
+          POSTGRES_DB: microcred
+          POSTGRES_USER: microcred
+          POSTGRES_PASSWORD: postgres-password
+          DATABASE_URL: postgresql+asyncpg://microcred:postgres-password@localhost:5432/microcred
+          REDIS_URL: redis://localhost:6379/0
+          RQ_REDIS_URL: redis://localhost:6379/0
+          AUTO_PROCESS_JOBS: "false"
+        run: poetry run pytest tests/unit/test_auth_service.py -v
+
+  build:
+    name: Build Service Images
+    runs-on: ubuntu-latest
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: microcred-api
+            context: ./services/microcred
+            file: ./services/microcred/infra/docker/Dockerfile.api
+            build_args: ""
+          - service: microcred-worker
+            context: ./services/microcred
+            file: ./services/microcred/infra/docker/Dockerfile.worker
+            build_args: ""
+          - service: judul-api
+            context: ./services/judul
+            file: ./services/judul/Dockerfile
+            build_args: ""
+          - service: matkul
+            context: ./services/matkul
+            file: ./services/matkul/Dockerfile
+            build_args: |
+              NEXT_PUBLIC_POCKETBASE_URL=http://pocketbase:8090
+              NEXT_PUBLIC_PB_URL=http://pocketbase:8090
+          - service: pocketbase
+            context: ./infra/pocketbase
+            file: ./infra/pocketbase/Dockerfile
+            build_args: ""
+          - service: auth-verifier
+            context: ./gateway/auth
+            file: ./gateway/auth/Dockerfile
+            build_args: ""
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.service }} image (no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          build-args: ${{ matrix.build_args }}
+          push: false
+          load: false
+          tags: superapp/${{ matrix.service }}:ci
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  smoke:
+    name: Gateway Integration Smoke Test
+    runs-on: ubuntu-latest
+    needs:
+      - validate
+      - build
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create mock environment files
+        run: |
+          MOCK_JWT_SECRET="$(openssl rand -hex 32)"
+          echo "::add-mask::${MOCK_JWT_SECRET}"
+
+          sed "s|^JWT_SECRET=.*|JWT_SECRET=${MOCK_JWT_SECRET}|" services/microcred/.env.example > services/microcred/.env
+          sed -i "s|^AUTO_PROCESS_JOBS=.*|AUTO_PROCESS_JOBS=true|" services/microcred/.env
+
+          cat << 'EOF' > services/judul/.env
+          GROQ_API_KEY=gsk_ci_dummy_key_not_for_production
+          EOF
+
+          cat << 'EOF' > services/matkul/.env.local
+          OPENAI_API_KEY=sk-ci-dummy-key-not-for-production
+          PB_ADMIN_EMAIL=admin@example.com
+          PB_ADMIN_PASSWORD=ci-dummy-password-12345
+          EOF
+
+      - name: Start stack in gateway-only mode
+        run: docker compose -f docker-compose.yml up -d --build
+
+      - name: Wait for all services to become healthy (max 300s)
+        run: |
+          DEADLINE=$((SECONDS + 300))
+          SERVICES=(db redis auth-verifier microcred-api judul-api pocketbase matkul nginx)
+          while [ $SECONDS -lt $DEADLINE ]; do
+            ALL_OK=1
+            for svc in "${SERVICES[@]}"; do
+              CID="$(docker compose -f docker-compose.yml ps -q "$svc" 2>/dev/null || true)"
+              if [ -z "$CID" ]; then
+                ALL_OK=0
+                break
+              fi
+              STATUS="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$CID" 2>/dev/null || echo 'unknown')"
+              if [ "$STATUS" != "healthy" ] && [ "$STATUS" != "running" ]; then
+                ALL_OK=0
+                break
+              fi
+              if [ "$STATUS" = "starting" ] || [ "$STATUS" = "unhealthy" ]; then
+                ALL_OK=0
+                break
+              fi
+            done
+            if [ "$ALL_OK" -eq 1 ]; then
+              echo "All services are healthy."
+              docker compose -f docker-compose.yml ps
+              exit 0
+            fi
+            sleep 3
+          done
+
+          echo "ERROR: Timeout waiting for stack to become healthy."
+          docker compose -f docker-compose.yml ps
+          for svc in "${SERVICES[@]}"; do
+            CID="$(docker compose -f docker-compose.yml ps -q "$svc" 2>/dev/null || true)"
+            STATUS="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$CID" 2>/dev/null || echo 'missing')"
+            if [ "$STATUS" != "healthy" ]; then
+              echo "=== Logs for failed/unhealthy service: $svc (status=$STATUS) ==="
+              docker compose -f docker-compose.yml logs --tail=100 "$svc" || true
+            fi
+          done
+          exit 1
+
+      - name: Run gateway smoke test
+        run: bash gateway/ci/smoke.sh
+
+      - name: Collect Docker Compose logs on failure
+        if: failure()
+        run: |
+          mkdir -p ci-logs
+          docker compose -f docker-compose.yml ps > ci-logs/compose-ps.txt || true
+          docker compose -f docker-compose.yml logs --no-color > ci-logs/compose-logs.txt || true
+
+      - name: Upload Docker Compose logs artifact on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-smoke-logs-${{ github.run_id }}
+          path: ci-logs/
+          if-no-files-found: ignore
+
+      - name: Tear down stack (without -v)
+        if: always()
+        run: docker compose -f docker-compose.yml down
+
