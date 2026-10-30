@@ -405,6 +405,7 @@ function Get-K6MetricValue($MetricsObj, [string]$MetricName, [string]$PropName, 
 # ===========================================================================
 function Invoke-PhaseA {
     Write-Host "=== FASE A: Pembanding Akses Langsung (Tanpa LLM) ==="
+    $phaseAStartUtc = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
 
     # A0. Pemeriksaan prasyarat
     $health = Test-StackHealthy
@@ -876,6 +877,7 @@ with urllib.request.urlopen(req, timeout=15) as resp:
                 rate_rps             = $c.Rate
                 expected_status      = $c.Expected
                 skipped              = $false
+                repeats_completed    = [int](($basePaths | ForEach-Object { $runsByPath[$_].Count } | Measure-Object -Minimum).Minimum)
                 saturated            = $conditionSaturated
                 saturation_reason    = $saturationReason
                 not_calm_events      = @($notCalmEvents)
@@ -886,9 +888,12 @@ with urllib.request.urlopen(req, timeout=15) as resp:
             }
 
             $outPayload = [ordered]@{
+                started_utc         = $phaseAStartUtc
                 generated_utc       = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
                 phase               = 'A'
                 repeats             = $Repeats
+                repeats_requested   = $Repeats
+                k2_enabled          = $k2Enabled
                 noauth_probe_status = $probeNoAuthCode
                 noauth_probe_delta  = $verProbeDelta
                 k2_verify           = $k2VerifyObj
@@ -1237,7 +1242,10 @@ function Invoke-GenerateBaselineTables {
 
     $condMap = @{}
     $genUtc = 'tidak diukur'
-    $repCount = 'tidak diukur'
+    $startUtc = 'tidak diukur'
+    $repReq = 'tidak diukur'
+    $repDone = 'tidak diukur'
+    $k2Status = 'tidak diukur'
 
     if (-not (Test-Path $summaryJsonPath)) {
         Write-Warning "[Mode Report] Berkas $summaryJsonPath belum tersedia. Menghasilkan $tablesMdPath dengan nilai 'tidak diukur'."
@@ -1250,11 +1258,21 @@ function Invoke-GenerateBaselineTables {
         else {
             $parsed = ConvertFrom-JsonSafe -JsonText $raw -Context $summaryJsonPath
             if ($parsed.generated_utc) { $genUtc = [string]$parsed.generated_utc }
-            if ($parsed.repeats) { $repCount = [string]$parsed.repeats }
+            if ($parsed.started_utc) { $startUtc = [string]$parsed.started_utc }
+            if ($parsed.repeats_requested) { $repReq = [string]$parsed.repeats_requested }
+            elseif ($parsed.repeats) { $repReq = [string]$parsed.repeats }
+            if ($null -ne $parsed.k2_enabled) {
+                $k2Status = if ($parsed.k2_enabled) { 'dijalankan (prasyarat terpenuhi)' } else { 'tidak dijalankan (prasyarat tidak terpenuhi), ditulis tidak diukur' }
+            }
+            $doneList = @()
             foreach ($c in @($parsed.conditions)) {
                 if ($c -and $c.id) {
                     $condMap[[string]$c.id] = $c
+                    if (-not $c.skipped -and $null -ne $c.repeats_completed) { $doneList += [int]$c.repeats_completed }
                 }
+            }
+            if ($doneList.Count -gt 0) {
+                $repDone = "min $(($doneList | Measure-Object -Minimum).Minimum), maks $(($doneList | Measure-Object -Maximum).Maximum) per kondisi ($($doneList.Count) kondisi tercatat)"
             }
             if ($condMap.Count -lt $expectedSpecs.Count) {
                 Write-Warning "[Mode Report] Data di $summaryJsonPath belum lengkap ($($condMap.Count)/$($expectedSpecs.Count) kondisi). Kondisi yang belum ada ditulis 'tidak diukur'."
@@ -1266,9 +1284,18 @@ function Invoke-GenerateBaselineTables {
     [void]$sb.AppendLine('# Tabel Hasil Pengujian Baseline Fase A (`docs/baseline-comparison-tables.md`)')
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine("Dihasilkan oleh: ``powershell -File gateway/tests/baseline/run-baseline.ps1 -Report``  ")
-    [void]$sb.AppendLine("Sumber data: ``gateway/tests/baseline/out/phase-a-summary.json`` (Waktu sumber: ``$genUtc``, Ulangan target: ``$repCount``)  ")
+    [void]$sb.AppendLine("Sumber data: ``gateway/tests/baseline/out/phase-a-summary.json``  ")
+    [void]$sb.AppendLine("- Waktu mulai eksperimen (UTC): ``$startUtc``  ")
+    [void]$sb.AppendLine("- Waktu selesai / pembaruan terakhir (UTC): ``$genUtc``  ")
+    [void]$sb.AppendLine("- Ulangan yang diminta: ``$repReq``  ")
+    [void]$sb.AppendLine("- Ulangan yang berhasil diselesaikan: ``$repDone``  ")
+    [void]$sb.AppendLine("- Kondisi K2 (opsional): ``$k2Status``  ")
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine('> [!NOTE]')
+    [void]$sb.AppendLine('> Metadata di atas dibaca apa adanya dari `phase-a-summary.json`. Bila metadata tidak tersedia, ditulis **`tidak diukur`** (tidak diisi dugaan).')
+    [void]$sb.AppendLine('>')
+    [void]$sb.AppendLine('> **K2 bersifat opsional**: K2 (PDF valid) hanya dijalankan bila hasil pembacaan kode dan verifikasi satu request langsung menunjukkan prasyarat terpenuhi (HTTP 200, `extracted_chars` > 0, tanpa LLM dan tanpa efek samping). Bila tidak dijalankan, barisnya ditulis `tidak diukur` dan **bukan** dianggap gagal.')
+    [void]$sb.AppendLine('>')
     [void]$sb.AppendLine('> Sel tanpa data pengukuran aktual ditulis **`tidak diukur`** (tidak diestimasi dan tidak diisi nol).')
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine('---')
@@ -1308,6 +1335,12 @@ function Invoke-GenerateBaselineTables {
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine('## 2. Tabel Selisih Antar Jalur ($\Delta_{\text{proxy}}$, $\Delta_{\text{auth}}$, $\Delta_{\text{total}}$) dan Tafsir')
     [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('**Catatan metodologis:**')
+    [void]$sb.AppendLine('- Fokus utama analisis overhead adalah **p50 dan p95**. p99 dan rata-rata tetap disajikan pada tabel pertama (Bagian 1) sebagai data pelengkap, dan tidak dihitung selisihnya.')
+    [void]$sb.AppendLine('- Angka dalam tanda kurung siku `[Min..Maks]` adalah **rentang antar-ulangan**: selisih per ulangan (jalur A minus jalur B pada nomor ulangan yang sama), BUKAN rentang variasi tiap request individual.')
+    [void]$sb.AppendLine('- Aturan tafsir: bila rentang p50 dua jalur saling tumpang tindih, ditulis `tidak dapat dibedakan pada pengukuran ini`.')
+    [void]$sb.AppendLine('- Dengan sedikit ulangan, rentang antar-ulangan hanya gambaran kasar variabilitas, bukan interval kepercayaan statistik.')
+    [void]$sb.AppendLine('')
     [void]$sb.AppendLine('| Kondisi | $\Delta_{\text{proxy}}$ p50 [Min–Maks] (ms) | $\Delta_{\text{auth}}$ p50 [Min–Maks] (ms) | $\Delta_{\text{total}}$ p50 [Min–Maks] (ms) | $\Delta_{\text{proxy}}$ p95 [Min–Maks] (ms) | $\Delta_{\text{auth}}$ p95 [Min–Maks] (ms) | $\Delta_{\text{total}}$ p95 [Min–Maks] (ms) | Tafsir $\Delta_{\text{proxy}}$ | Tafsir $\Delta_{\text{auth}}$ | Tafsir $\Delta_{\text{total}}$ |')
     [void]$sb.AppendLine('|---|---|---|---|---|---|---|---|---|---|')
 
@@ -1338,10 +1371,10 @@ function Invoke-GenerateBaselineTables {
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine('---')
     [void]$sb.AppendLine('')
-    [void]$sb.AppendLine('## 3. Tabel Median CPU (`%`) dan Memori (`MiB`) per Container pada Fase Ukur')
+    [void]$sb.AppendLine('## 3. Median CPU dan Memori per Container pada Fase Ukur (Dua Tabel Terpisah)')
     [void]$sb.AppendLine('')
-    [void]$sb.AppendLine('| Kondisi | Jalur | `nginx` | `superapp-nginx-noauth` | `auth-verifier` | `microcred-api` | `db` | `judul-api` | `matkul` | `pocketbase` | `redis` |')
-    [void]$sb.AppendLine('|---|---|---|---|---|---|---|---|---|---|---|')
+    [void]$sb.AppendLine('Nilai adalah **median** sampel `docker stats` pada jendela fase ukur 30 detik (bukan puncak), lalu median antar-ulangan. `100%` CPU = 1 core logis penuh. Kolom `superapp-nginx-noauth` hanya terisi pada jalur `noauth`.')
+    [void]$sb.AppendLine('')
 
     $containerCols = @(
         'superapp-nginx-1',
@@ -1355,6 +1388,17 @@ function Invoke-GenerateBaselineTables {
         'superapp-redis-1'
     )
 
+    $metricDefs = @(
+        @{ Title = '### 3.1. Median CPU (%) per Container'; Prop = 'median_cpu_pct'; Fmt = '{0:N2}' },
+        @{ Title = '### 3.2. Median Memori (MiB) per Container'; Prop = 'median_mem_mib'; Fmt = '{0:N1}' }
+    )
+
+    foreach ($md in $metricDefs) {
+    [void]$sb.AppendLine($md.Title)
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('| Kondisi | Jalur | `nginx` | `superapp-nginx-noauth` | `auth-verifier` | `microcred-api` | `db` | `judul-api` | `matkul` | `pocketbase` | `redis` |')
+    [void]$sb.AppendLine('|---|---|---|---|---|---|---|---|---|---|---|')
+
     foreach ($spec in $expectedSpecs) {
         $cid = $spec.Id
         $cObj = if ($condMap.ContainsKey($cid)) { $condMap[$cid] } else { $null }
@@ -1367,7 +1411,7 @@ function Invoke-GenerateBaselineTables {
             foreach ($cn in $containerCols) {
                 if ($null -ne $pObj -and $pObj.container_medians -and $pObj.container_medians.PSObject.Properties[$cn]) {
                     $cm = $pObj.container_medians.PSObject.Properties[$cn].Value
-                    $cells += ('{0:N2}% / {1:N1} MiB' -f [double]$cm.median_cpu_pct, [double]$cm.median_mem_mib)
+                    $cells += ($md.Fmt -f [double]$cm.($md.Prop))
                 }
                 else {
                     $cells += 'tidak diukur'
@@ -1375,6 +1419,8 @@ function Invoke-GenerateBaselineTables {
             }
             [void]$sb.AppendLine("| **$cid** | ``$pm`` | $($cells -join ' | ') |")
         }
+    }
+    [void]$sb.AppendLine('')
     }
 
     [System.IO.File]::WriteAllText($tablesMdPath, $sb.ToString(), $utf8NoBom)

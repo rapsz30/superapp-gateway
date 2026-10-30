@@ -129,6 +129,11 @@ Seluruh permintaan dikirim dari container `grafana/k6` di dalam jaringan Docker 
 
 ### 4.1. Tabel Perbandingan Tiga Jalur (`direct`, `noauth`, `gateway`)
 
+> [!NOTE]
+> **K2 bersifat opsional.** K2 (PDF valid) hanya dijalankan bila prasyarat terpenuhi: hasil pembacaan kode menunjukkan route tidak memanggil LLM maupun PocketBase, dan verifikasi satu request langsung ke `matkul:3000` mengembalikan HTTP `200` dengan `extracted_chars` > 0. Bila prasyarat tidak terpenuhi, K2 tidak dijalankan dan ditulis `tidak diukur`, **bukan** dianggap gagal.
+>
+> Pembacaan kode saja tidak menggantikan verifikasi runtime tersebut. Metadata eksperimen (waktu mulai, waktu selesai, ulangan diminta dan diselesaikan, status K2) dicatat skrip di `phase-a-summary.json` dan ditampilkan oleh `-Report`; bila tidak tersedia ditulis `tidak diukur`.
+
 | Kondisi | Layanan & Endpoint | Laju Target | Jalur | p50 Median ( Rentang Min–Maks ) (ms) | p95 Median ( Rentang Min–Maks ) (ms) | p99 Median (ms) | Avg Median (ms) | Throughput (req/s) | Kegagalan (%) | Dropped Iterations | Status Pengukuran |
 |---|---|---:|---|---|---|---|---|---|---|---|---|
 | **M1-20** | Micro-cred `GET /tracks` | 20 req/s | `direct` / `noauth` / `gateway` | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | Belum dijalankan (lihat `-Report` setelah Fase A selesai) |
@@ -150,6 +155,8 @@ Rumus dekomposisi:
 - $\Delta_{\text{auth}} = \text{gateway} - \text{noauth}$ (biaya subrequest `auth_request /_auth` ke `auth-verifier`)
 - $\Delta_{\text{total}} = \text{gateway} - \text{direct}$ (biaya total jalur gateway penuh terhadap akses langsung)
 - **Aturan Tafsir:** Apabila rentang $[\text{min}, \text{maks}]$ dari `p50` antara dua jalur saling tumpang tindih, maka perbedaannya wajib ditafsirkan sebagai **"tidak dapat dibedakan pada pengukuran ini"**.
+- **Fokus analisis:** p50 dan p95 adalah metrik utama untuk membandingkan overhead; p99 dan rata-rata disajikan pada tabel tiga jalur (Bagian 4.1) sebagai pelengkap.
+- **Makna rentang:** rentang dihitung dari hasil **pengulangan** (selisih per nomor ulangan), bukan rentang variasi setiap request.
 
 | Kondisi | $\Delta_{\text{proxy}}$ p50 (Rentang) | $\Delta_{\text{auth}}$ p50 (Rentang) | $\Delta_{\text{total}}$ p50 (Rentang) | $\Delta_{\text{proxy}}$ p95 (Rentang) | $\Delta_{\text{auth}}$ p95 (Rentang) | $\Delta_{\text{total}}$ p95 (Rentang) | Tafsir Berdasarkan Rentang p50 |
 |---|---|---|---|---|---|---|---|
@@ -160,7 +167,7 @@ Rumus dekomposisi:
 | **K2-5**, **K2-10** | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur |
 
 ### 4.3. Median CPU (%) dan Memori (MiB) Container pada Fase Ukur
-- **Status:** `tidak diukur`. Untuk menghasilkan tabel median CPU dan memori per container setelah Fase A selesai, jalankan `powershell -File gateway/tests/baseline/run-baseline.ps1 -Report` dan periksa Bagian 3 pada [`docs/baseline-comparison-tables.md`](./baseline-comparison-tables.md).
+- **Status:** `tidak diukur`. Setelah Fase A selesai, `-Report` menghasilkan dua tabel terpisah: median CPU (%) dan median memori (MiB) per container (Bagian 3.1 dan 3.2 pada [`docs/baseline-comparison-tables.md`](./baseline-comparison-tables.md)).
 
 ---
 
