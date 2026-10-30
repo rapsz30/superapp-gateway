@@ -1,0 +1,2802 @@
+﻿[
+    {
+        "scenario":  "s1a-healthz-100rps",
+        "group":  "S1",
+        "repeats":  3,
+        "aborted":  false,
+        "abort_reason":  "",
+        "p50_ms":  0.38,
+        "p95_ms":  0.53,
+        "p99_ms":  0.63,
+        "avg_ms":  0.4,
+        "reqs":  3001,
+        "throughput_rps":  100.03,
+        "error_rate_pct":  0,
+        "dropped_iterations":  0,
+        "timeouts":  0,
+        "status_200":  3001,
+        "status_400":  0,
+        "status_401":  0,
+        "status_413":  0,
+        "status_503":  0,
+        "status_5xx":  0,
+        "json_413":  0,
+        "log_delta_tracks":  0,
+        "log_delta_non_health":  0,
+        "container_peaks":  {
+                                "superapp-nginx-1":  {
+                                                         "peak_cpu_pct":  71.98,
+                                                         "peak_mem_mib":  10.6
+                                                     },
+                                "superapp-microcred-worker-1":  {
+                                                                    "peak_cpu_pct":  0.35,
+                                                                    "peak_mem_mib":  76.2
+                                                                },
+                                "superapp-microcred-api-1":  {
+                                                                 "peak_cpu_pct":  24.34,
+                                                                 "peak_mem_mib":  131.9
+                                                             },
+                                "superapp-matkul-1":  {
+                                                          "peak_cpu_pct":  51.45,
+                                                          "peak_mem_mib":  224.7
+                                                      },
+                                "superapp-db-1":  {
+                                                      "peak_cpu_pct":  27.24,
+                                                      "peak_mem_mib":  67.7
+                                                  },
+                                "superapp-redis-1":  {
+                                                         "peak_cpu_pct":  5.35,
+                                                         "peak_mem_mib":  20.9
+                                                     },
+                                "superapp-auth-verifier-1":  {
+                                                                 "peak_cpu_pct":  36.44,
+                                                                 "peak_mem_mib":  63.4
+                                                             },
+                                "superapp-pocketbase-1":  {
+                                                              "peak_cpu_pct":  12.19,
+                                                              "peak_mem_mib":  15.9
+                                                          },
+                                "superapp-judul-api-1":  {
+                                                             "peak_cpu_pct":  44.69,
+                                                             "peak_mem_mib":  65.7
+                                                         },
+                                "eloquent_nobel":  {
+                                                       "peak_cpu_pct":  381.87,
+                                                       "peak_mem_mib":  61.7
+                                                   },
+                                "gifted_solomon":  {
+                                                       "peak_cpu_pct":  13.07,
+                                                       "peak_mem_mib":  35.4
+                                                   },
+                                "funny_feynman":  {
+                                                      "peak_cpu_pct":  10.74,
+                                                      "peak_mem_mib":  34.5
+                                                  }
+                            },
+        "runs":  [
+                     {
+                         "repeat":  1,
+                         "reqs":  3001,
+                         "rps":  100.03333333333333,
+                         "p50_ms":  0.376721,
+                         "p95_ms":  0.525293,
+                         "p99_ms":  0.633202,
+                         "avg_ms":  0.39641123892035968,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  3001,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  2,
+                         "reqs":  3001,
+                         "rps":  100.03333333333333,
+                         "p50_ms":  0.378705,
+                         "p95_ms":  0.514063,
+                         "p99_ms":  0.619421,
+                         "avg_ms":  0.3938234515161611,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  3001,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  3,
+                         "reqs":  2997,
+                         "rps":  99.9,
+                         "p50_ms":  0.393384,
+                         "p95_ms":  0.5654191999999999,
+                         "p99_ms":  0.71471699999999949,
+                         "avg_ms":  0.40984842542542549,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  3,
+                         "timeouts":  0,
+                         "status_200":  2997,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     }
+                 ]
+    },
+    {
+        "scenario":  "s1b-gw-tracks-100rps",
+        "group":  "S1",
+        "repeats":  3,
+        "aborted":  false,
+        "abort_reason":  "",
+        "p50_ms":  7.12,
+        "p95_ms":  50.12,
+        "p99_ms":  514.19,
+        "avg_ms":  24.44,
+        "reqs":  2992,
+        "throughput_rps":  99.73,
+        "error_rate_pct":  0,
+        "dropped_iterations":  8,
+        "timeouts":  0,
+        "status_200":  2992,
+        "status_400":  0,
+        "status_401":  0,
+        "status_413":  0,
+        "status_503":  0,
+        "status_5xx":  0,
+        "json_413":  0,
+        "log_delta_tracks":  0,
+        "log_delta_non_health":  0,
+        "container_peaks":  {
+                                "vibrant_joliot":  {
+                                                       "peak_cpu_pct":  20.88,
+                                                       "peak_mem_mib":  51.5
+                                                   },
+                                "superapp-nginx-1":  {
+                                                         "peak_cpu_pct":  116.06,
+                                                         "peak_mem_mib":  12.5
+                                                     },
+                                "superapp-microcred-worker-1":  {
+                                                                    "peak_cpu_pct":  0.24,
+                                                                    "peak_mem_mib":  76.2
+                                                                },
+                                "superapp-microcred-api-1":  {
+                                                                 "peak_cpu_pct":  100.81,
+                                                                 "peak_mem_mib":  132.1
+                                                             },
+                                "superapp-matkul-1":  {
+                                                          "peak_cpu_pct":  26.01,
+                                                          "peak_mem_mib":  207.2
+                                                      },
+                                "superapp-db-1":  {
+                                                      "peak_cpu_pct":  124.99,
+                                                      "peak_mem_mib":  76.4
+                                                  },
+                                "superapp-redis-1":  {
+                                                         "peak_cpu_pct":  7.82,
+                                                         "peak_mem_mib":  16.5
+                                                     },
+                                "superapp-auth-verifier-1":  {
+                                                                 "peak_cpu_pct":  100.59,
+                                                                 "peak_mem_mib":  67.6
+                                                             },
+                                "superapp-pocketbase-1":  {
+                                                              "peak_cpu_pct":  4.96,
+                                                              "peak_mem_mib":  15.8
+                                                          },
+                                "superapp-judul-api-1":  {
+                                                             "peak_cpu_pct":  42.43,
+                                                             "peak_mem_mib":  52.7
+                                                         },
+                                "loving_rosalind":  {
+                                                        "peak_cpu_pct":  14.55,
+                                                        "peak_mem_mib":  35
+                                                    },
+                                "great_faraday":  {
+                                                      "peak_cpu_pct":  12.62,
+                                                      "peak_mem_mib":  34.7
+                                                  }
+                            },
+        "runs":  [
+                     {
+                         "repeat":  1,
+                         "reqs":  2843,
+                         "rps":  94.766666666666666,
+                         "p50_ms":  7.846279,
+                         "p95_ms":  1357.7519879,
+                         "p99_ms":  1729.879115259999,
+                         "avg_ms":  139.48619811255733,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  158,
+                         "timeouts":  0,
+                         "status_200":  2843,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  2,
+                         "reqs":  2992,
+                         "rps":  99.733333333333334,
+                         "p50_ms":  7.122407,
+                         "p95_ms":  32.673641399999632,
+                         "p99_ms":  514.1865167900005,
+                         "avg_ms":  21.240478400400995,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  8,
+                         "timeouts":  0,
+                         "status_200":  2992,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  3,
+                         "reqs":  2995,
+                         "rps":  99.833333333333329,
+                         "p50_ms":  6.578214,
+                         "p95_ms":  50.119708099999961,
+                         "p99_ms":  485.8377375799999,
+                         "avg_ms":  24.44313062971608,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  6,
+                         "timeouts":  0,
+                         "status_200":  2995,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     }
+                 ]
+    },
+    {
+        "scenario":  "s1c-direct-tracks-100rps",
+        "group":  "S1",
+        "repeats":  3,
+        "aborted":  false,
+        "abort_reason":  "",
+        "p50_ms":  4.72,
+        "p95_ms":  12.25,
+        "p99_ms":  609.4,
+        "avg_ms":  22.87,
+        "reqs":  2990,
+        "throughput_rps":  99.67,
+        "error_rate_pct":  0,
+        "dropped_iterations":  10,
+        "timeouts":  0,
+        "status_200":  2990,
+        "status_400":  0,
+        "status_401":  0,
+        "status_413":  0,
+        "status_503":  0,
+        "status_5xx":  0,
+        "json_413":  0,
+        "log_delta_tracks":  0,
+        "log_delta_non_health":  0,
+        "container_peaks":  {
+                                "nifty_sutherland":  {
+                                                         "peak_cpu_pct":  20.67,
+                                                         "peak_mem_mib":  37.2
+                                                     },
+                                "superapp-nginx-1":  {
+                                                         "peak_cpu_pct":  7.29,
+                                                         "peak_mem_mib":  11.1
+                                                     },
+                                "superapp-microcred-worker-1":  {
+                                                                    "peak_cpu_pct":  0.19,
+                                                                    "peak_mem_mib":  76.2
+                                                                },
+                                "superapp-microcred-api-1":  {
+                                                                 "peak_cpu_pct":  101.2,
+                                                                 "peak_mem_mib":  132.4
+                                                             },
+                                "superapp-matkul-1":  {
+                                                          "peak_cpu_pct":  16.26,
+                                                          "peak_mem_mib":  214.6
+                                                      },
+                                "superapp-db-1":  {
+                                                      "peak_cpu_pct":  17.19,
+                                                      "peak_mem_mib":  65.5
+                                                  },
+                                "superapp-redis-1":  {
+                                                         "peak_cpu_pct":  3.28,
+                                                         "peak_mem_mib":  16.6
+                                                     },
+                                "superapp-auth-verifier-1":  {
+                                                                 "peak_cpu_pct":  55.82,
+                                                                 "peak_mem_mib":  53.4
+                                                             },
+                                "superapp-pocketbase-1":  {
+                                                              "peak_cpu_pct":  3.44,
+                                                              "peak_mem_mib":  15.7
+                                                          },
+                                "superapp-judul-api-1":  {
+                                                             "peak_cpu_pct":  0.21,
+                                                             "peak_mem_mib":  52.6
+                                                         },
+                                "dazzling_tharp":  {
+                                                       "peak_cpu_pct":  16.21,
+                                                       "peak_mem_mib":  32.9
+                                                   },
+                                "zen_yonath":  {
+                                                   "peak_cpu_pct":  14.1,
+                                                   "peak_mem_mib":  37.1
+                                               }
+                            },
+        "runs":  [
+                     {
+                         "repeat":  1,
+                         "reqs":  2983,
+                         "rps":  99.433333333333337,
+                         "p50_ms":  4.472176,
+                         "p95_ms":  12.253235900000146,
+                         "p99_ms":  682.89849617999948,
+                         "avg_ms":  22.869861554475317,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  17,
+                         "timeouts":  0,
+                         "status_200":  2983,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  2,
+                         "reqs":  3000,
+                         "rps":  100,
+                         "p50_ms":  4.716731,
+                         "p95_ms":  7.2563313499999982,
+                         "p99_ms":  11.521638449999918,
+                         "avg_ms":  5.128219158333339,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  3000,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  3,
+                         "reqs":  2990,
+                         "rps":  99.666666666666671,
+                         "p50_ms":  4.9235615,
+                         "p95_ms":  113.31438209999796,
+                         "p99_ms":  609.40127951000011,
+                         "avg_ms":  26.531217882608718,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  10,
+                         "timeouts":  0,
+                         "status_200":  2990,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     }
+                 ]
+    },
+    {
+        "scenario":  "s3-unauth-200rps",
+        "group":  "S3",
+        "repeats":  3,
+        "aborted":  false,
+        "abort_reason":  "",
+        "p50_ms":  1.58,
+        "p95_ms":  2.21,
+        "p99_ms":  2.84,
+        "avg_ms":  1.62,
+        "reqs":  6001,
+        "throughput_rps":  200.03,
+        "error_rate_pct":  0,
+        "dropped_iterations":  0,
+        "timeouts":  0,
+        "status_200":  0,
+        "status_400":  0,
+        "status_401":  6001,
+        "status_413":  0,
+        "status_503":  0,
+        "status_5xx":  0,
+        "json_413":  0,
+        "log_delta_tracks":  0,
+        "log_delta_non_health":  0,
+        "container_peaks":  {
+                                "superapp-nginx-1":  {
+                                                         "peak_cpu_pct":  31.32,
+                                                         "peak_mem_mib":  11.6
+                                                     },
+                                "superapp-microcred-worker-1":  {
+                                                                    "peak_cpu_pct":  4.53,
+                                                                    "peak_mem_mib":  76.2
+                                                                },
+                                "superapp-microcred-api-1":  {
+                                                                 "peak_cpu_pct":  30.54,
+                                                                 "peak_mem_mib":  132.2
+                                                             },
+                                "superapp-matkul-1":  {
+                                                          "peak_cpu_pct":  25,
+                                                          "peak_mem_mib":  208.5
+                                                      },
+                                "superapp-db-1":  {
+                                                      "peak_cpu_pct":  8.56,
+                                                      "peak_mem_mib":  57.3
+                                                  },
+                                "superapp-redis-1":  {
+                                                         "peak_cpu_pct":  2.69,
+                                                         "peak_mem_mib":  16.6
+                                                     },
+                                "superapp-auth-verifier-1":  {
+                                                                 "peak_cpu_pct":  144.78,
+                                                                 "peak_mem_mib":  63.9
+                                                             },
+                                "superapp-pocketbase-1":  {
+                                                              "peak_cpu_pct":  5.05,
+                                                              "peak_mem_mib":  16.1
+                                                          },
+                                "superapp-judul-api-1":  {
+                                                             "peak_cpu_pct":  29.29,
+                                                             "peak_mem_mib":  64.6
+                                                         },
+                                "sweet_lalande":  {
+                                                      "peak_cpu_pct":  61.58,
+                                                      "peak_mem_mib":  36.4
+                                                  },
+                                "vigorous_hofstadter":  {
+                                                            "peak_cpu_pct":  19.18,
+                                                            "peak_mem_mib":  33.8
+                                                        },
+                                "ecstatic_goldberg":  {
+                                                          "peak_cpu_pct":  17.95,
+                                                          "peak_mem_mib":  31
+                                                      }
+                            },
+        "runs":  [
+                     {
+                         "repeat":  1,
+                         "reqs":  6000,
+                         "rps":  200,
+                         "p50_ms":  1.6213705,
+                         "p95_ms":  2.3876055999999997,
+                         "p99_ms":  3.07555545,
+                         "avg_ms":  1.763980796499995,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  0,
+                         "status_400":  0,
+                         "status_401":  6000,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  2,
+                         "reqs":  6001,
+                         "rps":  200.03333333333333,
+                         "p50_ms":  1.58236,
+                         "p95_ms":  2.207357,
+                         "p99_ms":  2.839501,
+                         "avg_ms":  1.6187964059323481,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  0,
+                         "status_400":  0,
+                         "status_401":  6001,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  3,
+                         "reqs":  6001,
+                         "rps":  200.03333333333333,
+                         "p50_ms":  1.557546,
+                         "p95_ms":  2.136869,
+                         "p99_ms":  2.577279,
+                         "avg_ms":  1.59079614330945,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  0,
+                         "status_400":  0,
+                         "status_401":  6001,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     }
+                 ]
+    },
+    {
+        "scenario":  "s3-unauth-800rps",
+        "group":  "S3",
+        "repeats":  3,
+        "aborted":  false,
+        "abort_reason":  "",
+        "p50_ms":  1.34,
+        "p95_ms":  22.07,
+        "p99_ms":  127.79,
+        "avg_ms":  6.5,
+        "reqs":  23763,
+        "throughput_rps":  792.1,
+        "error_rate_pct":  0,
+        "dropped_iterations":  238,
+        "timeouts":  0,
+        "status_200":  0,
+        "status_400":  0,
+        "status_401":  23763,
+        "status_413":  0,
+        "status_503":  0,
+        "status_5xx":  0,
+        "json_413":  0,
+        "log_delta_tracks":  0,
+        "log_delta_non_health":  0,
+        "container_peaks":  {
+                                "superapp-nginx-1":  {
+                                                         "peak_cpu_pct":  37.55,
+                                                         "peak_mem_mib":  14.3
+                                                     },
+                                "superapp-microcred-worker-1":  {
+                                                                    "peak_cpu_pct":  0.55,
+                                                                    "peak_mem_mib":  76.2
+                                                                },
+                                "superapp-microcred-api-1":  {
+                                                                 "peak_cpu_pct":  40.8,
+                                                                 "peak_mem_mib":  141.9
+                                                             },
+                                "superapp-matkul-1":  {
+                                                          "peak_cpu_pct":  47.3,
+                                                          "peak_mem_mib":  208
+                                                      },
+                                "superapp-db-1":  {
+                                                      "peak_cpu_pct":  24.3,
+                                                      "peak_mem_mib":  59.2
+                                                  },
+                                "superapp-redis-1":  {
+                                                         "peak_cpu_pct":  8.65,
+                                                         "peak_mem_mib":  16.8
+                                                     },
+                                "superapp-auth-verifier-1":  {
+                                                                 "peak_cpu_pct":  134.93,
+                                                                 "peak_mem_mib":  69
+                                                             },
+                                "superapp-pocketbase-1":  {
+                                                              "peak_cpu_pct":  7.99,
+                                                              "peak_mem_mib":  16.2
+                                                          },
+                                "superapp-judul-api-1":  {
+                                                             "peak_cpu_pct":  41.12,
+                                                             "peak_mem_mib":  52.8
+                                                         },
+                                "ecstatic_bassi":  {
+                                                       "peak_cpu_pct":  48.34,
+                                                       "peak_mem_mib":  50.9
+                                                   },
+                                "hungry_sinoussi":  {
+                                                        "peak_cpu_pct":  52,
+                                                        "peak_mem_mib":  51.9
+                                                    },
+                                "peaceful_varahamihira":  {
+                                                              "peak_cpu_pct":  67.12,
+                                                              "peak_mem_mib":  54.1
+                                                          }
+                            },
+        "runs":  [
+                     {
+                         "repeat":  1,
+                         "reqs":  23851,
+                         "rps":  795.0333333333333,
+                         "p50_ms":  1.306104,
+                         "p95_ms":  20.697048,
+                         "p99_ms":  75.529601,
+                         "avg_ms":  4.8529309072156233,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  150,
+                         "timeouts":  0,
+                         "status_200":  0,
+                         "status_400":  0,
+                         "status_401":  23851,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  2,
+                         "reqs":  23763,
+                         "rps":  792.1,
+                         "p50_ms":  1.335393,
+                         "p95_ms":  22.070624999999978,
+                         "p99_ms":  127.78626646000006,
+                         "avg_ms":  6.5043741927787053,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  238,
+                         "timeouts":  0,
+                         "status_200":  0,
+                         "status_400":  0,
+                         "status_401":  23763,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  3,
+                         "reqs":  21188,
+                         "rps":  706.26666666666665,
+                         "p50_ms":  52.016553,
+                         "p95_ms":  202.08341169999997,
+                         "p99_ms":  318.25578442000005,
+                         "avg_ms":  74.338850889465562,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  2813,
+                         "timeouts":  0,
+                         "status_200":  0,
+                         "status_400":  0,
+                         "status_401":  21188,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     }
+                 ]
+    },
+    {
+        "scenario":  "s4-login-1vu",
+        "group":  "S4",
+        "repeats":  3,
+        "aborted":  false,
+        "abort_reason":  "",
+        "p50_ms":  258.23,
+        "p95_ms":  327.19,
+        "p99_ms":  381.68,
+        "avg_ms":  267.05,
+        "reqs":  75,
+        "throughput_rps":  3.75,
+        "error_rate_pct":  0,
+        "dropped_iterations":  0,
+        "timeouts":  0,
+        "status_200":  75,
+        "status_400":  0,
+        "status_401":  0,
+        "status_413":  0,
+        "status_503":  0,
+        "status_5xx":  0,
+        "json_413":  0,
+        "log_delta_tracks":  0,
+        "log_delta_non_health":  0,
+        "container_peaks":  {
+                                "romantic_austin":  {
+                                                        "peak_cpu_pct":  7,
+                                                        "peak_mem_mib":  17
+                                                    },
+                                "superapp-nginx-1":  {
+                                                         "peak_cpu_pct":  3.03,
+                                                         "peak_mem_mib":  11.1
+                                                     },
+                                "superapp-microcred-worker-1":  {
+                                                                    "peak_cpu_pct":  0.2,
+                                                                    "peak_mem_mib":  76.2
+                                                                },
+                                "superapp-microcred-api-1":  {
+                                                                 "peak_cpu_pct":  146.76,
+                                                                 "peak_mem_mib":  133.4
+                                                             },
+                                "superapp-matkul-1":  {
+                                                          "peak_cpu_pct":  48.8,
+                                                          "peak_mem_mib":  207.6
+                                                      },
+                                "superapp-db-1":  {
+                                                      "peak_cpu_pct":  22.64,
+                                                      "peak_mem_mib":  73.9
+                                                  },
+                                "superapp-redis-1":  {
+                                                         "peak_cpu_pct":  4.82,
+                                                         "peak_mem_mib":  16.6
+                                                     },
+                                "superapp-auth-verifier-1":  {
+                                                                 "peak_cpu_pct":  59.59,
+                                                                 "peak_mem_mib":  63.6
+                                                             },
+                                "superapp-pocketbase-1":  {
+                                                              "peak_cpu_pct":  3.27,
+                                                              "peak_mem_mib":  16.7
+                                                          },
+                                "superapp-judul-api-1":  {
+                                                             "peak_cpu_pct":  41.4,
+                                                             "peak_mem_mib":  52.7
+                                                         },
+                                "infallible_thompson":  {
+                                                            "peak_cpu_pct":  1.44,
+                                                            "peak_mem_mib":  13.8
+                                                        },
+                                "interesting_banach":  {
+                                                           "peak_cpu_pct":  1.21,
+                                                           "peak_mem_mib":  15.9
+                                                       }
+                            },
+        "runs":  [
+                     {
+                         "repeat":  1,
+                         "reqs":  70,
+                         "rps":  3.5,
+                         "p50_ms":  273.84492850000004,
+                         "p95_ms":  351.91871244999993,
+                         "p99_ms":  462.47934207,
+                         "avg_ms":  286.00346868571438,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  70,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  2,
+                         "reqs":  75,
+                         "rps":  3.75,
+                         "p50_ms":  257.995782,
+                         "p95_ms":  327.18966179999995,
+                         "p99_ms":  381.6813756600003,
+                         "avg_ms":  267.04882990666658,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  75,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  3,
+                         "reqs":  76,
+                         "rps":  3.8,
+                         "p50_ms":  258.23460850000004,
+                         "p95_ms":  301.34939299999996,
+                         "p99_ms":  370.29961875,
+                         "avg_ms":  263.71375269736842,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  76,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     }
+                 ]
+    },
+    {
+        "scenario":  "s4-login-3vu",
+        "group":  "S4",
+        "repeats":  3,
+        "aborted":  false,
+        "abort_reason":  "",
+        "p50_ms":  772,
+        "p95_ms":  1265.54,
+        "p99_ms":  1396.2,
+        "avg_ms":  796.24,
+        "reqs":  77,
+        "throughput_rps":  3.85,
+        "error_rate_pct":  0,
+        "dropped_iterations":  0,
+        "timeouts":  0,
+        "status_200":  77,
+        "status_400":  0,
+        "status_401":  0,
+        "status_413":  0,
+        "status_503":  0,
+        "status_5xx":  0,
+        "json_413":  0,
+        "log_delta_tracks":  0,
+        "log_delta_non_health":  0,
+        "container_peaks":  {
+                                "condescending_greider":  {
+                                                              "peak_cpu_pct":  2.33,
+                                                              "peak_mem_mib":  16
+                                                          },
+                                "superapp-nginx-1":  {
+                                                         "peak_cpu_pct":  3.64,
+                                                         "peak_mem_mib":  10.6
+                                                     },
+                                "superapp-microcred-worker-1":  {
+                                                                    "peak_cpu_pct":  0.16,
+                                                                    "peak_mem_mib":  76.3
+                                                                },
+                                "superapp-microcred-api-1":  {
+                                                                 "peak_cpu_pct":  129.97,
+                                                                 "peak_mem_mib":  149.3
+                                                             },
+                                "superapp-matkul-1":  {
+                                                          "peak_cpu_pct":  8.57,
+                                                          "peak_mem_mib":  209.3
+                                                      },
+                                "superapp-db-1":  {
+                                                      "peak_cpu_pct":  8.58,
+                                                      "peak_mem_mib":  74.8
+                                                  },
+                                "superapp-redis-1":  {
+                                                         "peak_cpu_pct":  0.27,
+                                                         "peak_mem_mib":  16.8
+                                                     },
+                                "superapp-auth-verifier-1":  {
+                                                                 "peak_cpu_pct":  47.64,
+                                                                 "peak_mem_mib":  68.4
+                                                             },
+                                "superapp-pocketbase-1":  {
+                                                              "peak_cpu_pct":  3.93,
+                                                              "peak_mem_mib":  16
+                                                          },
+                                "superapp-judul-api-1":  {
+                                                             "peak_cpu_pct":  35.72,
+                                                             "peak_mem_mib":  65.9
+                                                         },
+                                "happy_jemison":  {
+                                                      "peak_cpu_pct":  1.21,
+                                                      "peak_mem_mib":  15.8
+                                                  },
+                                "silly_cannon":  {
+                                                     "peak_cpu_pct":  1.28,
+                                                     "peak_mem_mib":  18.2
+                                                 }
+                            },
+        "runs":  [
+                     {
+                         "repeat":  1,
+                         "reqs":  70,
+                         "rps":  3.5,
+                         "p50_ms":  841.0086725,
+                         "p95_ms":  1429.11953695,
+                         "p99_ms":  1657.47932857,
+                         "avg_ms":  890.72491730000013,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  70,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  2,
+                         "reqs":  81,
+                         "rps":  4.05,
+                         "p50_ms":  742.087204,
+                         "p95_ms":  1192.436441,
+                         "p99_ms":  1259.6561826,
+                         "avg_ms":  752.59288361728375,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  81,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  3,
+                         "reqs":  77,
+                         "rps":  3.85,
+                         "p50_ms":  772.001969,
+                         "p95_ms":  1265.5401264,
+                         "p99_ms":  1396.1966270799987,
+                         "avg_ms":  796.24137944155837,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  77,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     }
+                 ]
+    },
+    {
+        "scenario":  "s4-login-5vu",
+        "group":  "S4",
+        "repeats":  3,
+        "aborted":  false,
+        "abort_reason":  "",
+        "p50_ms":  1247.68,
+        "p95_ms":  1781.66,
+        "p99_ms":  2110.55,
+        "avg_ms":  1276.64,
+        "reqs":  80,
+        "throughput_rps":  4,
+        "error_rate_pct":  0,
+        "dropped_iterations":  0,
+        "timeouts":  0,
+        "status_200":  80,
+        "status_400":  0,
+        "status_401":  0,
+        "status_413":  0,
+        "status_503":  0,
+        "status_5xx":  0,
+        "json_413":  0,
+        "log_delta_tracks":  0,
+        "log_delta_non_health":  0,
+        "container_peaks":  {
+                                "superapp-nginx-1":  {
+                                                         "peak_cpu_pct":  3.09,
+                                                         "peak_mem_mib":  10.6
+                                                     },
+                                "superapp-microcred-worker-1":  {
+                                                                    "peak_cpu_pct":  0.15,
+                                                                    "peak_mem_mib":  76.3
+                                                                },
+                                "superapp-microcred-api-1":  {
+                                                                 "peak_cpu_pct":  121.19,
+                                                                 "peak_mem_mib":  149.2
+                                                             },
+                                "superapp-matkul-1":  {
+                                                          "peak_cpu_pct":  11.93,
+                                                          "peak_mem_mib":  208.5
+                                                      },
+                                "superapp-db-1":  {
+                                                      "peak_cpu_pct":  7.08,
+                                                      "peak_mem_mib":  75.5
+                                                  },
+                                "superapp-redis-1":  {
+                                                         "peak_cpu_pct":  2.57,
+                                                         "peak_mem_mib":  16.6
+                                                     },
+                                "superapp-auth-verifier-1":  {
+                                                                 "peak_cpu_pct":  32.8,
+                                                                 "peak_mem_mib":  57
+                                                             },
+                                "superapp-pocketbase-1":  {
+                                                              "peak_cpu_pct":  6.6,
+                                                              "peak_mem_mib":  15.8
+                                                          },
+                                "superapp-judul-api-1":  {
+                                                             "peak_cpu_pct":  18.51,
+                                                             "peak_mem_mib":  62.8
+                                                         },
+                                "ecstatic_aryabhata":  {
+                                                           "peak_cpu_pct":  5.79,
+                                                           "peak_mem_mib":  16.3
+                                                       },
+                                "elastic_carver":  {
+                                                       "peak_cpu_pct":  1.02,
+                                                       "peak_mem_mib":  16
+                                                   },
+                                "xenodochial_bose":  {
+                                                         "peak_cpu_pct":  1.37,
+                                                         "peak_mem_mib":  17.8
+                                                     }
+                            },
+        "runs":  [
+                     {
+                         "repeat":  1,
+                         "reqs":  79,
+                         "rps":  3.95,
+                         "p50_ms":  1216.826265,
+                         "p95_ms":  1813.8488094999991,
+                         "p99_ms":  3349.9781579199989,
+                         "avg_ms":  1281.0838387848105,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  79,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  2,
+                         "reqs":  81,
+                         "rps":  4.05,
+                         "p50_ms":  1247.6828619999999,
+                         "p95_ms":  1781.660853,
+                         "p99_ms":  2110.5467592000009,
+                         "avg_ms":  1268.8567984444439,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  81,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  3,
+                         "reqs":  80,
+                         "rps":  4,
+                         "p50_ms":  1288.775809,
+                         "p95_ms":  1569.80550415,
+                         "p99_ms":  1629.7801456399986,
+                         "avg_ms":  1276.6405523624996,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  80,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     }
+                 ]
+    },
+    {
+        "scenario":  "s4-login-10vu",
+        "group":  "S4",
+        "repeats":  3,
+        "aborted":  false,
+        "abort_reason":  "",
+        "p50_ms":  2561.58,
+        "p95_ms":  4820.41,
+        "p99_ms":  4941.23,
+        "avg_ms":  2718.3,
+        "reqs":  78,
+        "throughput_rps":  3.9,
+        "error_rate_pct":  0,
+        "dropped_iterations":  0,
+        "timeouts":  0,
+        "status_200":  78,
+        "status_400":  0,
+        "status_401":  0,
+        "status_413":  0,
+        "status_503":  0,
+        "status_5xx":  0,
+        "json_413":  0,
+        "log_delta_tracks":  0,
+        "log_delta_non_health":  0,
+        "container_peaks":  {
+                                "serene_mayer":  {
+                                                     "peak_cpu_pct":  8.14,
+                                                     "peak_mem_mib":  17
+                                                 },
+                                "superapp-nginx-1":  {
+                                                         "peak_cpu_pct":  4.63,
+                                                         "peak_mem_mib":  10.8
+                                                     },
+                                "superapp-microcred-worker-1":  {
+                                                                    "peak_cpu_pct":  0.94,
+                                                                    "peak_mem_mib":  76.3
+                                                                },
+                                "superapp-microcred-api-1":  {
+                                                                 "peak_cpu_pct":  122.08,
+                                                                 "peak_mem_mib":  149.1
+                                                             },
+                                "superapp-matkul-1":  {
+                                                          "peak_cpu_pct":  28.59,
+                                                          "peak_mem_mib":  222.9
+                                                      },
+                                "superapp-db-1":  {
+                                                      "peak_cpu_pct":  16.25,
+                                                      "peak_mem_mib":  85.9
+                                                  },
+                                "superapp-redis-1":  {
+                                                         "peak_cpu_pct":  3.25,
+                                                         "peak_mem_mib":  16.8
+                                                     },
+                                "superapp-auth-verifier-1":  {
+                                                                 "peak_cpu_pct":  28.04,
+                                                                 "peak_mem_mib":  56.8
+                                                             },
+                                "superapp-pocketbase-1":  {
+                                                              "peak_cpu_pct":  4.92,
+                                                              "peak_mem_mib":  15.7
+                                                          },
+                                "superapp-judul-api-1":  {
+                                                             "peak_cpu_pct":  33.45,
+                                                             "peak_mem_mib":  62.6
+                                                         },
+                                "keen_hoover":  {
+                                                    "peak_cpu_pct":  1.54,
+                                                    "peak_mem_mib":  17.8
+                                                },
+                                "agitated_shirley":  {
+                                                         "peak_cpu_pct":  1.03,
+                                                         "peak_mem_mib":  18.1
+                                                     }
+                            },
+        "runs":  [
+                     {
+                         "repeat":  1,
+                         "reqs":  78,
+                         "rps":  3.9,
+                         "p50_ms":  2468.0637095,
+                         "p95_ms":  4973.9197994999995,
+                         "p99_ms":  5469.13928845,
+                         "avg_ms":  2675.0139814743593,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  78,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  2,
+                         "reqs":  72,
+                         "rps":  3.6,
+                         "p50_ms":  2736.530377,
+                         "p95_ms":  4820.4080574,
+                         "p99_ms":  4925.1765408800011,
+                         "avg_ms":  2909.0453775277783,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  72,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  3,
+                         "reqs":  78,
+                         "rps":  3.9,
+                         "p50_ms":  2561.5783659999997,
+                         "p95_ms":  4534.8806789499986,
+                         "p99_ms":  4941.2277458100025,
+                         "avg_ms":  2718.3030787435905,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  78,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     }
+                 ]
+    },
+    {
+        "scenario":  "s5-upload14m-1vu",
+        "group":  "S5",
+        "repeats":  3,
+        "aborted":  false,
+        "abort_reason":  "",
+        "p50_ms":  50.74,
+        "p95_ms":  77.42,
+        "p99_ms":  103.84,
+        "avg_ms":  54.74,
+        "reqs":  329,
+        "throughput_rps":  16.45,
+        "error_rate_pct":  0,
+        "dropped_iterations":  0,
+        "timeouts":  0,
+        "status_200":  0,
+        "status_400":  329,
+        "status_401":  0,
+        "status_413":  0,
+        "status_503":  0,
+        "status_5xx":  0,
+        "json_413":  0,
+        "log_delta_tracks":  0,
+        "log_delta_non_health":  0,
+        "container_peaks":  {
+                                "affectionate_booth":  {
+                                                           "peak_cpu_pct":  28.37,
+                                                           "peak_mem_mib":  149.1
+                                                       },
+                                "superapp-nginx-1":  {
+                                                         "peak_cpu_pct":  71.08,
+                                                         "peak_mem_mib":  11.2
+                                                     },
+                                "superapp-microcred-worker-1":  {
+                                                                    "peak_cpu_pct":  0.43,
+                                                                    "peak_mem_mib":  76.3
+                                                                },
+                                "superapp-microcred-api-1":  {
+                                                                 "peak_cpu_pct":  6.51,
+                                                                 "peak_mem_mib":  136.3
+                                                             },
+                                "superapp-matkul-1":  {
+                                                          "peak_cpu_pct":  222.98,
+                                                          "peak_mem_mib":  298
+                                                      },
+                                "superapp-db-1":  {
+                                                      "peak_cpu_pct":  10.92,
+                                                      "peak_mem_mib":  67.2
+                                                  },
+                                "superapp-redis-1":  {
+                                                         "peak_cpu_pct":  7.28,
+                                                         "peak_mem_mib":  16.6
+                                                     },
+                                "superapp-auth-verifier-1":  {
+                                                                 "peak_cpu_pct":  55.18,
+                                                                 "peak_mem_mib":  69.6
+                                                             },
+                                "superapp-pocketbase-1":  {
+                                                              "peak_cpu_pct":  7.57,
+                                                              "peak_mem_mib":  15.8
+                                                          },
+                                "superapp-judul-api-1":  {
+                                                             "peak_cpu_pct":  61.12,
+                                                             "peak_mem_mib":  52.7
+                                                         },
+                                "zen_ganguly":  {
+                                                    "peak_cpu_pct":  29.75,
+                                                    "peak_mem_mib":  137.3
+                                                },
+                                "hardcore_chaum":  {
+                                                       "peak_cpu_pct":  33.37,
+                                                       "peak_mem_mib":  152.8
+                                                   }
+                            },
+        "runs":  [
+                     {
+                         "repeat":  1,
+                         "reqs":  329,
+                         "rps":  16.45,
+                         "p50_ms":  52.358593,
+                         "p95_ms":  72.5807062,
+                         "p99_ms":  93.179557159999874,
+                         "avg_ms":  54.742410398176325,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  0,
+                         "status_400":  329,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  2,
+                         "reqs":  331,
+                         "rps":  16.55,
+                         "p50_ms":  50.66685,
+                         "p95_ms":  77.415932,
+                         "p99_ms":  109.39371049999988,
+                         "avg_ms":  54.056812154078557,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  0,
+                         "status_400":  331,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  3,
+                         "reqs":  326,
+                         "rps":  16.3,
+                         "p50_ms":  50.7446345,
+                         "p95_ms":  78.6563515,
+                         "p99_ms":  103.840679,
+                         "avg_ms":  54.9313499233129,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  0,
+                         "status_400":  326,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     }
+                 ]
+    },
+    {
+        "scenario":  "s5-upload14m-3vu",
+        "group":  "S5",
+        "repeats":  3,
+        "aborted":  false,
+        "abort_reason":  "",
+        "p50_ms":  106.31,
+        "p95_ms":  168.71,
+        "p99_ms":  235.07,
+        "avg_ms":  111.23,
+        "reqs":  513,
+        "throughput_rps":  25.65,
+        "error_rate_pct":  0,
+        "dropped_iterations":  0,
+        "timeouts":  0,
+        "status_200":  0,
+        "status_400":  513,
+        "status_401":  0,
+        "status_413":  0,
+        "status_503":  0,
+        "status_5xx":  0,
+        "json_413":  0,
+        "log_delta_tracks":  0,
+        "log_delta_non_health":  0,
+        "container_peaks":  {
+                                "frosty_euler":  {
+                                                     "peak_cpu_pct":  42.58,
+                                                     "peak_mem_mib":  335.7
+                                                 },
+                                "superapp-nginx-1":  {
+                                                         "peak_cpu_pct":  112.52,
+                                                         "peak_mem_mib":  15
+                                                     },
+                                "superapp-microcred-worker-1":  {
+                                                                    "peak_cpu_pct":  0.74,
+                                                                    "peak_mem_mib":  76.3
+                                                                },
+                                "superapp-microcred-api-1":  {
+                                                                 "peak_cpu_pct":  61.94,
+                                                                 "peak_mem_mib":  147.8
+                                                             },
+                                "superapp-matkul-1":  {
+                                                          "peak_cpu_pct":  282.77,
+                                                          "peak_mem_mib":  389.8
+                                                      },
+                                "superapp-db-1":  {
+                                                      "peak_cpu_pct":  9.34,
+                                                      "peak_mem_mib":  67.4
+                                                  },
+                                "superapp-redis-1":  {
+                                                         "peak_cpu_pct":  4.01,
+                                                         "peak_mem_mib":  16.8
+                                                     },
+                                "superapp-auth-verifier-1":  {
+                                                                 "peak_cpu_pct":  52.75,
+                                                                 "peak_mem_mib":  68.3
+                                                             },
+                                "superapp-pocketbase-1":  {
+                                                              "peak_cpu_pct":  9.95,
+                                                              "peak_mem_mib":  15.8
+                                                          },
+                                "superapp-judul-api-1":  {
+                                                             "peak_cpu_pct":  59.14,
+                                                             "peak_mem_mib":  52.7
+                                                         },
+                                "cool_johnson":  {
+                                                     "peak_cpu_pct":  43.46,
+                                                     "peak_mem_mib":  335.9
+                                                 },
+                                "jolly_hugle":  {
+                                                    "peak_cpu_pct":  43.87,
+                                                    "peak_mem_mib":  341.8
+                                                }
+                            },
+        "runs":  [
+                     {
+                         "repeat":  1,
+                         "reqs":  465,
+                         "rps":  23.25,
+                         "p50_ms":  107.055668,
+                         "p95_ms":  211.3406987999999,
+                         "p99_ms":  294.5470342800001,
+                         "avg_ms":  122.5984048494624,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  0,
+                         "status_400":  465,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  2,
+                         "reqs":  513,
+                         "rps":  25.65,
+                         "p50_ms":  106.313657,
+                         "p95_ms":  166.9018686,
+                         "p99_ms":  225.44528251999995,
+                         "avg_ms":  111.2317628226121,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  0,
+                         "status_400":  513,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  3,
+                         "reqs":  514,
+                         "rps":  25.7,
+                         "p50_ms":  104.492108,
+                         "p95_ms":  168.71032514999996,
+                         "p99_ms":  235.06933532000008,
+                         "avg_ms":  110.67221368287942,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  0,
+                         "status_400":  514,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     }
+                 ]
+    },
+    {
+        "scenario":  "s5-upload14m-5vu",
+        "group":  "S5",
+        "repeats":  3,
+        "aborted":  false,
+        "abort_reason":  "",
+        "p50_ms":  181,
+        "p95_ms":  291.23,
+        "p99_ms":  376.87,
+        "avg_ms":  192.28,
+        "reqs":  503,
+        "throughput_rps":  25.15,
+        "error_rate_pct":  0,
+        "dropped_iterations":  0,
+        "timeouts":  0,
+        "status_200":  0,
+        "status_400":  503,
+        "status_401":  0,
+        "status_413":  0,
+        "status_503":  0,
+        "status_5xx":  0,
+        "json_413":  0,
+        "log_delta_tracks":  0,
+        "log_delta_non_health":  0,
+        "container_peaks":  {
+                                "stupefied_chatterjee":  {
+                                                             "peak_cpu_pct":  45.72,
+                                                             "peak_mem_mib":  498.8
+                                                         },
+                                "superapp-nginx-1":  {
+                                                         "peak_cpu_pct":  120.9,
+                                                         "peak_mem_mib":  20.8
+                                                     },
+                                "superapp-microcred-worker-1":  {
+                                                                    "peak_cpu_pct":  0.47,
+                                                                    "peak_mem_mib":  76.3
+                                                                },
+                                "superapp-microcred-api-1":  {
+                                                                 "peak_cpu_pct":  16.07,
+                                                                 "peak_mem_mib":  136.3
+                                                             },
+                                "superapp-matkul-1":  {
+                                                          "peak_cpu_pct":  285.17,
+                                                          "peak_mem_mib":  429.5
+                                                      },
+                                "superapp-db-1":  {
+                                                      "peak_cpu_pct":  23.77,
+                                                      "peak_mem_mib":  67.4
+                                                  },
+                                "superapp-redis-1":  {
+                                                         "peak_cpu_pct":  3.97,
+                                                         "peak_mem_mib":  16.5
+                                                     },
+                                "superapp-auth-verifier-1":  {
+                                                                 "peak_cpu_pct":  70.2,
+                                                                 "peak_mem_mib":  68.3
+                                                             },
+                                "superapp-pocketbase-1":  {
+                                                              "peak_cpu_pct":  4.33,
+                                                              "peak_mem_mib":  16.1
+                                                          },
+                                "superapp-judul-api-1":  {
+                                                             "peak_cpu_pct":  83.81,
+                                                             "peak_mem_mib":  65.8
+                                                         },
+                                "busy_borg":  {
+                                                  "peak_cpu_pct":  45.45,
+                                                  "peak_mem_mib":  501.8
+                                              },
+                                "happy_kilby":  {
+                                                    "peak_cpu_pct":  49.27,
+                                                    "peak_mem_mib":  513.4
+                                                }
+                            },
+        "runs":  [
+                     {
+                         "repeat":  1,
+                         "reqs":  523,
+                         "rps":  26.15,
+                         "p50_ms":  178.716716,
+                         "p95_ms":  286.52687549999996,
+                         "p99_ms":  351.25159015999992,
+                         "avg_ms":  185.27790525430217,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  0,
+                         "status_400":  523,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  2,
+                         "reqs":  503,
+                         "rps":  25.15,
+                         "p50_ms":  180.997054,
+                         "p95_ms":  291.23278869999996,
+                         "p99_ms":  376.87017314000025,
+                         "avg_ms":  192.28128583101395,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  0,
+                         "status_400":  503,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  3,
+                         "reqs":  386,
+                         "rps":  19.3,
+                         "p50_ms":  232.781368,
+                         "p95_ms":  395.54727875,
+                         "p99_ms":  542.73546674999761,
+                         "avg_ms":  248.73986419170976,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  0,
+                         "status_400":  386,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     }
+                 ]
+    },
+    {
+        "scenario":  "s5-upload17m-20rps",
+        "group":  "S5",
+        "repeats":  3,
+        "aborted":  false,
+        "abort_reason":  "",
+        "p50_ms":  0.13,
+        "p95_ms":  8.67,
+        "p99_ms":  10.91,
+        "avg_ms":  1.88,
+        "reqs":  601,
+        "throughput_rps":  20.03,
+        "error_rate_pct":  0,
+        "dropped_iterations":  0,
+        "timeouts":  0,
+        "status_200":  0,
+        "status_400":  0,
+        "status_401":  0,
+        "status_413":  601,
+        "status_503":  0,
+        "status_5xx":  0,
+        "json_413":  601,
+        "log_delta_tracks":  0,
+        "log_delta_non_health":  0,
+        "container_peaks":  {
+                                "optimistic_zhukovsky":  {
+                                                             "peak_cpu_pct":  228.65,
+                                                             "peak_mem_mib":  492.2
+                                                         },
+                                "superapp-nginx-1":  {
+                                                         "peak_cpu_pct":  17.38,
+                                                         "peak_mem_mib":  10.8
+                                                     },
+                                "superapp-microcred-worker-1":  {
+                                                                    "peak_cpu_pct":  0.31,
+                                                                    "peak_mem_mib":  76.3
+                                                                },
+                                "superapp-microcred-api-1":  {
+                                                                 "peak_cpu_pct":  53.62,
+                                                                 "peak_mem_mib":  149.3
+                                                             },
+                                "superapp-matkul-1":  {
+                                                          "peak_cpu_pct":  21.75,
+                                                          "peak_mem_mib":  402.5
+                                                      },
+                                "superapp-db-1":  {
+                                                      "peak_cpu_pct":  10.96,
+                                                      "peak_mem_mib":  68
+                                                  },
+                                "superapp-redis-1":  {
+                                                         "peak_cpu_pct":  6.15,
+                                                         "peak_mem_mib":  22.4
+                                                     },
+                                "superapp-auth-verifier-1":  {
+                                                                 "peak_cpu_pct":  75.92,
+                                                                 "peak_mem_mib":  56.7
+                                                             },
+                                "superapp-pocketbase-1":  {
+                                                              "peak_cpu_pct":  10.31,
+                                                              "peak_mem_mib":  15.8
+                                                          },
+                                "superapp-judul-api-1":  {
+                                                             "peak_cpu_pct":  101.04,
+                                                             "peak_mem_mib":  57.8
+                                                         },
+                                "keen_ardinghelli":  {
+                                                         "peak_cpu_pct":  25.32,
+                                                         "peak_mem_mib":  330.4
+                                                     },
+                                "gifted_moser":  {
+                                                     "peak_cpu_pct":  25.09,
+                                                     "peak_mem_mib":  324.4
+                                                 }
+                            },
+        "runs":  [
+                     {
+                         "repeat":  1,
+                         "reqs":  601,
+                         "rps":  20.033333333333335,
+                         "p50_ms":  0.127892,
+                         "p95_ms":  8.883952,
+                         "p99_ms":  11.568415,
+                         "avg_ms":  1.7865354076539113,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  0,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  601,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  601,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  2,
+                         "reqs":  600,
+                         "rps":  20,
+                         "p50_ms":  0.1278165,
+                         "p95_ms":  8.6026556999999979,
+                         "p99_ms":  10.654047979999996,
+                         "avg_ms":  1.8815348333333324,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  0,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  600,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  600,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  3,
+                         "reqs":  601,
+                         "rps":  20.033333333333335,
+                         "p50_ms":  0.118652,
+                         "p95_ms":  8.669586,
+                         "p99_ms":  10.909137,
+                         "avg_ms":  2.3472733710482547,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  0,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  601,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  601,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     }
+                 ]
+    },
+    {
+        "scenario":  "s6-judul-50rps",
+        "group":  "S6",
+        "repeats":  3,
+        "aborted":  false,
+        "abort_reason":  "",
+        "p50_ms":  3.07,
+        "p95_ms":  4.81,
+        "p99_ms":  5.65,
+        "avg_ms":  3.29,
+        "reqs":  1500,
+        "throughput_rps":  50,
+        "error_rate_pct":  0,
+        "dropped_iterations":  0,
+        "timeouts":  0,
+        "status_200":  1500,
+        "status_400":  0,
+        "status_401":  0,
+        "status_413":  0,
+        "status_503":  0,
+        "status_5xx":  0,
+        "json_413":  0,
+        "log_delta_tracks":  0,
+        "log_delta_non_health":  0,
+        "container_peaks":  {
+                                "upbeat_newton":  {
+                                                      "peak_cpu_pct":  44.16,
+                                                      "peak_mem_mib":  35.6
+                                                  },
+                                "superapp-nginx-1":  {
+                                                         "peak_cpu_pct":  36.48,
+                                                         "peak_mem_mib":  12.2
+                                                     },
+                                "superapp-microcred-worker-1":  {
+                                                                    "peak_cpu_pct":  0.2,
+                                                                    "peak_mem_mib":  76.3
+                                                                },
+                                "superapp-microcred-api-1":  {
+                                                                 "peak_cpu_pct":  67.84,
+                                                                 "peak_mem_mib":  137.3
+                                                             },
+                                "superapp-matkul-1":  {
+                                                          "peak_cpu_pct":  0.01,
+                                                          "peak_mem_mib":  402.4
+                                                      },
+                                "superapp-db-1":  {
+                                                      "peak_cpu_pct":  9.17,
+                                                      "peak_mem_mib":  67.7
+                                                  },
+                                "superapp-redis-1":  {
+                                                         "peak_cpu_pct":  2.68,
+                                                         "peak_mem_mib":  16.5
+                                                     },
+                                "superapp-auth-verifier-1":  {
+                                                                 "peak_cpu_pct":  121.05,
+                                                                 "peak_mem_mib":  67.8
+                                                             },
+                                "superapp-pocketbase-1":  {
+                                                              "peak_cpu_pct":  5.18,
+                                                              "peak_mem_mib":  16.3
+                                                          },
+                                "superapp-judul-api-1":  {
+                                                             "peak_cpu_pct":  90.95,
+                                                             "peak_mem_mib":  62.8
+                                                         },
+                                "pedantic_gould":  {
+                                                       "peak_cpu_pct":  7.46,
+                                                       "peak_mem_mib":  29.2
+                                                   },
+                                "determined_wu":  {
+                                                      "peak_cpu_pct":  10.19,
+                                                      "peak_mem_mib":  31
+                                                  }
+                            },
+        "runs":  [
+                     {
+                         "repeat":  1,
+                         "reqs":  1500,
+                         "rps":  50,
+                         "p50_ms":  3.0183635,
+                         "p95_ms":  4.52921305,
+                         "p99_ms":  5.6232639099999995,
+                         "avg_ms":  3.2283883746666651,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  1500,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  2,
+                         "reqs":  1500,
+                         "rps":  50,
+                         "p50_ms":  3.065137,
+                         "p95_ms":  4.8114266499999987,
+                         "p99_ms":  5.6487010599999987,
+                         "avg_ms":  3.2941601746666707,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  1500,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  3,
+                         "reqs":  1501,
+                         "rps":  50.033333333333331,
+                         "p50_ms":  3.137528,
+                         "p95_ms":  5.05887,
+                         "p99_ms":  5.723486,
+                         "avg_ms":  3.3745502051965404,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  1501,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     }
+                 ]
+    },
+    {
+        "scenario":  "s6-judul-200rps",
+        "group":  "S6",
+        "repeats":  3,
+        "aborted":  false,
+        "abort_reason":  "",
+        "p50_ms":  2.66,
+        "p95_ms":  3.71,
+        "p99_ms":  6.08,
+        "avg_ms":  2.84,
+        "reqs":  6001,
+        "throughput_rps":  200.03,
+        "error_rate_pct":  0,
+        "dropped_iterations":  0,
+        "timeouts":  0,
+        "status_200":  6001,
+        "status_400":  0,
+        "status_401":  0,
+        "status_413":  0,
+        "status_503":  0,
+        "status_5xx":  0,
+        "json_413":  0,
+        "log_delta_tracks":  0,
+        "log_delta_non_health":  0,
+        "container_peaks":  {
+                                "adoring_taussig":  {
+                                                        "peak_cpu_pct":  46.2,
+                                                        "peak_mem_mib":  36.4
+                                                    },
+                                "superapp-nginx-1":  {
+                                                         "peak_cpu_pct":  39.56,
+                                                         "peak_mem_mib":  12.6
+                                                     },
+                                "superapp-microcred-worker-1":  {
+                                                                    "peak_cpu_pct":  0.2,
+                                                                    "peak_mem_mib":  76.3
+                                                                },
+                                "superapp-microcred-api-1":  {
+                                                                 "peak_cpu_pct":  40.14,
+                                                                 "peak_mem_mib":  137.3
+                                                             },
+                                "superapp-matkul-1":  {
+                                                          "peak_cpu_pct":  15.53,
+                                                          "peak_mem_mib":  402.4
+                                                      },
+                                "superapp-db-1":  {
+                                                      "peak_cpu_pct":  12.7,
+                                                      "peak_mem_mib":  67.2
+                                                  },
+                                "superapp-redis-1":  {
+                                                         "peak_cpu_pct":  3.88,
+                                                         "peak_mem_mib":  16.5
+                                                     },
+                                "superapp-auth-verifier-1":  {
+                                                                 "peak_cpu_pct":  104.86,
+                                                                 "peak_mem_mib":  69.8
+                                                             },
+                                "superapp-pocketbase-1":  {
+                                                              "peak_cpu_pct":  3.31,
+                                                              "peak_mem_mib":  16
+                                                          },
+                                "superapp-judul-api-1":  {
+                                                             "peak_cpu_pct":  65.78,
+                                                             "peak_mem_mib":  52.9
+                                                         },
+                                "exciting_wiles":  {
+                                                       "peak_cpu_pct":  20.41,
+                                                       "peak_mem_mib":  32.9
+                                                   },
+                                "brave_shtern":  {
+                                                     "peak_cpu_pct":  20.29,
+                                                     "peak_mem_mib":  33.6
+                                                 }
+                            },
+        "runs":  [
+                     {
+                         "repeat":  1,
+                         "reqs":  6001,
+                         "rps":  200.03333333333333,
+                         "p50_ms":  2.664532,
+                         "p95_ms":  3.916214,
+                         "p99_ms":  6.080751,
+                         "avg_ms":  2.8396664692551248,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  6001,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  2,
+                         "reqs":  6001,
+                         "rps":  200.03333333333333,
+                         "p50_ms":  2.677267,
+                         "p95_ms":  3.714225,
+                         "p99_ms":  6.604731,
+                         "avg_ms":  2.8872993432761178,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  6001,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  3,
+                         "reqs":  6001,
+                         "rps":  200.03333333333333,
+                         "p50_ms":  2.568397,
+                         "p95_ms":  3.553176,
+                         "p99_ms":  4.848232,
+                         "avg_ms":  2.6788237590401689,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  6001,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     }
+                 ]
+    },
+    {
+        "scenario":  "s2-tracks-50rps",
+        "group":  "S2",
+        "repeats":  3,
+        "aborted":  false,
+        "abort_reason":  "",
+        "p50_ms":  6.98,
+        "p95_ms":  10.07,
+        "p99_ms":  14.53,
+        "avg_ms":  7.57,
+        "reqs":  1501,
+        "throughput_rps":  50.03,
+        "error_rate_pct":  0,
+        "dropped_iterations":  0,
+        "timeouts":  0,
+        "status_200":  1501,
+        "status_400":  0,
+        "status_401":  0,
+        "status_413":  0,
+        "status_503":  0,
+        "status_5xx":  0,
+        "json_413":  0,
+        "log_delta_tracks":  0,
+        "log_delta_non_health":  0,
+        "container_peaks":  {
+                                "priceless_agnesi":  {
+                                                         "peak_cpu_pct":  15.99,
+                                                         "peak_mem_mib":  33
+                                                     },
+                                "superapp-nginx-1":  {
+                                                         "peak_cpu_pct":  16.03,
+                                                         "peak_mem_mib":  12.3
+                                                     },
+                                "superapp-microcred-worker-1":  {
+                                                                    "peak_cpu_pct":  0.14,
+                                                                    "peak_mem_mib":  76.3
+                                                                },
+                                "superapp-microcred-api-1":  {
+                                                                 "peak_cpu_pct":  99.6,
+                                                                 "peak_mem_mib":  137.7
+                                                             },
+                                "superapp-matkul-1":  {
+                                                          "peak_cpu_pct":  0.14,
+                                                          "peak_mem_mib":  402.4
+                                                      },
+                                "superapp-db-1":  {
+                                                      "peak_cpu_pct":  15.77,
+                                                      "peak_mem_mib":  68
+                                                  },
+                                "superapp-redis-1":  {
+                                                         "peak_cpu_pct":  4.29,
+                                                         "peak_mem_mib":  16.8
+                                                     },
+                                "superapp-auth-verifier-1":  {
+                                                                 "peak_cpu_pct":  67.41,
+                                                                 "peak_mem_mib":  58
+                                                             },
+                                "superapp-pocketbase-1":  {
+                                                              "peak_cpu_pct":  3.5,
+                                                              "peak_mem_mib":  16.1
+                                                          },
+                                "superapp-judul-api-1":  {
+                                                             "peak_cpu_pct":  32.07,
+                                                             "peak_mem_mib":  52.7
+                                                         },
+                                "wonderful_feistel":  {
+                                                          "peak_cpu_pct":  6.78,
+                                                          "peak_mem_mib":  32.7
+                                                      },
+                                "keen_nash":  {
+                                                  "peak_cpu_pct":  6.53,
+                                                  "peak_mem_mib":  31.4
+                                              }
+                            },
+        "runs":  [
+                     {
+                         "repeat":  1,
+                         "reqs":  1500,
+                         "rps":  50,
+                         "p50_ms":  6.975745,
+                         "p95_ms":  10.9209538,
+                         "p99_ms":  16.035182619999993,
+                         "avg_ms":  7.59379771000001,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  1500,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  2,
+                         "reqs":  1501,
+                         "rps":  50.033333333333331,
+                         "p50_ms":  7.044883,
+                         "p95_ms":  10.066466,
+                         "p99_ms":  14.526605,
+                         "avg_ms":  7.5748932405063352,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  1501,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  3,
+                         "reqs":  1501,
+                         "rps":  50.033333333333331,
+                         "p50_ms":  6.894486,
+                         "p95_ms":  9.609282,
+                         "p99_ms":  12.642263,
+                         "avg_ms":  7.248628033977341,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  0,
+                         "timeouts":  0,
+                         "status_200":  1501,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     }
+                 ]
+    },
+    {
+        "scenario":  "s2-tracks-100rps",
+        "group":  "S2",
+        "repeats":  3,
+        "aborted":  false,
+        "abort_reason":  "",
+        "p50_ms":  7.31,
+        "p95_ms":  480.49,
+        "p99_ms":  657.48,
+        "avg_ms":  65.45,
+        "reqs":  2982,
+        "throughput_rps":  99.4,
+        "error_rate_pct":  0,
+        "dropped_iterations":  19,
+        "timeouts":  0,
+        "status_200":  2982,
+        "status_400":  0,
+        "status_401":  0,
+        "status_413":  0,
+        "status_503":  0,
+        "status_5xx":  0,
+        "json_413":  0,
+        "log_delta_tracks":  0,
+        "log_delta_non_health":  0,
+        "container_peaks":  {
+                                "kind_dubinsky":  {
+                                                      "peak_cpu_pct":  16.8,
+                                                      "peak_mem_mib":  39.2
+                                                  },
+                                "superapp-nginx-1":  {
+                                                         "peak_cpu_pct":  21.38,
+                                                         "peak_mem_mib":  13.3
+                                                     },
+                                "superapp-microcred-worker-1":  {
+                                                                    "peak_cpu_pct":  0.2,
+                                                                    "peak_mem_mib":  76.3
+                                                                },
+                                "superapp-microcred-api-1":  {
+                                                                 "peak_cpu_pct":  137.03,
+                                                                 "peak_mem_mib":  137.7
+                                                             },
+                                "superapp-matkul-1":  {
+                                                          "peak_cpu_pct":  55.26,
+                                                          "peak_mem_mib":  403.3
+                                                      },
+                                "superapp-db-1":  {
+                                                      "peak_cpu_pct":  22.44,
+                                                      "peak_mem_mib":  79.6
+                                                  },
+                                "superapp-redis-1":  {
+                                                         "peak_cpu_pct":  0.31,
+                                                         "peak_mem_mib":  16.6
+                                                     },
+                                "superapp-auth-verifier-1":  {
+                                                                 "peak_cpu_pct":  77.26,
+                                                                 "peak_mem_mib":  58.2
+                                                             },
+                                "superapp-pocketbase-1":  {
+                                                              "peak_cpu_pct":  4.72,
+                                                              "peak_mem_mib":  16.2
+                                                          },
+                                "superapp-judul-api-1":  {
+                                                             "peak_cpu_pct":  38.93,
+                                                             "peak_mem_mib":  52.8
+                                                         },
+                                "intelligent_booth":  {
+                                                          "peak_cpu_pct":  11.33,
+                                                          "peak_mem_mib":  39.4
+                                                      },
+                                "friendly_merkle":  {
+                                                        "peak_cpu_pct":  17.86,
+                                                        "peak_mem_mib":  41.2
+                                                    }
+                            },
+        "runs":  [
+                     {
+                         "repeat":  1,
+                         "reqs":  2984,
+                         "rps":  99.466666666666669,
+                         "p50_ms":  7.1404435,
+                         "p95_ms":  480.4907338,
+                         "p99_ms":  656.16941263,
+                         "avg_ms":  65.448826223860664,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  17,
+                         "timeouts":  0,
+                         "status_200":  2984,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  2,
+                         "reqs":  2982,
+                         "rps":  99.4,
+                         "p50_ms":  7.3102085,
+                         "p95_ms":  254.11183939999987,
+                         "p99_ms":  657.48496239000053,
+                         "avg_ms":  41.061917054325974,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  19,
+                         "timeouts":  0,
+                         "status_200":  2982,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  3,
+                         "reqs":  2972,
+                         "rps":  99.066666666666663,
+                         "p50_ms":  9.4634685,
+                         "p95_ms":  641.75457054999981,
+                         "p99_ms":  820.63305561999994,
+                         "avg_ms":  115.30045646971712,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  29,
+                         "timeouts":  0,
+                         "status_200":  2972,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     }
+                 ]
+    },
+    {
+        "scenario":  "s2-tracks-200rps",
+        "group":  "S2",
+        "repeats":  3,
+        "aborted":  false,
+        "abort_reason":  "",
+        "p50_ms":  208.86,
+        "p95_ms":  513.86,
+        "p99_ms":  810.93,
+        "avg_ms":  220.83,
+        "reqs":  5829,
+        "throughput_rps":  194.3,
+        "error_rate_pct":  0,
+        "dropped_iterations":  172,
+        "timeouts":  0,
+        "status_200":  5829,
+        "status_400":  0,
+        "status_401":  0,
+        "status_413":  0,
+        "status_503":  0,
+        "status_5xx":  0,
+        "json_413":  0,
+        "log_delta_tracks":  0,
+        "log_delta_non_health":  0,
+        "container_peaks":  {
+                                "competent_ardinghelli":  {
+                                                              "peak_cpu_pct":  31.95,
+                                                              "peak_mem_mib":  50.8
+                                                          },
+                                "superapp-nginx-1":  {
+                                                         "peak_cpu_pct":  44.21,
+                                                         "peak_mem_mib":  14.9
+                                                     },
+                                "superapp-microcred-worker-1":  {
+                                                                    "peak_cpu_pct":  0.16,
+                                                                    "peak_mem_mib":  76.3
+                                                                },
+                                "superapp-microcred-api-1":  {
+                                                                 "peak_cpu_pct":  118.17,
+                                                                 "peak_mem_mib":  150.3
+                                                             },
+                                "superapp-matkul-1":  {
+                                                          "peak_cpu_pct":  64.19,
+                                                          "peak_mem_mib":  402.4
+                                                      },
+                                "superapp-db-1":  {
+                                                      "peak_cpu_pct":  23.82,
+                                                      "peak_mem_mib":  75.4
+                                                  },
+                                "superapp-redis-1":  {
+                                                         "peak_cpu_pct":  4.84,
+                                                         "peak_mem_mib":  16.6
+                                                     },
+                                "superapp-auth-verifier-1":  {
+                                                                 "peak_cpu_pct":  72.29,
+                                                                 "peak_mem_mib":  62.6
+                                                             },
+                                "superapp-pocketbase-1":  {
+                                                              "peak_cpu_pct":  7.17,
+                                                              "peak_mem_mib":  16.1
+                                                          },
+                                "superapp-judul-api-1":  {
+                                                             "peak_cpu_pct":  71.68,
+                                                             "peak_mem_mib":  52.7
+                                                         },
+                                "crazy_perlman":  {
+                                                      "peak_cpu_pct":  37.29,
+                                                      "peak_mem_mib":  49.8
+                                                  },
+                                "admiring_khorana":  {
+                                                         "peak_cpu_pct":  24.16,
+                                                         "peak_mem_mib":  49.7
+                                                     }
+                            },
+        "runs":  [
+                     {
+                         "repeat":  1,
+                         "reqs":  5375,
+                         "rps":  179.16666666666666,
+                         "p50_ms":  423.780863,
+                         "p95_ms":  776.76618170000017,
+                         "p99_ms":  880.96734184000013,
+                         "avg_ms":  396.7479512240003,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  625,
+                         "timeouts":  0,
+                         "status_200":  5375,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  2,
+                         "reqs":  5829,
+                         "rps":  194.3,
+                         "p50_ms":  208.857876,
+                         "p95_ms":  513.86073299999975,
+                         "p99_ms":  801.0816222800014,
+                         "avg_ms":  220.83251988694383,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  172,
+                         "timeouts":  0,
+                         "status_200":  5829,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  3,
+                         "reqs":  5882,
+                         "rps":  196.06666666666666,
+                         "p50_ms":  203.1187175,
+                         "p95_ms":  467.47330585,
+                         "p99_ms":  810.93053859,
+                         "avg_ms":  206.26983509265597,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  118,
+                         "timeouts":  0,
+                         "status_200":  5882,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     }
+                 ]
+    },
+    {
+        "scenario":  "s2-tracks-400rps",
+        "group":  "S2",
+        "repeats":  3,
+        "aborted":  false,
+        "abort_reason":  "",
+        "p50_ms":  392.48,
+        "p95_ms":  505.87,
+        "p99_ms":  583.15,
+        "avg_ms":  408.09,
+        "reqs":  7308,
+        "throughput_rps":  243.6,
+        "error_rate_pct":  0,
+        "dropped_iterations":  4693,
+        "timeouts":  0,
+        "status_200":  7308,
+        "status_400":  0,
+        "status_401":  0,
+        "status_413":  0,
+        "status_503":  0,
+        "status_5xx":  0,
+        "json_413":  0,
+        "log_delta_tracks":  0,
+        "log_delta_non_health":  0,
+        "container_peaks":  {
+                                "sleepy_wing":  {
+                                                    "peak_cpu_pct":  26.78,
+                                                    "peak_mem_mib":  52.1
+                                                },
+                                "superapp-nginx-1":  {
+                                                         "peak_cpu_pct":  15.21,
+                                                         "peak_mem_mib":  15.6
+                                                     },
+                                "superapp-microcred-worker-1":  {
+                                                                    "peak_cpu_pct":  0.18,
+                                                                    "peak_mem_mib":  76.3
+                                                                },
+                                "superapp-microcred-api-1":  {
+                                                                 "peak_cpu_pct":  123.58,
+                                                                 "peak_mem_mib":  137.6
+                                                             },
+                                "superapp-matkul-1":  {
+                                                          "peak_cpu_pct":  0.02,
+                                                          "peak_mem_mib":  402.4
+                                                      },
+                                "superapp-db-1":  {
+                                                      "peak_cpu_pct":  21.79,
+                                                      "peak_mem_mib":  78.3
+                                                  },
+                                "superapp-redis-1":  {
+                                                         "peak_cpu_pct":  3.39,
+                                                         "peak_mem_mib":  16.5
+                                                     },
+                                "superapp-auth-verifier-1":  {
+                                                                 "peak_cpu_pct":  71.62,
+                                                                 "peak_mem_mib":  67.8
+                                                             },
+                                "superapp-pocketbase-1":  {
+                                                              "peak_cpu_pct":  8.34,
+                                                              "peak_mem_mib":  16.7
+                                                          },
+                                "superapp-judul-api-1":  {
+                                                             "peak_cpu_pct":  32.4,
+                                                             "peak_mem_mib":  57.8
+                                                         },
+                                "flamboyant_margulis":  {
+                                                            "peak_cpu_pct":  26.45,
+                                                            "peak_mem_mib":  51.9
+                                                        },
+                                "affectionate_nightingale":  {
+                                                                 "peak_cpu_pct":  30.44,
+                                                                 "peak_mem_mib":  52
+                                                             }
+                            },
+        "runs":  [
+                     {
+                         "repeat":  1,
+                         "reqs":  7140,
+                         "rps":  238,
+                         "p50_ms":  409.0501465,
+                         "p95_ms":  505.86764314999971,
+                         "p99_ms":  635.89040478999993,
+                         "avg_ms":  417.79188841148465,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  4861,
+                         "timeouts":  0,
+                         "status_200":  7140,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  2,
+                         "reqs":  7308,
+                         "rps":  243.6,
+                         "p50_ms":  392.481991,
+                         "p95_ms":  525.95004084999994,
+                         "p99_ms":  583.15348255,
+                         "avg_ms":  408.09265695826417,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  4693,
+                         "timeouts":  0,
+                         "status_200":  7308,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  3,
+                         "reqs":  7567,
+                         "rps":  252.23333333333332,
+                         "p50_ms":  380.375701,
+                         "p95_ms":  504.510294,
+                         "p99_ms":  564.0046859,
+                         "avg_ms":  394.30464828571388,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  4434,
+                         "timeouts":  0,
+                         "status_200":  7567,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     }
+                 ]
+    },
+    {
+        "scenario":  "s2-tracks-800rps",
+        "group":  "S2",
+        "repeats":  3,
+        "aborted":  false,
+        "abort_reason":  "",
+        "p50_ms":  408.87,
+        "p95_ms":  595.76,
+        "p99_ms":  677.18,
+        "avg_ms":  435.15,
+        "reqs":  6890,
+        "throughput_rps":  229.67,
+        "error_rate_pct":  0,
+        "dropped_iterations":  17111,
+        "timeouts":  0,
+        "status_200":  6890,
+        "status_400":  0,
+        "status_401":  0,
+        "status_413":  0,
+        "status_503":  0,
+        "status_5xx":  0,
+        "json_413":  0,
+        "log_delta_tracks":  0,
+        "log_delta_non_health":  0,
+        "container_peaks":  {
+                                "keen_ramanujan":  {
+                                                       "peak_cpu_pct":  34.57,
+                                                       "peak_mem_mib":  52.1
+                                                   },
+                                "superapp-nginx-1":  {
+                                                         "peak_cpu_pct":  16.26,
+                                                         "peak_mem_mib":  15.6
+                                                     },
+                                "superapp-microcred-worker-1":  {
+                                                                    "peak_cpu_pct":  0.18,
+                                                                    "peak_mem_mib":  76.3
+                                                                },
+                                "superapp-microcred-api-1":  {
+                                                                 "peak_cpu_pct":  132.46,
+                                                                 "peak_mem_mib":  150.1
+                                                             },
+                                "superapp-matkul-1":  {
+                                                          "peak_cpu_pct":  29.05,
+                                                          "peak_mem_mib":  402.4
+                                                      },
+                                "superapp-db-1":  {
+                                                      "peak_cpu_pct":  22.76,
+                                                      "peak_mem_mib":  79.8
+                                                  },
+                                "superapp-redis-1":  {
+                                                         "peak_cpu_pct":  8.47,
+                                                         "peak_mem_mib":  16.9
+                                                     },
+                                "superapp-auth-verifier-1":  {
+                                                                 "peak_cpu_pct":  87.22,
+                                                                 "peak_mem_mib":  66.5
+                                                             },
+                                "superapp-pocketbase-1":  {
+                                                              "peak_cpu_pct":  3.22,
+                                                              "peak_mem_mib":  16.3
+                                                          },
+                                "superapp-judul-api-1":  {
+                                                             "peak_cpu_pct":  43.86,
+                                                             "peak_mem_mib":  64.2
+                                                         },
+                                "vigorous_clarke":  {
+                                                        "peak_cpu_pct":  25.82,
+                                                        "peak_mem_mib":  51.7
+                                                    },
+                                "amazing_raman":  {
+                                                      "peak_cpu_pct":  24.85,
+                                                      "peak_mem_mib":  51.8
+                                                  }
+                            },
+        "runs":  [
+                     {
+                         "repeat":  1,
+                         "reqs":  6890,
+                         "rps":  229.66666666666666,
+                         "p50_ms":  408.8716865,
+                         "p95_ms":  595.7596559,
+                         "p99_ms":  677.18185419,
+                         "avg_ms":  435.14561230174348,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  17111,
+                         "timeouts":  0,
+                         "status_200":  6890,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  2,
+                         "reqs":  6749,
+                         "rps":  224.96666666666667,
+                         "p50_ms":  421.228345,
+                         "p95_ms":  633.29213039999956,
+                         "p99_ms":  739.76155775999985,
+                         "avg_ms":  444.37623169269585,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  17252,
+                         "timeouts":  0,
+                         "status_200":  6749,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     },
+                     {
+                         "repeat":  3,
+                         "reqs":  7119,
+                         "rps":  237.3,
+                         "p50_ms":  396.646947,
+                         "p95_ms":  564.4730121,
+                         "p99_ms":  597.58201763999989,
+                         "avg_ms":  421.0105249006881,
+                         "err_rate_pct":  0,
+                         "dropped_iterations":  16881,
+                         "timeouts":  0,
+                         "status_200":  7119,
+                         "status_400":  0,
+                         "status_401":  0,
+                         "status_413":  0,
+                         "status_503":  0,
+                         "status_5xx":  0,
+                         "json_413":  0,
+                         "log_delta_tracks":  0,
+                         "log_delta_non_health":  0
+                     }
+                 ]
+    }
+]

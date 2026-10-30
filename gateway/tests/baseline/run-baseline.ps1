@@ -254,7 +254,9 @@ function New-MinimalValidPdf([string]$FilePath, [string]$TextContent = 'Panduan 
     $streamBody = "BT /F1 12 Tf 72 720 Td ($escaped) Tj ET"
     $streamBytes = [System.Text.Encoding]::ASCII.GetBytes($streamBody)
 
-    $header = "%PDF-1.4`n"
+    # Pad komentar PDF > 4096 byte agar Buffer.from() di Node.js tidak memakai shared pool (byteOffset > 0 memicu bug Stream_makeSubStream di pdf.js v1.10.100)
+    $padComment = "%" + ('A' * 4200) + "`n"
+    $header = "%PDF-1.4`n" + $padComment
     $obj1 = "1 0 obj`n<< /Type /Catalog /Pages 2 0 R >>`nendobj`n"
     $obj2 = "2 0 obj`n<< /Type /Pages /Kids [3 0 R] /Count 1 >>`nendobj`n"
     $obj3 = "3 0 obj`n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>`nendobj`n"
@@ -455,7 +457,10 @@ import urllib.request
 with urllib.request.urlopen('http://superapp-nginx-noauth/api/judul-recommender/', timeout=10) as resp:
     print(resp.status)
 "@
+            $prevErrProbe = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
             $probeRaw = $probePy | & docker compose exec -T microcred-api python - 2>$null
+            $ErrorActionPreference = $prevErrProbe
             $probeNoAuthCode = ConvertTo-TrimmedString $probeRaw
             if (-not $probeNoAuthCode) {
                 throw "Output probe noauth kosong dari container microcred-api."
@@ -477,7 +482,7 @@ with urllib.request.urlopen('http://superapp-nginx-noauth/api/judul-recommender/
         # (2) Verifikasi pra-syarat K2: kirim kode Python lewat stdin ke "docker compose exec -T microcred-api python -"
         $pdfB64 = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($smallPdfPath))
         $k2VerifyPy = @"
-import urllib.request, json, base64
+import urllib.request, urllib.error, json, base64
 pdf_bytes = base64.b64decode('$pdfB64')
 boundary = '----BaselineK2Boundary'
 body = (
@@ -491,18 +496,28 @@ req = urllib.request.Request(
     headers={'Content-Type': f'multipart/form-data; boundary={boundary}'},
     method='POST'
 )
-with urllib.request.urlopen(req, timeout=15) as resp:
-    data = json.loads(resp.read().decode('utf-8'))
-    print(json.dumps({'status': resp.status, 'ok': data.get('ok'), 'extracted_chars': data.get('extracted_chars', 0)}))
+try:
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        data = json.loads(resp.read().decode('utf-8'))
+        print(json.dumps({'status': resp.status, 'ok': data.get('ok'), 'extracted_chars': data.get('extracted_chars', 0)}))
+except urllib.error.HTTPError as e:
+    err_body = e.read().decode('utf-8', errors='replace')
+    print(json.dumps({'status': e.code, 'ok': False, 'extracted_chars': 0, 'error': err_body}))
+except Exception as e:
+    print(json.dumps({'status': 0, 'ok': False, 'extracted_chars': 0, 'error': str(e)}))
 "@
+        $prevErrK2 = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
         $k2Raw = $k2VerifyPy | & docker compose exec -T microcred-api python - 2>$null
+        $ErrorActionPreference = $prevErrK2
         $k2VerifyOut = ConvertTo-TrimmedString $k2Raw
         if (-not $k2VerifyOut) {
             throw "ABORT A3-K2: Verifikasi PDF minimal langsung ke matkul:3000 menghasilkan output kosong."
         }
         $k2VerifyObj = ConvertFrom-JsonSafe -JsonText $k2VerifyOut -Context 'Verifikasi K2 matkul:3000'
         $k2Enabled = ($k2VerifyObj.status -eq 200 -and [int]$k2VerifyObj.extracted_chars -gt 0)
-        Write-Host "[A3-K2] Verifikasi PDF minimal langsung ke matkul:3000 -> status=$($k2VerifyObj.status), extracted_chars=$($k2VerifyObj.extracted_chars), K2 diaktifkan=$k2Enabled"
+        $k2ErrInfo = if ($k2VerifyObj.PSObject.Properties['error'] -and $k2VerifyObj.error) { " (detail: $($k2VerifyObj.error))" } else { "" }
+        Write-Host "[A3-K2] Verifikasi PDF minimal langsung ke matkul:3000 -> status=$($k2VerifyObj.status), extracted_chars=$($k2VerifyObj.extracted_chars), K2 diaktifkan=$k2Enabled$k2ErrInfo"
 
         $conditions = @(
             @{ Id = 'M1-20rps';  Cond = 'M1'; Service = 'Micro-cred'; Endpoint = 'GET /tracks';                                      Rate = 20;  Expected = 200 },
@@ -547,7 +562,7 @@ with urllib.request.urlopen(req, timeout=15) as resp:
             $cid = $c.Id
             $cGroup = $c.Cond
 
-            if ($Resume -and $summaryMap.Contains($cid) -and -not $summaryMap[$cid].skipped) {
+            if ($Resume -and $summaryMap.Contains($cid) -and -not $summaryMap[$cid].skipped -and [int]$summaryMap[$cid].repeats_completed -ge $Repeats) {
                 Write-Host "`nMelewati $cid (sudah ada di phase-a-summary.json)."
                 if ($summaryMap[$cid].saturated) {
                     $saturatedGroups[$cGroup] = $true
@@ -1302,7 +1317,7 @@ function Invoke-GenerateBaselineTables {
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine('## 1. Tabel Tiga Jalur per Kondisi (`direct`, `noauth`, `gateway`)')
     [void]$sb.AppendLine('')
-    [void]$sb.AppendLine('| Kondisi | Layanan | Endpoint | Laju Target (req/s) | Jalur | p50 Median [Min–Maks] (ms) | p95 Median [Min–Maks] (ms) | p99 Median (ms) | Rata-rata (ms) | Throughput (req/s) | Kegagalan (%) | Dropped Iterations | Interval Stats Median (s) |')
+    [void]$sb.AppendLine('| Kondisi | Layanan | Endpoint | Laju Target (req/s) | Jalur | p50 Median [Min-Maks] (ms) | p95 Median [Min-Maks] (ms) | p99 Median (ms) | Rata-rata (ms) | Throughput (req/s) | Kegagalan (%) | Dropped Iterations | Interval Stats Median (s) |')
     [void]$sb.AppendLine('|---|---|---|---:|---|---|---|---|---|---|---|---|---|')
 
     foreach ($spec in $expectedSpecs) {
@@ -1317,8 +1332,8 @@ function Invoke-GenerateBaselineTables {
                 [void]$sb.AppendLine("| **$cid** | $($spec.Service) | ``$($spec.Endpoint)`` | $($spec.Rate) | ``$pm`` | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur |")
             }
             else {
-                $p50Cell = ('{0:N2} [{1:N2}–{2:N2}]' -f [double]$pObj.p50_median_ms, [double]$pObj.p50_min_ms, [double]$pObj.p50_max_ms)
-                $p95Cell = ('{0:N2} [{1:N2}–{2:N2}]' -f [double]$pObj.p95_median_ms, [double]$pObj.p95_min_ms, [double]$pObj.p95_max_ms)
+                $p50Cell = ('{0:N2} [{1:N2}-{2:N2}]' -f [double]$pObj.p50_median_ms, [double]$pObj.p50_min_ms, [double]$pObj.p50_max_ms)
+                $p95Cell = ('{0:N2} [{1:N2}-{2:N2}]' -f [double]$pObj.p95_median_ms, [double]$pObj.p95_min_ms, [double]$pObj.p95_max_ms)
                 $p99Cell = ('{0:N2}' -f [double]$pObj.p99_median_ms)
                 $avgCell = ('{0:N2}' -f [double]$pObj.avg_median_ms)
                 $rpsCell = ('{0:N2}' -f [double]$pObj.throughput_median_rps)
@@ -1341,7 +1356,7 @@ function Invoke-GenerateBaselineTables {
     [void]$sb.AppendLine('- Aturan tafsir: bila rentang p50 dua jalur saling tumpang tindih, ditulis `tidak dapat dibedakan pada pengukuran ini`.')
     [void]$sb.AppendLine('- Dengan sedikit ulangan, rentang antar-ulangan hanya gambaran kasar variabilitas, bukan interval kepercayaan statistik.')
     [void]$sb.AppendLine('')
-    [void]$sb.AppendLine('| Kondisi | $\Delta_{\text{proxy}}$ p50 [Min–Maks] (ms) | $\Delta_{\text{auth}}$ p50 [Min–Maks] (ms) | $\Delta_{\text{total}}$ p50 [Min–Maks] (ms) | $\Delta_{\text{proxy}}$ p95 [Min–Maks] (ms) | $\Delta_{\text{auth}}$ p95 [Min–Maks] (ms) | $\Delta_{\text{total}}$ p95 [Min–Maks] (ms) | Tafsir $\Delta_{\text{proxy}}$ | Tafsir $\Delta_{\text{auth}}$ | Tafsir $\Delta_{\text{total}}$ |')
+    [void]$sb.AppendLine('| Kondisi | $\Delta_{\text{proxy}}$ p50 [Min-Maks] (ms) | $\Delta_{\text{auth}}$ p50 [Min-Maks] (ms) | $\Delta_{\text{total}}$ p50 [Min-Maks] (ms) | $\Delta_{\text{proxy}}$ p95 [Min-Maks] (ms) | $\Delta_{\text{auth}}$ p95 [Min-Maks] (ms) | $\Delta_{\text{total}}$ p95 [Min-Maks] (ms) | Tafsir $\Delta_{\text{proxy}}$ | Tafsir $\Delta_{\text{auth}}$ | Tafsir $\Delta_{\text{total}}$ |')
     [void]$sb.AppendLine('|---|---|---|---|---|---|---|---|---|---|')
 
     foreach ($spec in $expectedSpecs) {

@@ -178,11 +178,11 @@ $scenarios = @(
     @{ Name = 's6-judul-50rps';           Group = 'S6'; Script = 's6-judul.js';      Env = @('RATE=50');  DurationSec = 30 },
     @{ Name = 's6-judul-200rps';          Group = 'S6'; Script = 's6-judul.js';      Env = @('RATE=200'); DurationSec = 30 },
 
-    @{ Name = 's2-tracks-50rps';          Group = 'S2'; Script = 's2-saturation.js'; Env = @('RATE=50');  DurationSec = 30 },
-    @{ Name = 's2-tracks-100rps';         Group = 'S2'; Script = 's2-saturation.js'; Env = @('RATE=100'); DurationSec = 30 },
-    @{ Name = 's2-tracks-200rps';         Group = 'S2'; Script = 's2-saturation.js'; Env = @('RATE=200'); DurationSec = 30 },
-    @{ Name = 's2-tracks-400rps';         Group = 'S2'; Script = 's2-saturation.js'; Env = @('RATE=400'); DurationSec = 30 },
-    @{ Name = 's2-tracks-800rps';         Group = 'S2'; Script = 's2-saturation.js'; Env = @('RATE=800'); DurationSec = 30 }
+    @{ Name = 's2-tracks-50rps';          Group = 'S2'; Script = 's2-saturation.js'; Env = @('RATE=50',  'PREALLOC_VUS=200', 'MAX_VUS=500'); DurationSec = 30 },
+    @{ Name = 's2-tracks-100rps';         Group = 'S2'; Script = 's2-saturation.js'; Env = @('RATE=100', 'PREALLOC_VUS=200', 'MAX_VUS=500'); DurationSec = 30 },
+    @{ Name = 's2-tracks-200rps';         Group = 'S2'; Script = 's2-saturation.js'; Env = @('RATE=200', 'PREALLOC_VUS=200', 'MAX_VUS=500'); DurationSec = 30 },
+    @{ Name = 's2-tracks-400rps';         Group = 'S2'; Script = 's2-saturation.js'; Env = @('RATE=400', 'PREALLOC_VUS=200', 'MAX_VUS=500'); DurationSec = 30 },
+    @{ Name = 's2-tracks-800rps';         Group = 'S2'; Script = 's2-saturation.js'; Env = @('RATE=800', 'PREALLOC_VUS=200', 'MAX_VUS=500'); DurationSec = 30 }
 )
 
 if ($IncludeLlm) {
@@ -312,6 +312,9 @@ foreach ($sc in $scenarios) {
             $errRate = Get-K6MetricValue $m 'main_failed' 'value'
             if ($errRate -eq 0) { $errRate = Get-K6MetricValue $m 'main_failed' 'rate' }
             $dropped = Get-K6MetricValue $m 'dropped_iterations' 'count'
+            $vusMax = Get-K6MetricValue $m 'vus_max' 'value'
+            if ($vusMax -eq 0) { $vusMax = Get-K6MetricValue $m 'vus_max' 'max' }
+            $insuffVus = [bool](($k6Out -join "`n") -match 'Insufficient VUs')
             $timeouts = Get-K6MetricValue $m 'main_timeouts' 'count'
             $s200 = Get-K6MetricValue $m 'main_status_200' 'count'
             $s400 = Get-K6MetricValue $m 'main_status_400' 'count'
@@ -324,28 +327,30 @@ foreach ($sc in $scenarios) {
             $durSec = [double]$sc.DurationSec
             $rps = if ($durSec -gt 0) { $reqs / $durSec } else { 0.0 }
 
-            Write-Host ("  [r{0}] reqs={1} rps={2:N1} p50={3:N2}ms p95={4:N2}ms p99={5:N2}ms err={6:N2}% dropped={7} 503={8} timeout={9}" -f $r, $reqs, $rps, $p50, $p95, $p99, ($errRate * 100.0), $dropped, $s503, $timeouts)
+            Write-Host ("  [r{0}] reqs={1} rps={2:N1} p50={3:N2}ms p95={4:N2}ms p99={5:N2}ms err={6:N2}% dropped={7} vus_max={8} insuff_vus={9} 503={10} timeout={11}" -f $r, $reqs, $rps, $p50, $p95, $p99, ($errRate * 100.0), $dropped, $vusMax, $insuffVus, $s503, $timeouts)
 
             $runMetrics.Add([pscustomobject]@{
-                repeat               = $r
-                reqs                 = $reqs
-                rps                  = $rps
-                p50_ms               = $p50
-                p95_ms               = $p95
-                p99_ms               = $p99
-                avg_ms               = $avg
-                err_rate_pct         = $errRate * 100.0
-                dropped_iterations   = $dropped
-                timeouts             = $timeouts
-                status_200           = $s200
-                status_400           = $s400
-                status_401           = $s401
-                status_413           = $s413
-                status_503           = $s503
-                status_5xx           = $s5xx
-                json_413             = $json413
-                log_delta_tracks     = $logDeltaTracks
-                log_delta_non_health = $logDeltaNonHealth
+                repeat                   = $r
+                reqs                     = $reqs
+                rps                      = $rps
+                p50_ms                   = $p50
+                p95_ms                   = $p95
+                p99_ms                   = $p99
+                avg_ms                   = $avg
+                err_rate_pct             = $errRate * 100.0
+                dropped_iterations       = $dropped
+                vus_max                  = $vusMax
+                insufficient_vus_warning = $insuffVus
+                timeouts                 = $timeouts
+                status_200               = $s200
+                status_400               = $s400
+                status_401               = $s401
+                status_413               = $s413
+                status_503               = $s503
+                status_5xx               = $s5xx
+                json_413                 = $json413
+                log_delta_tracks         = $logDeltaTracks
+                log_delta_non_health     = $logDeltaNonHealth
             })
 
             # Jeda singkat 2 detik agar antrean koneksi backend reda sebelum ulangan berikutnya
@@ -384,9 +389,11 @@ foreach ($sc in $scenarios) {
             avg_ms               = [math]::Round((Get-Median ($runMetrics | ForEach-Object { [double]$_.avg_ms })), 2)
             reqs                 = [math]::Round((Get-Median ($runMetrics | ForEach-Object { [double]$_.reqs })), 0)
             throughput_rps       = [math]::Round((Get-Median ($runMetrics | ForEach-Object { [double]$_.rps })), 2)
-            error_rate_pct       = [math]::Round((Get-Median ($runMetrics | ForEach-Object { [double]$_.err_rate_pct })), 2)
-            dropped_iterations   = [math]::Round((Get-Median ($runMetrics | ForEach-Object { [double]$_.dropped_iterations })), 0)
-            timeouts             = [math]::Round((Get-Median ($runMetrics | ForEach-Object { [double]$_.timeouts })), 0)
+            error_rate_pct           = [math]::Round((Get-Median ($runMetrics | ForEach-Object { [double]$_.err_rate_pct })), 2)
+            dropped_iterations       = [math]::Round((Get-Median ($runMetrics | ForEach-Object { [double]$_.dropped_iterations })), 0)
+            vus_max                  = [math]::Round((Get-Median ($runMetrics | ForEach-Object { [double]$_.vus_max })), 0)
+            insufficient_vus_warning = [bool](($runMetrics | Where-Object { $_.insufficient_vus_warning }).Count -gt 0)
+            timeouts                 = [math]::Round((Get-Median ($runMetrics | ForEach-Object { [double]$_.timeouts })), 0)
             status_200           = [math]::Round((Get-Median ($runMetrics | ForEach-Object { [double]$_.status_200 })), 0)
             status_400           = [math]::Round((Get-Median ($runMetrics | ForEach-Object { [double]$_.status_400 })), 0)
             status_401           = [math]::Round((Get-Median ($runMetrics | ForEach-Object { [double]$_.status_401 })), 0)

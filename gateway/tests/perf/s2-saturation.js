@@ -13,6 +13,8 @@ import {
 const BASE = __ENV.BASE || 'http://nginx';
 const RATE = Number(__ENV.RATE || 50);
 const WARMUP_SEC = Number(__ENV.WARMUP_SEC !== undefined ? __ENV.WARMUP_SEC : 10);
+const PREALLOC_VUS = Number(__ENV.PREALLOC_VUS || 50);
+const MAX_VUS = Number(__ENV.MAX_VUS || 100);
 
 const scenarios = {};
 if (WARMUP_SEC > 0) {
@@ -30,8 +32,8 @@ scenarios.main = {
   timeUnit: '1s',
   duration: '30s',
   startTime: `${WARMUP_SEC}s`,
-  preAllocatedVUs: 50,
-  maxVUs: 100,
+  preAllocatedVUs: PREALLOC_VUS,
+  maxVUs: MAX_VUS,
   tags: { phase: 'main' },
 };
 
