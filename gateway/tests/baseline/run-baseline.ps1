@@ -1,15 +1,14 @@
 <#
 .SYNOPSIS
-  Orkestrator pengujian Baseline ("Standalone" vs NoAuth NGINX vs Full Gateway) dan Evaluasi Fase B.
+  Orkestrator pengujian Baseline ("Standalone" vs NoAuth NGINX vs Full Gateway), Evaluasi Fase B, dan Generator Tabel (-Report).
 
 .DESCRIPTION
   - Fase A (-Phase A): Mengukur tiga jalur akses (direct, noauth, gateway) untuk ketiga layanan
     (Micro-cred, Judul, Matkul) dari container grafana/k6 di jaringan superapp_default tanpa memanggil LLM.
-    Menggunakan satu akun uji, mengirim header Authorization: Bearer <token> yang identik di semua jalur,
-    merotasi urutan jalur per ulangan, menunggu CPU tenang (< 5% pada 2 sampel beruntun, maks 60s + 15s),
-    dan mencatat median CPU serta memori per container pada fase ukur 30 detik.
   - Fase B (-Phase B): Evaluasi alur rekomendasi Matkul (B0-B2), pasangan langsung vs gateway Judul (B3),
-    dan uji ulang 5 siklus Micro-cred (B4). Hanya dijalankan bila -Phase B diberikan secara eksplisit.
+    dan uji ulang Micro-cred (B4: 1 probe + 5 siklus utama = 6 siklus). Hanya dijalankan bila -Phase B diberikan.
+  - Mode Laporan (-Report): Membaca out/phase-a-summary.json dan menghasilkan docs/baseline-comparison-tables.md
+    tanpa menimpa docs/baseline-comparison-results.md. Sel yang belum diukur ditulis "tidak diukur".
   - Token, secret, isi berkas fixtures, dan data pribadi TIDAK PERNAH dicetak ke konsol maupun file.
 
 .PARAMETER Phase
@@ -20,13 +19,16 @@
   Opsional: filter ID kondisi tertentu pada Fase A (mis. 'M1-20rps' atau 'K2').
 .PARAMETER Resume
   Opsional: lanjutkan kondisi Fase A yang belum selesai dari out/phase-a-summary.json.
+.PARAMETER Report
+  Hasilkan docs/baseline-comparison-tables.md dari out/phase-a-summary.json tanpa menjalankan beban uji.
 #>
 param(
     [ValidateSet('A', 'B')]
     [string]$Phase = 'A',
     [int]$Repeats = 3,
     [string]$OnlyCondition = '',
-    [switch]$Resume = $false
+    [switch]$Resume = $false,
+    [switch]$Report = $false
 )
 
 $ErrorActionPreference = 'Stop'
@@ -35,7 +37,9 @@ $inv = [Globalization.CultureInfo]::InvariantCulture
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
 $baseDir = $PSScriptRoot
-$repoRoot = (Resolve-Path (Join-Path $baseDir '..\..')).Path
+$repoRoot = (Resolve-Path (Join-Path $baseDir '..\..\..')).Path
+Set-Location $repoRoot
+
 $outDir = Join-Path $baseDir 'out'
 $fixturesDir = Join-Path $baseDir 'fixtures'
 if (-not (Test-Path $outDir)) {
@@ -46,8 +50,27 @@ if (-not (Test-Path $fixturesDir)) {
 }
 
 # ===========================================================================
-# Fungsi Utilitas Statistik & Sanitasi
+# Fungsi Utilitas Statistik, Penanganan Output Native, & Sanitasi
 # ===========================================================================
+function ConvertTo-TrimmedString($RawOutput) {
+    if ($null -eq $RawOutput) { return '' }
+    $joined = (@($RawOutput) -join "`n")
+    if ([string]::IsNullOrWhiteSpace($joined)) { return '' }
+    return $joined.Trim()
+}
+
+function ConvertFrom-JsonSafe([string]$JsonText, [string]$Context = 'JSON') {
+    if ([string]::IsNullOrWhiteSpace($JsonText)) {
+        throw "Output JSON kosong pada $Context."
+    }
+    try {
+        return ($JsonText | ConvertFrom-Json)
+    }
+    catch {
+        throw "Gagal mengurai JSON pada ${Context}: $($_.Exception.Message)"
+    }
+}
+
 function Get-Median([double[]]$Values) {
     if (-not $Values -or $Values.Count -eq 0) { return 0.0 }
     $sorted = @($Values | Sort-Object)
@@ -83,7 +106,7 @@ function Mask-SensitiveText([string]$Text) {
 
 function ConvertTo-MiB([string]$MemStr) {
     if (-not $MemStr) { return 0.0 }
-    $used = ($MemStr -split '/')[0].Trim()
+    $used = ConvertTo-TrimmedString (($MemStr -split '/')[0])
     if ($used -match '^([\d\.]+)\s*GiB$') {
         return [double]::Parse($Matches[1], $inv) * 1024.0
     }
@@ -99,10 +122,17 @@ function ConvertTo-MiB([string]$MemStr) {
     return 0.0
 }
 
-# Hitung MEDIAN CPU (%) dan MEDIAN Memori (MiB) per container khusus pada jendela fase ukur [StartMs, EndMs]
+# Hitung MEDIAN CPU (%), MEDIAN Memori (MiB), dan MEDIAN interval sampel aktual pada jendela fase ukur [StartMs, EndMs]
 function Get-MeasureWindowMedianStats([string]$CsvPath, [long]$StartMs, [long]$EndMs) {
-    $result = [ordered]@{}
-    if (-not (Test-Path $CsvPath)) { return $result }
+    $containers = [ordered]@{}
+    if (-not (Test-Path $CsvPath)) {
+        return [pscustomobject]@{
+            Containers              = $containers
+            SampleIntervalMedianSec = $null
+            SampleIntervalMedianMs  = $null
+            SampleBatches           = 0
+        }
+    }
     $rows = @(Import-Csv -Path $CsvPath -ErrorAction SilentlyContinue)
     $filtered = @($rows | Where-Object {
         $ts = 0L
@@ -111,16 +141,35 @@ function Get-MeasureWindowMedianStats([string]$CsvPath, [long]$StartMs, [long]$E
     if ($filtered.Count -eq 0) {
         $filtered = $rows
     }
+
+    $uniqueTs = @($filtered | ForEach-Object {
+        $ts = 0L
+        if ([long]::TryParse($_.timestamp_ms, [ref]$ts)) { $ts }
+    } | Select-Object -Unique | Sort-Object)
+
+    $intervalMsList = New-Object System.Collections.Generic.List[double]
+    for ($i = 1; $i -lt $uniqueTs.Count; $i++) {
+        $diffMs = [double]($uniqueTs[$i] - $uniqueTs[$i - 1])
+        if ($diffMs -gt 0) {
+            $intervalMsList.Add($diffMs)
+        }
+    }
+    $medIntMs = if ($intervalMsList.Count -gt 0) { [math]::Round((Get-Median ([double[]]$intervalMsList)), 0) } else { $null }
+    $medIntSec = if ($null -ne $medIntMs) { [math]::Round(($medIntMs / 1000.0), 2) } else { $null }
+
     $byContainer = @{}
     foreach ($r in $filtered) {
         $c = $r.container
         if (-not $c) { continue }
-        $cpuStr = ($r.cpu_perc -replace '%', '').Trim()
+        $cpuStr = ConvertTo-TrimmedString ($r.cpu_perc -replace '%', '')
         $cpu = 0.0
         [void][double]::TryParse($cpuStr, [Globalization.NumberStyles]::Float, $inv, [ref]$cpu)
         $memMib = ConvertTo-MiB $r.mem_usage
         if (-not $byContainer.ContainsKey($c)) {
-            $byContainer[$c] = @{ cpus = New-Object System.Collections.Generic.List[double]; mems = New-Object System.Collections.Generic.List[double] }
+            $byContainer[$c] = @{
+                cpus = New-Object System.Collections.Generic.List[double]
+                mems = New-Object System.Collections.Generic.List[double]
+            }
         }
         $byContainer[$c].cpus.Add($cpu)
         $byContainer[$c].mems.Add($memMib)
@@ -128,13 +177,18 @@ function Get-MeasureWindowMedianStats([string]$CsvPath, [long]$StartMs, [long]$E
     foreach ($c in ($byContainer.Keys | Sort-Object)) {
         $medCpu = [math]::Round((Get-Median ([double[]]$byContainer[$c].cpus)), 2)
         $medMem = [math]::Round((Get-Median ([double[]]$byContainer[$c].mems)), 1)
-        $result[$c] = [ordered]@{
+        $containers[$c] = [ordered]@{
             median_cpu_pct = $medCpu
             median_mem_mib = $medMem
             samples        = $byContainer[$c].cpus.Count
         }
     }
-    return $result
+    return [pscustomobject]@{
+        Containers              = $containers
+        SampleIntervalMedianSec = $medIntSec
+        SampleIntervalMedianMs  = $medIntMs
+        SampleBatches           = $uniqueTs.Count
+    }
 }
 
 # Periksa kesehatan seluruh 9 container utama superapp
@@ -163,14 +217,14 @@ function Wait-ContainersCalm([int]$MaxWaitSec = 60, [int]$PostCalmSleepSec = 15)
         $lines = @(docker stats --no-stream --format "{{.CPUPerc}}" 2>$null)
         $sumCpu = 0.0
         foreach ($l in $lines) {
-            $s = ($l -replace '%', '').Trim()
+            $s = ConvertTo-TrimmedString ($l -replace '%', '')
             $v = 0.0
             if ([double]::TryParse($s, [Globalization.NumberStyles]::Float, $inv, [ref]$v)) {
                 $sumCpu += $v
             }
         }
         $lastTotalCpu = [math]::Round($sumCpu, 2)
-        if ($sumCpu -lt 5.0) {
+        if ($lines.Count -gt 0 -and $sumCpu -lt 5.0) {
             $consecUnder5++
             if ($consecUnder5 -ge 2) {
                 Start-Sleep -Seconds $PostCalmSleepSec
@@ -226,12 +280,22 @@ function New-MinimalValidPdf([string]$FilePath, [string]$TextContent = 'Panduan 
     [System.IO.File]::WriteAllBytes($FilePath, [System.Text.Encoding]::ASCII.GetBytes($sb.ToString()))
 }
 
-# Pembuat konfigurasi nginx-noauth.conf dari gateway/nginx/nginx.conf
+# Pembuat konfigurasi nginx-noauth.conf dari gateway/nginx/nginx.conf dengan regex toleran spasi dan validasi perubahan
 function Ensure-NginxNoAuthConfig {
     $srcConf = Join-Path $repoRoot 'gateway\nginx\nginx.conf'
     $dstConf = Join-Path $baseDir 'nginx-noauth.conf'
+    if (-not (Test-Path $srcConf)) {
+        throw "Ensure-NginxNoAuthConfig gagal: berkas sumber $srcConf tidak ditemukan."
+    }
     $raw = [System.IO.File]::ReadAllText($srcConf, $utf8NoBom)
-    $modified = $raw.Replace('        auth_request /_auth;', '        auth_request off;')
+    $pattern = '(?m)^(\s*)auth_request\s+/_auth\s*;'
+    if ($raw -notmatch $pattern) {
+        throw "Ensure-NginxNoAuthConfig gagal: baris 'auth_request /_auth;' tidak ditemukan di $srcConf."
+    }
+    $modified = [regex]::Replace($raw, $pattern, '$1auth_request off;')
+    if ($modified -eq $raw) {
+        throw "Ensure-NginxNoAuthConfig gagal: hasil penggantian sama dengan berkas sumber ($srcConf)."
+    }
     [System.IO.File]::WriteAllText($dstConf, $modified, $utf8NoBom)
     return $dstConf
 }
@@ -281,9 +345,10 @@ function Initialize-TestAccount([string]$GatewayHostUrl = 'http://127.0.0.1:8080
     $tmpReg = Join-Path $env:TEMP "baseline_reg_$ts.json"
     [System.IO.File]::WriteAllText($tmpReg, $regBody, $utf8NoBom)
     try {
-        $regCode = (& curl.exe -s -o NUL -w "%{http_code}" -X POST "$GatewayHostUrl/api/micro-cred/auth/register" -H "Content-Type: application/json" --data-binary "@$tmpReg").Trim()
+        $regRaw = & curl.exe -s -o NUL -w "%{http_code}" -X POST "$GatewayHostUrl/api/micro-cred/auth/register" -H "Content-Type: application/json" --data-binary "@$tmpReg"
+        $regCode = ConvertTo-TrimmedString $regRaw
         if ($regCode -ne '201' -and $regCode -ne '409') {
-            throw "Registrasi akun uji gagal dengan kode HTTP $regCode"
+            throw "Registrasi akun uji gagal dengan kode HTTP '$regCode'"
         }
     }
     finally {
@@ -307,8 +372,9 @@ function Update-TestToken([string]$GatewayHostUrl = 'http://127.0.0.1:8080') {
     $tmpLogin = Join-Path $env:TEMP "baseline_login_$nowMs.json"
     [System.IO.File]::WriteAllText($tmpLogin, $loginBody, $utf8NoBom)
     try {
-        $raw = (& curl.exe -s -X POST "$GatewayHostUrl/api/micro-cred/auth/login" -H "Content-Type: application/json" --data-binary "@$tmpLogin") -join "`n"
-        $parsed = $raw | ConvertFrom-Json
+        $raw = & curl.exe -s -X POST "$GatewayHostUrl/api/micro-cred/auth/login" -H "Content-Type: application/json" --data-binary "@$tmpLogin"
+        $rawStr = ConvertTo-TrimmedString $raw
+        $parsed = ConvertFrom-JsonSafe -JsonText $rawStr -Context 'Login akun uji'
         if (-not $parsed -or -not $parsed.tokens -or -not $parsed.tokens.access_token) {
             throw "Login akun uji tidak mengembalikan access_token"
         }
@@ -378,17 +444,40 @@ function Invoke-PhaseA {
         docker run -d --name $noAuthContainer --network superapp_default -v "${noAuthConfPath}:/etc/nginx/nginx.conf:ro" nginx:1.27-alpine | Out-Null
         Start-Sleep -Seconds 2
 
-        # Verifikasi bahwa noauth aktif dan tidak memanggil auth-verifier (request tanpa token -> 200 di noauth, 401 di gateway)
+        # (3b) Probe noauth dibungkus try/catch, kirim kode Python lewat stdin, berhenti bila status != 200 atau log auth-verifier bertambah
         $verBeforeProbe = Get-AuthVerifierLogLineCount
-        $probeNoAuthCode = (& docker compose exec -T microcred-api python -c "import urllib.request; print(urllib.request.urlopen('http://superapp-nginx-noauth/api/judul-recommender/').status)" 2>$null).Trim()
-        $verAfterProbe = Get-AuthVerifierLogLineCount
-        Write-Host "[A1] Verifikasi superapp-nginx-noauth tanpa token -> HTTP $probeNoAuthCode (delta log auth-verifier = $($verAfterProbe - $verBeforeProbe))"
+        $probeNoAuthCode = ''
+        $verProbeDelta = 0
+        try {
+            $probePy = @"
+import urllib.request
+with urllib.request.urlopen('http://superapp-nginx-noauth/api/judul-recommender/', timeout=10) as resp:
+    print(resp.status)
+"@
+            $probeRaw = $probePy | & docker compose exec -T microcred-api python - 2>$null
+            $probeNoAuthCode = ConvertTo-TrimmedString $probeRaw
+            if (-not $probeNoAuthCode) {
+                throw "Output probe noauth kosong dari container microcred-api."
+            }
+            $verAfterProbe = Get-AuthVerifierLogLineCount
+            $verProbeDelta = $verAfterProbe - $verBeforeProbe
+            if ($probeNoAuthCode -ne '200') {
+                throw "Status HTTP probe noauth bukan 200 (diterima: '$probeNoAuthCode')."
+            }
+            if ($verProbeDelta -gt 0) {
+                throw "Log auth-verifier bertambah $verProbeDelta baris selama probe noauth."
+            }
+        }
+        catch {
+            throw "ABORT A1 (Validasi Probe NoAuth Gagal): $($_.Exception.Message)"
+        }
+        Write-Host "[A1] Probe superapp-nginx-noauth tanpa token LOLOS -> HTTP $probeNoAuthCode (delta log auth-verifier = $verProbeDelta)"
 
-        # Verifikasi pra-syarat K2: satu request langsung ke matkul:3000/api/panduan/extract-upload dengan minimal-valid.pdf
+        # (2) Verifikasi pra-syarat K2: kirim kode Python lewat stdin ke "docker compose exec -T microcred-api python -"
+        $pdfB64 = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($smallPdfPath))
         $k2VerifyPy = @"
 import urllib.request, json, base64
-pdf_b64 = '$([Convert]::ToBase64String([System.IO.File]::ReadAllBytes($smallPdfPath)))'
-pdf_bytes = base64.b64decode(pdf_b64)
+pdf_bytes = base64.b64decode('$pdfB64')
 boundary = '----BaselineK2Boundary'
 body = (
     f'--{boundary}\r\n'
@@ -405,19 +494,23 @@ with urllib.request.urlopen(req, timeout=15) as resp:
     data = json.loads(resp.read().decode('utf-8'))
     print(json.dumps({'status': resp.status, 'ok': data.get('ok'), 'extracted_chars': data.get('extracted_chars', 0)}))
 "@
-        $k2VerifyOut = (& docker compose exec -T microcred-api python -c $k2VerifyPy 2>$null).Trim()
-        $k2VerifyObj = $k2VerifyOut | ConvertFrom-Json
-        $k2Enabled = ($k2VerifyObj.status -eq 200 -and $k2VerifyObj.extracted_chars -gt 0)
+        $k2Raw = $k2VerifyPy | & docker compose exec -T microcred-api python - 2>$null
+        $k2VerifyOut = ConvertTo-TrimmedString $k2Raw
+        if (-not $k2VerifyOut) {
+            throw "ABORT A3-K2: Verifikasi PDF minimal langsung ke matkul:3000 menghasilkan output kosong."
+        }
+        $k2VerifyObj = ConvertFrom-JsonSafe -JsonText $k2VerifyOut -Context 'Verifikasi K2 matkul:3000'
+        $k2Enabled = ($k2VerifyObj.status -eq 200 -and [int]$k2VerifyObj.extracted_chars -gt 0)
         Write-Host "[A3-K2] Verifikasi PDF minimal langsung ke matkul:3000 -> status=$($k2VerifyObj.status), extracted_chars=$($k2VerifyObj.extracted_chars), K2 diaktifkan=$k2Enabled"
 
         $conditions = @(
-            @{ Id = 'M1-20rps';  Cond = 'M1'; Service = 'Micro-cred'; Endpoint = 'GET /tracks';                   Rate = 20;  Expected = 200 },
-            @{ Id = 'M1-50rps';  Cond = 'M1'; Service = 'Micro-cred'; Endpoint = 'GET /tracks';                   Rate = 50;  Expected = 200 },
-            @{ Id = 'M1-100rps'; Cond = 'M1'; Service = 'Micro-cred'; Endpoint = 'GET /tracks';                   Rate = 100; Expected = 200 },
-            @{ Id = 'M2-20rps';  Cond = 'M2'; Service = 'Micro-cred'; Endpoint = 'GET /auth/me';                  Rate = 20;  Expected = 200 },
-            @{ Id = 'M2-50rps';  Cond = 'M2'; Service = 'Micro-cred'; Endpoint = 'GET /auth/me';                  Rate = 50;  Expected = 200 },
-            @{ Id = 'J1-50rps';  Cond = 'J1'; Service = 'Judul';      Endpoint = 'GET /';                         Rate = 50;  Expected = 200 },
-            @{ Id = 'J1-200rps'; Cond = 'J1'; Service = 'Judul';      Endpoint = 'GET /';                         Rate = 200; Expected = 200 },
+            @{ Id = 'M1-20rps';  Cond = 'M1'; Service = 'Micro-cred'; Endpoint = 'GET /tracks';                                      Rate = 20;  Expected = 200 },
+            @{ Id = 'M1-50rps';  Cond = 'M1'; Service = 'Micro-cred'; Endpoint = 'GET /tracks';                                      Rate = 50;  Expected = 200 },
+            @{ Id = 'M1-100rps'; Cond = 'M1'; Service = 'Micro-cred'; Endpoint = 'GET /tracks';                                      Rate = 100; Expected = 200 },
+            @{ Id = 'M2-20rps';  Cond = 'M2'; Service = 'Micro-cred'; Endpoint = 'GET /auth/me';                                     Rate = 20;  Expected = 200 },
+            @{ Id = 'M2-50rps';  Cond = 'M2'; Service = 'Micro-cred'; Endpoint = 'GET /auth/me';                                     Rate = 50;  Expected = 200 },
+            @{ Id = 'J1-50rps';  Cond = 'J1'; Service = 'Judul';      Endpoint = 'GET /';                                            Rate = 50;  Expected = 200 },
+            @{ Id = 'J1-200rps'; Cond = 'J1'; Service = 'Judul';      Endpoint = 'GET /';                                            Rate = 200; Expected = 200 },
             @{ Id = 'K1-20rps';  Cond = 'K1'; Service = 'Matkul';     Endpoint = 'POST /api/panduan/extract-upload (non-PDF -> 400)'; Rate = 20; Expected = 400 },
             @{ Id = 'K1-50rps';  Cond = 'K1'; Service = 'Matkul';     Endpoint = 'POST /api/panduan/extract-upload (non-PDF -> 400)'; Rate = 50; Expected = 400 }
         )
@@ -435,10 +528,13 @@ with urllib.request.urlopen(req, timeout=15) as resp:
         $summaryJsonPath = Join-Path $outDir 'phase-a-summary.json'
         $summaryMap = [ordered]@{}
         if (($Resume -or $OnlyCondition) -and (Test-Path $summaryJsonPath)) {
-            $loaded = Get-Content $summaryJsonPath -Raw | ConvertFrom-Json
-            if ($loaded -and $loaded.conditions) {
-                foreach ($item in $loaded.conditions) {
-                    $summaryMap[$item.id] = $item
+            $loadedRaw = Get-Content $summaryJsonPath -Raw
+            if (-not [string]::IsNullOrWhiteSpace($loadedRaw)) {
+                $loaded = ConvertFrom-JsonSafe -JsonText $loadedRaw -Context $summaryJsonPath
+                if ($loaded -and $loaded.conditions) {
+                    foreach ($item in $loaded.conditions) {
+                        $summaryMap[$item.id] = $item
+                    }
                 }
             }
         }
@@ -484,12 +580,9 @@ with urllib.request.urlopen(req, timeout=15) as resp:
             $conditionSaturated = $false
             $saturationReason = ''
             $notCalmEvents = New-Object System.Collections.Generic.List[string]
+            $noAuthVerifierHitEvents = New-Object System.Collections.Generic.List[string]
 
             for ($r = 1; $r -le $Repeats; $r++) {
-                # Rotasi urutan jalur per ulangan:
-                # r=1: direct, noauth, gateway
-                # r=2: noauth, gateway, direct
-                # r=3: gateway, direct, noauth
                 $rotatedPaths = @(
                     $basePaths[($r - 1 + 0) % 3],
                     $basePaths[($r - 1 + 1) % 3],
@@ -498,7 +591,6 @@ with urllib.request.urlopen(req, timeout=15) as resp:
                 Write-Host ("  [Ulangan {0}/{1}] Urutan jalur: {2}" -f $r, $Repeats, ($rotatedPaths -join ' -> '))
 
                 foreach ($pathMode in $rotatedPaths) {
-                    # Tunggu kondisi tenang (< 5% CPU pada 2 sampel beruntun, maks 60s) + 15s
                     $calmInfo = Wait-ContainersCalm -MaxWaitSec 60 -PostCalmSleepSec 15
                     if (-not $calmInfo.Calm) {
                         $msg = "${cid}-${pathMode}-r${r} (total CPU terakhir $($calmInfo.LastTotalCpu)% setelah $($calmInfo.WaitedSec)s)"
@@ -565,11 +657,20 @@ with urllib.request.urlopen(req, timeout=15) as resp:
                     $verLogDelta = $verLinesAfter - $verLinesBefore
                     $noAuthLogDelta = $noAuthLogsAfter - $noAuthLogsBefore
 
+                    # (3c) Bila jalur noauth mencatat verifier_log_delta > 0, tandai sebagai noauth_verifier_hits dan laporkan
+                    $noAuthHit = ($pathMode -eq 'noauth' -and $verLogDelta -gt 0)
+                    if ($noAuthHit) {
+                        $hitMsg = "${runTag}: verifier_log_delta=$verLogDelta"
+                        Write-Warning "  [NOAUTH_VERIFIER_HITS] Jalur noauth mencatat penambahan log auth-verifier ($hitMsg)!"
+                        $noAuthVerifierHitEvents.Add($hitMsg)
+                    }
+
                     if (-not (Test-Path $jsonHost)) {
                         throw "ABORT: File ringkasan k6 tidak terbentuk untuk $runTag (exit=$k6Exit)."
                     }
 
-                    $summary = Get-Content $jsonHost -Raw | ConvertFrom-Json
+                    $summaryRaw = Get-Content $jsonHost -Raw
+                    $summary = ConvertFrom-JsonSafe -JsonText $summaryRaw -Context "Ringkasan k6 $runTag"
                     if ($summary.PSObject.Properties['setup_data']) {
                         $summary.PSObject.Properties.Remove('setup_data')
                         ($summary | ConvertTo-Json -Depth 8) | Set-Content -Path $jsonHost -Encoding utf8
@@ -596,36 +697,39 @@ with urllib.request.urlopen(req, timeout=15) as resp:
                     $extOk = Get-K6MetricValue $m 'main_extracted_ok' 'count'
 
                     $rps = [math]::Round(($reqs / 30.0), 2)
-                    $containerMedians = Get-MeasureWindowMedianStats -CsvPath $statsCsv -StartMs $measureStartMs -EndMs $measureEndMs
+                    $statsResult = Get-MeasureWindowMedianStats -CsvPath $statsCsv -StartMs $measureStartMs -EndMs $measureEndMs
 
-                    Write-Host ("    [{0,-7}] reqs={1,4} rps={2,6:N2} p50={3,6:N2}ms p95={4,7:N2}ms p99={5,7:N2}ms avg={6,6:N2}ms err={7,5:N2}% drop={8} calm={9}" -f $pathMode, $reqs, $rps, $p50, $p95, $p99, $avg, ($errRate * 100.0), $dropped, $calmInfo.Calm)
+                    Write-Host ("    [{0,-7}] reqs={1,4} rps={2,6:N2} p50={3,6:N2}ms p95={4,7:N2}ms p99={5,7:N2}ms avg={6,6:N2}ms err={7,5:N2}% drop={8} calm={9} dt_stats={10}s" -f $pathMode, $reqs, $rps, $p50, $p95, $p99, $avg, ($errRate * 100.0), $dropped, $calmInfo.Calm, $statsResult.SampleIntervalMedianSec)
 
                     $runsByPath[$pathMode].Add([pscustomobject]@{
-                        repeat                  = $r
-                        path_mode               = $pathMode
-                        calm_before             = $calmInfo.Calm
-                        calm_wait_sec           = $calmInfo.WaitedSec
-                        calm_last_total_cpu_pct = $calmInfo.LastTotalCpu
-                        reqs                    = $reqs
-                        rps                     = $rps
-                        p50_ms                  = [math]::Round($p50, 2)
-                        p95_ms                  = [math]::Round($p95, 2)
-                        p99_ms                  = [math]::Round($p99, 2)
-                        avg_ms                  = [math]::Round($avg, 2)
-                        min_ms                  = [math]::Round($minLat, 2)
-                        max_ms                  = [math]::Round($maxLat, 2)
-                        err_rate_pct            = [math]::Round(($errRate * 100.0), 2)
-                        dropped_iterations      = $dropped
-                        timeouts                = $timeouts
-                        status_200              = $s200
-                        status_400              = $s400
-                        status_401              = $s401
-                        status_503              = $s503
-                        status_5xx              = $s5xx
-                        extracted_ok            = $extOk
-                        verifier_log_delta      = $verLogDelta
-                        noauth_nginx_log_delta  = $noAuthLogDelta
-                        container_medians       = $containerMedians
+                        repeat                     = $r
+                        path_mode                  = $pathMode
+                        calm_before                = $calmInfo.Calm
+                        calm_wait_sec              = $calmInfo.WaitedSec
+                        calm_last_total_cpu_pct    = $calmInfo.LastTotalCpu
+                        reqs                       = $reqs
+                        rps                        = $rps
+                        p50_ms                     = [math]::Round($p50, 2)
+                        p95_ms                     = [math]::Round($p95, 2)
+                        p99_ms                     = [math]::Round($p99, 2)
+                        avg_ms                     = [math]::Round($avg, 2)
+                        min_ms                     = [math]::Round($minLat, 2)
+                        max_ms                     = [math]::Round($maxLat, 2)
+                        err_rate_pct               = [math]::Round(($errRate * 100.0), 2)
+                        dropped_iterations         = $dropped
+                        timeouts                   = $timeouts
+                        status_200                 = $s200
+                        status_400                 = $s400
+                        status_401                 = $s401
+                        status_503                 = $s503
+                        status_5xx                 = $s5xx
+                        extracted_ok               = $extOk
+                        verifier_log_delta         = $verLogDelta
+                        noauth_verifier_hits       = $noAuthHit
+                        noauth_nginx_log_delta     = $noAuthLogDelta
+                        sample_interval_median_sec = $statsResult.SampleIntervalMedianSec
+                        sample_interval_median_ms  = $statsResult.SampleIntervalMedianMs
+                        container_medians          = $statsResult.Containers
                     })
 
                     $hAfter = Test-StackHealthy
@@ -659,8 +763,8 @@ with urllib.request.urlopen(req, timeout=15) as resp:
                 $rpsArr = [double[]]($list | ForEach-Object { [double]$_.rps })
                 $errArr = [double[]]($list | ForEach-Object { [double]$_.err_rate_pct })
                 $drpArr = [double[]]($list | ForEach-Object { [double]$_.dropped_iterations })
+                $intSecArr = [double[]]($list | Where-Object { $null -ne $_.sample_interval_median_sec } | ForEach-Object { [double]$_.sample_interval_median_sec })
 
-                # Agregasi median CPU & memori per container antar ulangan
                 $cNames = @()
                 foreach ($runItem in $list) {
                     if ($runItem.container_medians) {
@@ -678,34 +782,36 @@ with urllib.request.urlopen(req, timeout=15) as resp:
                     }
                 }
 
+                $verHitsSum = ($list | Measure-Object -Property verifier_log_delta -Sum).Sum
                 $pathSummaries[$pm] = [ordered]@{
-                    repeats                = $list.Count
-                    p50_median_ms          = [math]::Round((Get-Median $p50Arr), 2)
-                    p50_min_ms             = [math]::Round((Get-Min $p50Arr), 2)
-                    p50_max_ms             = [math]::Round((Get-Max $p50Arr), 2)
-                    p95_median_ms          = [math]::Round((Get-Median $p95Arr), 2)
-                    p95_min_ms             = [math]::Round((Get-Min $p95Arr), 2)
-                    p95_max_ms             = [math]::Round((Get-Max $p95Arr), 2)
-                    p99_median_ms          = [math]::Round((Get-Median $p99Arr), 2)
-                    avg_median_ms          = [math]::Round((Get-Median $avgArr), 2)
-                    throughput_median_rps  = [math]::Round((Get-Median $rpsArr), 2)
-                    error_rate_median_pct  = [math]::Round((Get-Median $errArr), 2)
-                    dropped_median         = [math]::Round((Get-Median $drpArr), 0)
-                    verifier_log_delta_sum = ($list | Measure-Object -Property verifier_log_delta -Sum).Sum
-                    noauth_log_delta_sum   = ($list | Measure-Object -Property noauth_nginx_log_delta -Sum).Sum
-                    container_medians      = $aggContainers
-                    runs                   = $list
+                    repeats                    = $list.Count
+                    p50_median_ms              = [math]::Round((Get-Median $p50Arr), 2)
+                    p50_min_ms                 = [math]::Round((Get-Min $p50Arr), 2)
+                    p50_max_ms                 = [math]::Round((Get-Max $p50Arr), 2)
+                    p95_median_ms              = [math]::Round((Get-Median $p95Arr), 2)
+                    p95_min_ms                 = [math]::Round((Get-Min $p95Arr), 2)
+                    p95_max_ms                 = [math]::Round((Get-Max $p95Arr), 2)
+                    p99_median_ms              = [math]::Round((Get-Median $p99Arr), 2)
+                    avg_median_ms              = [math]::Round((Get-Median $avgArr), 2)
+                    throughput_median_rps      = [math]::Round((Get-Median $rpsArr), 2)
+                    error_rate_median_pct      = [math]::Round((Get-Median $errArr), 2)
+                    dropped_median             = [math]::Round((Get-Median $drpArr), 0)
+                    verifier_log_delta_sum     = $verHitsSum
+                    noauth_verifier_hits       = [bool]($pm -eq 'noauth' -and $verHitsSum -gt 0)
+                    noauth_log_delta_sum       = ($list | Measure-Object -Property noauth_nginx_log_delta -Sum).Sum
+                    sample_interval_median_sec = if ($intSecArr.Count -gt 0) { [math]::Round((Get-Median $intSecArr), 2) } else { $null }
+                    container_medians          = $aggContainers
+                    runs                       = $list
                 }
             }
 
-            # Hitung selisih antar jalur (proxy = noauth - direct, auth = gateway - noauth, total = gateway - direct)
+            # Hitung selisih antar jalur
             $diffs = [ordered]@{}
             if ($pathSummaries.Contains('direct') -and $pathSummaries.Contains('noauth') -and $pathSummaries.Contains('gateway')) {
                 $d = $pathSummaries['direct']
                 $n = $pathSummaries['noauth']
                 $g = $pathSummaries['gateway']
 
-                # Selisih per ulangan untuk rentang selisih
                 $proxyP50Runs = @()
                 $authP50Runs = @()
                 $totalP50Runs = @()
@@ -763,18 +869,20 @@ with urllib.request.urlopen(req, timeout=15) as resp:
             }
 
             $summaryMap[$cid] = [ordered]@{
-                id                = $cid
-                cond              = $cGroup
-                service           = $c.Service
-                endpoint          = $c.Endpoint
-                rate_rps          = $c.Rate
-                expected_status   = $c.Expected
-                skipped           = $false
-                saturated         = $conditionSaturated
-                saturation_reason = $saturationReason
-                not_calm_events   = @($notCalmEvents)
-                paths             = $pathSummaries
-                differences       = $diffs
+                id                   = $cid
+                cond                 = $cGroup
+                service              = $c.Service
+                endpoint             = $c.Endpoint
+                rate_rps             = $c.Rate
+                expected_status      = $c.Expected
+                skipped              = $false
+                saturated            = $conditionSaturated
+                saturation_reason    = $saturationReason
+                not_calm_events      = @($notCalmEvents)
+                noauth_verifier_hits = [bool]($noAuthVerifierHitEvents.Count -gt 0)
+                noauth_hit_events    = @($noAuthVerifierHitEvents)
+                paths                = $pathSummaries
+                differences          = $diffs
             }
 
             $outPayload = [ordered]@{
@@ -782,6 +890,7 @@ with urllib.request.urlopen(req, timeout=15) as resp:
                 phase               = 'A'
                 repeats             = $Repeats
                 noauth_probe_status = $probeNoAuthCode
+                noauth_probe_delta  = $verProbeDelta
                 k2_verify           = $k2VerifyObj
                 conditions          = @($summaryMap.Values)
             }
@@ -817,16 +926,21 @@ function Invoke-PhaseB {
         throw "ABORT B0: Stack tidak healthy: $($health.Reason)"
     }
 
-    # Cek kesehatan PocketBase dari jaringan Docker
-    $pbHealth = (& docker compose exec -T microcred-api python -c "import urllib.request; print(urllib.request.urlopen('http://pocketbase:8090/api/health', timeout=10).status)" 2>$null).Trim()
+    # Cek kesehatan PocketBase dari jaringan Docker via stdin
+    $pbPy = @"
+import urllib.request
+with urllib.request.urlopen('http://pocketbase:8090/api/health', timeout=10) as resp:
+    print(resp.status)
+"@
+    $pbRaw = $pbPy | & docker compose exec -T microcred-api python - 2>$null
+    $pbHealth = ConvertTo-TrimmedString $pbRaw
     if ($pbHealth -ne '200') {
-        throw "ABORT B0: PocketBase tidak sehat (GET http://pocketbase:8090/api/health -> $pbHealth)"
+        throw "ABORT B0: PocketBase tidak sehat (GET http://pocketbase:8090/api/health -> '$pbHealth')"
     }
     Write-Host "[B0] PocketBase healthy (HTTP 200)."
 
     Initialize-TestAccount -GatewayHostUrl 'http://127.0.0.1:8080'
 
-    # Fungsi pembantu untuk memeriksa pesan kredit/kuota LLM habis
     function Test-LlmQuotaError([int]$HttpCode, [string]$BodyText) {
         if ($HttpCode -eq 429) { return $true }
         if ($BodyText -match '(?i)insufficient_quota|no credits|rate_limit_exceeded|billing_hard_limit') { return $true }
@@ -835,23 +949,6 @@ function Invoke-PhaseB {
 
     # B1. Alur Matkul lewat gateway (5 siklus)
     Write-Host "`n[B1] Menjalankan 5 siklus alur Matkul lewat gateway..."
-    $pbCountPy = @"
-import sqlite3, glob, os
-db_files = glob.glob('/pb/pb_data/*.db')
-total = 0
-if db_files and os.path.exists('/pb/pb_data/data.db'):
-    conn = sqlite3.connect('/pb/pb_data/data.db')
-    cur = conn.cursor()
-    tables = [r[0] for r in cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE '_%' AND name NOT LIKE 'sqlite_%'").fetchall()]
-    for t in tables:
-        try:
-            total += cur.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0]
-        except Exception:
-            pass
-    conn.close()
-print(total)
-"@
-    $pbBeforeRaw = (& docker compose exec -T pocketbase sh -c "ls -la /pb/pb_data/data.db >/dev/null 2>&1 && echo OK || echo NO" 2>$null).Trim()
     $b1Rows = New-Object System.Collections.Generic.List[object]
     $savedRekPayload = $null
 
@@ -862,10 +959,10 @@ print(total)
 
         # Langkah 1: POST /api/matkul-recommender/khs/upload
         $sw1 = [Diagnostics.Stopwatch]::StartNew()
-        $raw1 = (& curl.exe -s -w "`n%{http_code}" -X POST "http://127.0.0.1:8080/api/matkul-recommender/khs/upload" -H "Authorization: Bearer $tok" -F "file=@$khsPdf;type=application/pdf") -join "`n"
+        $raw1 = ConvertTo-TrimmedString (& curl.exe -s -w "`n%{http_code}" -X POST "http://127.0.0.1:8080/api/matkul-recommender/khs/upload" -H "Authorization: Bearer $tok" -F "file=@$khsPdf;type=application/pdf")
         $sw1.Stop()
         $idx1 = $raw1.LastIndexOf("`n")
-        $code1 = [int]($raw1.Substring($idx1 + 1).Trim())
+        $code1 = if ($idx1 -ge 0) { [int](ConvertTo-TrimmedString $raw1.Substring($idx1 + 1)) } else { 0 }
         $body1 = if ($idx1 -gt 0) { $raw1.Substring(0, $idx1) } else { '' }
 
         if (Test-LlmQuotaError -HttpCode $code1 -BodyText $body1) {
@@ -874,19 +971,19 @@ print(total)
         if ($code1 -ne 200) {
             throw "ABORT B1: khs/upload siklus $c gagal dengan HTTP $code1"
         }
-        $json1 = $body1 | ConvertFrom-Json
+        $json1 = ConvertFrom-JsonSafe -JsonText $body1 -Context "khs/upload siklus $c"
 
         # Langkah 2: POST /api/matkul-recommender/panduan/extract-upload
         $sw2 = [Diagnostics.Stopwatch]::StartNew()
-        $raw2 = (& curl.exe -s -w "`n%{http_code}" -X POST "http://127.0.0.1:8080/api/matkul-recommender/panduan/extract-upload" -H "Authorization: Bearer $tok" -F "file_pdf=@$panduanPdf;type=application/pdf") -join "`n"
+        $raw2 = ConvertTo-TrimmedString (& curl.exe -s -w "`n%{http_code}" -X POST "http://127.0.0.1:8080/api/matkul-recommender/panduan/extract-upload" -H "Authorization: Bearer $tok" -F "file_pdf=@$panduanPdf;type=application/pdf")
         $sw2.Stop()
         $idx2 = $raw2.LastIndexOf("`n")
-        $code2 = [int]($raw2.Substring($idx2 + 1).Trim())
+        $code2 = if ($idx2 -ge 0) { [int](ConvertTo-TrimmedString $raw2.Substring($idx2 + 1)) } else { 0 }
         $body2 = if ($idx2 -gt 0) { $raw2.Substring(0, $idx2) } else { '' }
         if ($code2 -ne 200) {
             throw "ABORT B1: panduan/extract-upload siklus $c gagal dengan HTTP $code2"
         }
-        $json2 = $body2 | ConvertFrom-Json
+        $json2 = ConvertFrom-JsonSafe -JsonText $body2 -Context "panduan/extract-upload siklus $c"
 
         # Langkah 3: POST /api/matkul-recommender/rekomendasi
         $rekReqObj = [ordered]@{
@@ -904,10 +1001,10 @@ print(total)
         $body3 = ''
         $sw3 = [Diagnostics.Stopwatch]::StartNew()
         try {
-            $raw3 = (& curl.exe -s -w "`n%{http_code}" -X POST "http://127.0.0.1:8080/api/matkul-recommender/rekomendasi" -H "Authorization: Bearer $tok" -H "Content-Type: application/json" --data-binary "@$tmpRek") -join "`n"
+            $raw3 = ConvertTo-TrimmedString (& curl.exe -s -w "`n%{http_code}" -X POST "http://127.0.0.1:8080/api/matkul-recommender/rekomendasi" -H "Authorization: Bearer $tok" -H "Content-Type: application/json" --data-binary "@$tmpRek")
             $sw3.Stop()
             $idx3 = $raw3.LastIndexOf("`n")
-            $code3 = [int]($raw3.Substring($idx3 + 1).Trim())
+            $code3 = if ($idx3 -ge 0) { [int](ConvertTo-TrimmedString $raw3.Substring($idx3 + 1)) } else { 0 }
             $body3 = if ($idx3 -gt 0) { $raw3.Substring(0, $idx3) } else { '' }
         }
         finally {
@@ -919,7 +1016,7 @@ print(total)
             throw "ABORT B1: Panggilan LLM pada /rekomendasi siklus $c mengembalikan kuota habis / 429 (HTTP $code3). Dihentikan tanpa retry."
         }
 
-        $json3 = $body3 | ConvertFrom-Json
+        $json3 = ConvertFrom-JsonSafe -JsonText $body3 -Context "rekomendasi siklus $c"
         $hasKeys = (
             $null -ne $json3 -and
             $null -ne $json3.PSObject.Properties['semester_target'] -and
@@ -956,20 +1053,19 @@ print(total)
     # B2. Pasangan langsung vs gateway pada /api/rekomendasi Matkul (5 pasang, jeda >= 10 detik)
     Write-Host "`n[B2] Menjalankan 5 pasang langsung vs gateway pada /api/rekomendasi Matkul..."
     $b2Pairs = New-Object System.Collections.Generic.List[object]
-    $tmpB2 = Join-Path $env:TEMP "baseline_b2_payload.json"
-    [System.IO.File]::WriteAllText($tmpB2, $savedRekPayload, $utf8NoBom)
-    try {
-        for ($p = 1; $p -le 5; $p++) {
-            Update-TestToken -GatewayHostUrl 'http://127.0.0.1:8080'
-            $tok = $script:AuthState.Token
-            $order = if ($p % 2 -eq 1) { @('direct', 'gateway') } else { @('gateway', 'direct') }
-            $pairRes = @{}
+    $b2PayloadB64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($savedRekPayload))
 
-            foreach ($mode in $order) {
-                $targetUrl = if ($mode -eq 'direct') { 'http://matkul:3000/api/rekomendasi' } else { 'http://nginx/api/matkul-recommender/rekomendasi' }
-                $pyB2 = @"
-import urllib.request, time, json
-body = open('/scripts/out/_b2_req.json', 'rb').read()
+    for ($p = 1; $p -le 5; $p++) {
+        Update-TestToken -GatewayHostUrl 'http://127.0.0.1:8080'
+        $tok = $script:AuthState.Token
+        $order = if ($p % 2 -eq 1) { @('direct', 'gateway') } else { @('gateway', 'direct') }
+        $pairRes = @{}
+
+        foreach ($mode in $order) {
+            $targetUrl = if ($mode -eq 'direct') { 'http://matkul:3000/api/rekomendasi' } else { 'http://nginx/api/matkul-recommender/rekomendasi' }
+            $pyB2 = @"
+import urllib.request, time, json, base64
+body = base64.b64decode('$b2PayloadB64')
 req = urllib.request.Request(
     '$targetUrl',
     data=body,
@@ -987,33 +1083,23 @@ except Exception as e:
     code = getattr(e, 'code', 0)
     print(json.dumps({'code': code, 'sec': round(dt, 3), 'error': str(e)[:120]}))
 "@
-                $b2InContainer = Join-Path $outDir '_b2_req.json'
-                [System.IO.File]::WriteAllText($b2InContainer, $savedRekPayload, $utf8NoBom)
-                try {
-                    $outStr = (& docker run --rm --network superapp_default -v "${baseDir}:/scripts" --entrypoint python superapp-microcred-api -c $pyB2 2>$null).Trim()
-                    $pairRes[$mode] = $outStr | ConvertFrom-Json
-                }
-                finally {
-                    Remove-Item $b2InContainer -Force -ErrorAction SilentlyContinue
-                }
-                Start-Sleep -Seconds 10
-            }
-
-            $dSec = [double]$pairRes['direct'].sec
-            $gSec = [double]$pairRes['gateway'].sec
-            $b2Pairs.Add([pscustomobject]@{
-                pair            = $p
-                order           = ($order -join ' -> ')
-                direct_code     = $pairRes['direct'].code
-                direct_sec      = $dSec
-                gateway_code    = $pairRes['gateway'].code
-                gateway_sec     = $gSec
-                diff_gw_minus_d = [math]::Round(($gSec - $dSec), 3)
-            })
+            $rawB2 = $pyB2 | & docker compose exec -T microcred-api python - 2>$null
+            $outStr = ConvertTo-TrimmedString $rawB2
+            $pairRes[$mode] = ConvertFrom-JsonSafe -JsonText $outStr -Context "B2 pasang $p ($mode)"
+            Start-Sleep -Seconds 10
         }
-    }
-    finally {
-        Remove-Item $tmpB2 -Force -ErrorAction SilentlyContinue
+
+        $dSec = [double]$pairRes['direct'].sec
+        $gSec = [double]$pairRes['gateway'].sec
+        $b2Pairs.Add([pscustomobject]@{
+            pair            = $p
+            order           = ($order -join ' -> ')
+            direct_code     = $pairRes['direct'].code
+            direct_sec      = $dSec
+            gateway_code    = $pairRes['gateway'].code
+            gateway_sec     = $gSec
+            diff_gw_minus_d = [math]::Round(($gSec - $dSec), 3)
+        })
     }
 
     # B3. Pasangan langsung vs gateway pada Judul get-recommendations (10 pasang, jeda >= 12 detik)
@@ -1050,8 +1136,9 @@ except Exception as e:
     code = getattr(e, 'code', 0)
     print(json.dumps({'code': code, 'sec': round(dt, 3), 'recs': 0, 'refs': [], 'error': str(e)[:120]}))
 "@
-            $outStr = (& docker run --rm --network superapp_default --entrypoint python superapp-microcred-api -c $pyB3 2>$null).Trim()
-            $resObj = $outStr | ConvertFrom-Json
+            $rawB3 = $pyB3 | & docker compose exec -T microcred-api python - 2>$null
+            $outStr = ConvertTo-TrimmedString $rawB3
+            $resObj = ConvertFrom-JsonSafe -JsonText $outStr -Context "B3 pasang $p ($mode)"
             $pairRes[$mode] = $resObj
             if ($resObj.code -ne 200) {
                 $consecFail++
@@ -1080,8 +1167,8 @@ except Exception as e:
         })
     }
 
-    # B4. Uji ulang alur Micro-cred via gateway/tests/e2e-flow.ps1 (5 siklus, ke out/)
-    Write-Host "`n[B4] Menjalankan uji ulang alur Micro-cred (gateway/tests/e2e-flow.ps1)..."
+    # B4. Uji ulang alur Micro-cred via gateway/tests/e2e-flow.ps1 (1 probe + 5 siklus utama = 6 siklus)
+    Write-Host "`n[B4] Menjalankan uji ulang alur Micro-cred (1 siklus probe + 5 siklus utama = 6 siklus)..."
     $e2eScript = Join-Path $repoRoot 'gateway\tests\e2e-flow.ps1'
     $e2eSource = Get-Content $e2eScript -Raw
     if ($e2eSource -match 'docs[\\/]+e2e-results\.md') {
@@ -1095,28 +1182,209 @@ except Exception as e:
     $apiLogsAfter1 = @(docker compose logs --no-log-prefix --since $b4StartUtc microcred-api microcred-worker 2>$null)
     $creditIssues = @($apiLogsAfter1 | Where-Object { $_ -match '(?i)gpt_rate_limited|no credits|insufficient_quota|essay_scoring_failed' })
     if ($creditIssues.Count -gt 0) {
-        throw "ABORT B4: Siklus pertama Micro-cred mendeteksi kendala kredit/skoring di log ($($creditIssues.Count) baris). Dihentikan sesuai aturan B4."
+        throw "ABORT B4: Siklus probe pertama Micro-cred mendeteksi kendala kredit/skoring di log ($($creditIssues.Count) baris). Dihentikan sesuai aturan B4."
     }
 
     $b4FullJson = Join-Path $outDir 'b4-e2e-5cycles.json'
     & powershell.exe -NoProfile -File $e2eScript -Cycles 5 -OutJson $b4FullJson
 
+    # (6) Hitung event log sejak $b4StartUtc (mencakup 6 siklus: 1 probe + 5 siklus utama)
+    $b4AllLogs = @(docker compose logs --no-log-prefix --since $b4StartUtc microcred-api microcred-worker 2>$null)
+    $b4LogEvents = [ordered]@{
+        essay_scoring_failed        = @($b4AllLogs | Where-Object { $_ -match 'essay_scoring_failed' }).Count
+        essay_scoring_fallback_used = @($b4AllLogs | Where-Object { $_ -match 'essay_scoring_fallback_used' }).Count
+        rag_no_matches              = @($b4AllLogs | Where-Object { $_ -match 'rag_no_matches' }).Count
+        rag_fallback_activated      = @($b4AllLogs | Where-Object { $_ -match 'rag_fallback_activated' }).Count
+        gpt_rate_limited            = @($b4AllLogs | Where-Object { $_ -match 'gpt_rate_limited' }).Count
+    }
+
     $phaseBOut = Join-Path $outDir 'phase-b-summary.json'
     ([ordered]@{
-        generated_utc             = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
-        phase                     = 'B'
-        pocketbase_data_status    = $pbBeforeRaw
-        pocketbase_records_created = 0
-        pocketbase_note           = 'Route API /api/khs/upload, /api/panduan/extract-upload, dan /api/rekomendasi tidak menulis record ke PocketBase secara langsung (0 record dibuat).'
-        b1_matkul                 = $b1Rows
-        b2_matkul                 = $b2Pairs
-        b3_judul                  = $b3Pairs
-        b4_json_path              = $b4FullJson
+        generated_utc           = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
+        phase                   = 'B'
+        pocketbase_records_note = 'tidak diukur oleh skrip, diverifikasi manual'
+        b1_matkul               = $b1Rows
+        b2_matkul               = $b2Pairs
+        b3_judul                = $b3Pairs
+        b4_cycles_note          = 'B4 menjalankan total 6 siklus (1 siklus probe + 5 siklus utama)'
+        b4_started_utc          = $b4StartUtc
+        b4_log_events           = $b4LogEvents
+        b4_json_path            = $b4FullJson
     } | ConvertTo-Json -Depth 10) | Set-Content -Path $phaseBOut -Encoding utf8
     Write-Host "`nFase B selesai. Hasil disimpan di $phaseBOut"
 }
 
-if ($Phase -eq 'A') {
+# ===========================================================================
+# MODE REPORT (-Report): Hasilkan docs/baseline-comparison-tables.md dari out/phase-a-summary.json
+# ===========================================================================
+function Invoke-GenerateBaselineTables {
+    $summaryJsonPath = Join-Path $outDir 'phase-a-summary.json'
+    $tablesMdPath = Join-Path $repoRoot 'docs\baseline-comparison-tables.md'
+
+    $expectedSpecs = @(
+        @{ Id = 'M1-20rps';  Service = 'Micro-cred'; Endpoint = 'GET /tracks';                                      Rate = 20  },
+        @{ Id = 'M1-50rps';  Service = 'Micro-cred'; Endpoint = 'GET /tracks';                                      Rate = 50  },
+        @{ Id = 'M1-100rps'; Service = 'Micro-cred'; Endpoint = 'GET /tracks';                                      Rate = 100 },
+        @{ Id = 'M2-20rps';  Service = 'Micro-cred'; Endpoint = 'GET /auth/me';                                     Rate = 20  },
+        @{ Id = 'M2-50rps';  Service = 'Micro-cred'; Endpoint = 'GET /auth/me';                                     Rate = 50  },
+        @{ Id = 'J1-50rps';  Service = 'Judul';      Endpoint = 'GET /';                                            Rate = 50  },
+        @{ Id = 'J1-200rps'; Service = 'Judul';      Endpoint = 'GET /';                                            Rate = 200 },
+        @{ Id = 'K1-20rps';  Service = 'Matkul';     Endpoint = 'POST /api/panduan/extract-upload (non-PDF -> 400)'; Rate = 20  },
+        @{ Id = 'K1-50rps';  Service = 'Matkul';     Endpoint = 'POST /api/panduan/extract-upload (non-PDF -> 400)'; Rate = 50  },
+        @{ Id = 'K2-5rps';   Service = 'Matkul';     Endpoint = 'POST /api/panduan/extract-upload (PDF valid -> 200)'; Rate = 5 },
+        @{ Id = 'K2-10rps';  Service = 'Matkul';     Endpoint = 'POST /api/panduan/extract-upload (PDF valid -> 200)'; Rate = 10 }
+    )
+
+    $condMap = @{}
+    $genUtc = 'tidak diukur'
+    $repCount = 'tidak diukur'
+
+    if (-not (Test-Path $summaryJsonPath)) {
+        Write-Warning "[Mode Report] Berkas $summaryJsonPath belum tersedia. Menghasilkan $tablesMdPath dengan nilai 'tidak diukur'."
+    }
+    else {
+        $raw = Get-Content $summaryJsonPath -Raw
+        if ([string]::IsNullOrWhiteSpace($raw)) {
+            Write-Warning "[Mode Report] Berkas $summaryJsonPath kosong. Menghasilkan $tablesMdPath dengan nilai 'tidak diukur'."
+        }
+        else {
+            $parsed = ConvertFrom-JsonSafe -JsonText $raw -Context $summaryJsonPath
+            if ($parsed.generated_utc) { $genUtc = [string]$parsed.generated_utc }
+            if ($parsed.repeats) { $repCount = [string]$parsed.repeats }
+            foreach ($c in @($parsed.conditions)) {
+                if ($c -and $c.id) {
+                    $condMap[[string]$c.id] = $c
+                }
+            }
+            if ($condMap.Count -lt $expectedSpecs.Count) {
+                Write-Warning "[Mode Report] Data di $summaryJsonPath belum lengkap ($($condMap.Count)/$($expectedSpecs.Count) kondisi). Kondisi yang belum ada ditulis 'tidak diukur'."
+            }
+        }
+    }
+
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.AppendLine('# Tabel Hasil Pengujian Baseline Fase A (`docs/baseline-comparison-tables.md`)')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine("Dihasilkan oleh: ``powershell -File gateway/tests/baseline/run-baseline.ps1 -Report``  ")
+    [void]$sb.AppendLine("Sumber data: ``gateway/tests/baseline/out/phase-a-summary.json`` (Waktu sumber: ``$genUtc``, Ulangan target: ``$repCount``)  ")
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('> [!NOTE]')
+    [void]$sb.AppendLine('> Sel tanpa data pengukuran aktual ditulis **`tidak diukur`** (tidak diestimasi dan tidak diisi nol).')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('---')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('## 1. Tabel Tiga Jalur per Kondisi (`direct`, `noauth`, `gateway`)')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('| Kondisi | Layanan | Endpoint | Laju Target (req/s) | Jalur | p50 Median [Min–Maks] (ms) | p95 Median [Min–Maks] (ms) | p99 Median (ms) | Rata-rata (ms) | Throughput (req/s) | Kegagalan (%) | Dropped Iterations | Interval Stats Median (s) |')
+    [void]$sb.AppendLine('|---|---|---|---:|---|---|---|---|---|---|---|---|---|')
+
+    foreach ($spec in $expectedSpecs) {
+        $cid = $spec.Id
+        $cObj = if ($condMap.ContainsKey($cid)) { $condMap[$cid] } else { $null }
+        foreach ($pm in @('direct', 'noauth', 'gateway')) {
+            $pObj = $null
+            if ($cObj -and -not $cObj.skipped -and $cObj.paths -and $cObj.paths.PSObject.Properties[$pm]) {
+                $pObj = $cObj.paths.PSObject.Properties[$pm].Value
+            }
+            if ($null -eq $pObj) {
+                [void]$sb.AppendLine("| **$cid** | $($spec.Service) | ``$($spec.Endpoint)`` | $($spec.Rate) | ``$pm`` | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur |")
+            }
+            else {
+                $p50Cell = ('{0:N2} [{1:N2}–{2:N2}]' -f [double]$pObj.p50_median_ms, [double]$pObj.p50_min_ms, [double]$pObj.p50_max_ms)
+                $p95Cell = ('{0:N2} [{1:N2}–{2:N2}]' -f [double]$pObj.p95_median_ms, [double]$pObj.p95_min_ms, [double]$pObj.p95_max_ms)
+                $p99Cell = ('{0:N2}' -f [double]$pObj.p99_median_ms)
+                $avgCell = ('{0:N2}' -f [double]$pObj.avg_median_ms)
+                $rpsCell = ('{0:N2}' -f [double]$pObj.throughput_median_rps)
+                $errCell = ('{0:N2}%' -f [double]$pObj.error_rate_median_pct)
+                $drpCell = ('{0}' -f $pObj.dropped_median)
+                $intCell = if ($null -ne $pObj.sample_interval_median_sec) { ('{0:N2}' -f [double]$pObj.sample_interval_median_sec) } else { 'tidak diukur' }
+                [void]$sb.AppendLine("| **$cid** | $($spec.Service) | ``$($spec.Endpoint)`` | $($spec.Rate) | ``$pm`` | $p50Cell | $p95Cell | $p99Cell | $avgCell | $rpsCell | $errCell | $drpCell | $intCell |")
+            }
+        }
+    }
+
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('---')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('## 2. Tabel Selisih Antar Jalur ($\Delta_{\text{proxy}}$, $\Delta_{\text{auth}}$, $\Delta_{\text{total}}$) dan Tafsir')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('| Kondisi | $\Delta_{\text{proxy}}$ p50 [Min–Maks] (ms) | $\Delta_{\text{auth}}$ p50 [Min–Maks] (ms) | $\Delta_{\text{total}}$ p50 [Min–Maks] (ms) | $\Delta_{\text{proxy}}$ p95 [Min–Maks] (ms) | $\Delta_{\text{auth}}$ p95 [Min–Maks] (ms) | $\Delta_{\text{total}}$ p95 [Min–Maks] (ms) | Tafsir $\Delta_{\text{proxy}}$ | Tafsir $\Delta_{\text{auth}}$ | Tafsir $\Delta_{\text{total}}$ |')
+    [void]$sb.AppendLine('|---|---|---|---|---|---|---|---|---|---|')
+
+    foreach ($spec in $expectedSpecs) {
+        $cid = $spec.Id
+        $cObj = if ($condMap.ContainsKey($cid)) { $condMap[$cid] } else { $null }
+        $dObj = if ($cObj -and $cObj.differences) { $cObj.differences } else { $null }
+        if ($null -eq $dObj -or -not $dObj.PSObject.Properties['proxy_noauth_minus_direct']) {
+            [void]$sb.AppendLine("| **$cid** | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur |")
+        }
+        else {
+            $dp = $dObj.proxy_noauth_minus_direct
+            $da = $dObj.auth_gateway_minus_noauth
+            $dt = $dObj.total_gateway_minus_direct
+
+            $dp50 = ('{0:N2} [{1:N2}..{2:N2}]' -f [double]$dp.p50_diff_median_ms, [double]$dp.p50_diff_min_ms, [double]$dp.p50_diff_max_ms)
+            $da50 = ('{0:N2} [{1:N2}..{2:N2}]' -f [double]$da.p50_diff_median_ms, [double]$da.p50_diff_min_ms, [double]$da.p50_diff_max_ms)
+            $dt50 = ('{0:N2} [{1:N2}..{2:N2}]' -f [double]$dt.p50_diff_median_ms, [double]$dt.p50_diff_min_ms, [double]$dt.p50_diff_max_ms)
+
+            $dp95 = ('{0:N2} [{1:N2}..{2:N2}]' -f [double]$dp.p95_diff_median_ms, [double]$dp.p95_diff_min_ms, [double]$dp.p95_diff_max_ms)
+            $da95 = ('{0:N2} [{1:N2}..{2:N2}]' -f [double]$da.p95_diff_median_ms, [double]$da.p95_diff_min_ms, [double]$da.p95_diff_max_ms)
+            $dt95 = ('{0:N2} [{1:N2}..{2:N2}]' -f [double]$dt.p95_diff_median_ms, [double]$dt.p95_diff_min_ms, [double]$dt.p95_diff_max_ms)
+
+            [void]$sb.AppendLine("| **$cid** | $dp50 | $da50 | $dt50 | $dp95 | $da95 | $dt95 | $($dp.interpretation) | $($da.interpretation) | $($dt.interpretation) |")
+        }
+    }
+
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('---')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('## 3. Tabel Median CPU (`%`) dan Memori (`MiB`) per Container pada Fase Ukur')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('| Kondisi | Jalur | `nginx` | `superapp-nginx-noauth` | `auth-verifier` | `microcred-api` | `db` | `judul-api` | `matkul` | `pocketbase` | `redis` |')
+    [void]$sb.AppendLine('|---|---|---|---|---|---|---|---|---|---|---|')
+
+    $containerCols = @(
+        'superapp-nginx-1',
+        'superapp-nginx-noauth',
+        'superapp-auth-verifier-1',
+        'superapp-microcred-api-1',
+        'superapp-db-1',
+        'superapp-judul-api-1',
+        'superapp-matkul-1',
+        'superapp-pocketbase-1',
+        'superapp-redis-1'
+    )
+
+    foreach ($spec in $expectedSpecs) {
+        $cid = $spec.Id
+        $cObj = if ($condMap.ContainsKey($cid)) { $condMap[$cid] } else { $null }
+        foreach ($pm in @('direct', 'noauth', 'gateway')) {
+            $pObj = $null
+            if ($cObj -and -not $cObj.skipped -and $cObj.paths -and $cObj.paths.PSObject.Properties[$pm]) {
+                $pObj = $cObj.paths.PSObject.Properties[$pm].Value
+            }
+            $cells = @()
+            foreach ($cn in $containerCols) {
+                if ($null -ne $pObj -and $pObj.container_medians -and $pObj.container_medians.PSObject.Properties[$cn]) {
+                    $cm = $pObj.container_medians.PSObject.Properties[$cn].Value
+                    $cells += ('{0:N2}% / {1:N1} MiB' -f [double]$cm.median_cpu_pct, [double]$cm.median_mem_mib)
+                }
+                else {
+                    $cells += 'tidak diukur'
+                }
+            }
+            [void]$sb.AppendLine("| **$cid** | ``$pm`` | $($cells -join ' | ') |")
+        }
+    }
+
+    [System.IO.File]::WriteAllText($tablesMdPath, $sb.ToString(), $utf8NoBom)
+    Write-Host "[Mode Report] Tabel perbandingan berhasil ditulis ke $tablesMdPath"
+}
+
+if ($Report) {
+    Invoke-GenerateBaselineTables
+}
+elseif ($Phase -eq 'A') {
     Invoke-PhaseA
 }
 else {

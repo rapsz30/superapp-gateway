@@ -7,6 +7,4 @@ while ($true) {
             "$ts,$l" | Add-Content -Path $CsvPath -Encoding utf8
         }
     }
-    Start-Sleep -Seconds 2
 }
-
