@@ -1,0 +1,155 @@
+﻿{
+    "started_utc":  "2026-10-29T06:15:20Z",
+    "cycles":  5,
+    "alur_a":  {
+                   "stats_server_seconds":  "n=5 min=0.02 median=0.03 maks=0.15",
+                   "stats_client_seconds":  "n=5 min=20.30 median=24.08 maks=30.50",
+                   "completed":  5,
+                   "rows":  [
+                                {
+                                    "cycle":  1,
+                                    "reg":  201,
+                                    "login":  200,
+                                    "start":  200,
+                                    "submit":  200,
+                                    "final_status":  "completed",
+                                    "status_code":  200,
+                                    "result":  200,
+                                    "seconds":  30.5,
+                                    "server_ms":  48,
+                                    "recs":  10,
+                                    "recs_with_reason":  10,
+                                    "has_summary":  true,
+                                    "note":  ""
+                                },
+                                {
+                                    "cycle":  2,
+                                    "reg":  201,
+                                    "login":  200,
+                                    "start":  200,
+                                    "submit":  200,
+                                    "final_status":  "completed",
+                                    "status_code":  200,
+                                    "result":  200,
+                                    "seconds":  24.08,
+                                    "server_ms":  145,
+                                    "recs":  5,
+                                    "recs_with_reason":  5,
+                                    "has_summary":  true,
+                                    "note":  ""
+                                },
+                                {
+                                    "cycle":  3,
+                                    "reg":  201,
+                                    "login":  200,
+                                    "start":  200,
+                                    "submit":  200,
+                                    "final_status":  "completed",
+                                    "status_code":  200,
+                                    "result":  200,
+                                    "seconds":  20.3,
+                                    "server_ms":  30,
+                                    "recs":  10,
+                                    "recs_with_reason":  10,
+                                    "has_summary":  true,
+                                    "note":  ""
+                                },
+                                {
+                                    "cycle":  4,
+                                    "reg":  201,
+                                    "login":  200,
+                                    "start":  200,
+                                    "submit":  200,
+                                    "final_status":  "completed",
+                                    "status_code":  200,
+                                    "result":  200,
+                                    "seconds":  25.34,
+                                    "server_ms":  22,
+                                    "recs":  10,
+                                    "recs_with_reason":  10,
+                                    "has_summary":  true,
+                                    "note":  ""
+                                },
+                                {
+                                    "cycle":  5,
+                                    "reg":  201,
+                                    "login":  200,
+                                    "start":  200,
+                                    "submit":  200,
+                                    "final_status":  "completed",
+                                    "status_code":  200,
+                                    "result":  200,
+                                    "seconds":  22.79,
+                                    "server_ms":  24,
+                                    "recs":  10,
+                                    "recs_with_reason":  10,
+                                    "has_summary":  true,
+                                    "note":  ""
+                                }
+                            ]
+               },
+    "alur_b":  {
+                   "stats_seconds":  "n=4 min=6.87 median=8.70 maks=13.91",
+                   "rows":  [
+                                {
+                                    "cycle":  1,
+                                    "code":  200,
+                                    "seconds":  6.87,
+                                    "recs":  1,
+                                    "refs_per_rec":  "2",
+                                    "detail":  ""
+                                },
+                                {
+                                    "cycle":  2,
+                                    "code":  200,
+                                    "seconds":  9.27,
+                                    "recs":  3,
+                                    "refs_per_rec":  "2,2,2",
+                                    "detail":  ""
+                                },
+                                {
+                                    "cycle":  3,
+                                    "code":  200,
+                                    "seconds":  13.91,
+                                    "recs":  1,
+                                    "refs_per_rec":  "2",
+                                    "detail":  ""
+                                },
+                                {
+                                    "cycle":  4,
+                                    "code":  200,
+                                    "seconds":  8.13,
+                                    "recs":  3,
+                                    "refs_per_rec":  "2,2,2",
+                                    "detail":  ""
+                                },
+                                {
+                                    "cycle":  5,
+                                    "code":  500,
+                                    "seconds":  5.09,
+                                    "recs":  0,
+                                    "refs_per_rec":  "",
+                                    "detail":  "Terjadi kesalahan internal : Error code: 400 - {\u0027error\u0027: {\u0027message\u0027: \"Failed to validate JSON. Please adjust your prompt. See \u0027failed_generation\u0027 for more details.\", \u0027type\u0027: \u0027invalid_request_error\u0027, \u0027..."
+                                }
+                            ],
+                   "success":  "4/5"
+               },
+    "alur_c1":  {
+                    "n_direct":  10,
+                    "gateway_median_ms":  10.5,
+                    "n_gateway":  10,
+                    "direct_median_ms":  9.3
+                },
+    "alur_c2":  {
+                    "a":  "n=68 median=2.5 ms maks=158.0 ms",
+                    "b":  "n=5 median=1.0 ms maks=3.0 ms"
+                },
+    "worker":  {
+                   "error_lines":  0,
+                   "score_essay_lines":  0,
+                   "generate_recommendations_lines":  0
+               },
+    "failures":  [
+                     "B siklus 5: http=500 Terjadi kesalahan internal : Error code: 400 - {\u0027error\u0027: {\u0027message\u0027: \"Failed to validate JSON. Please adjust your prompt. See \u0027failed_generation\u0027 for more details.\", \u0027type\u0027: \u0027invalid_request_error\u0027, \u0027..."
+                 ]
+}

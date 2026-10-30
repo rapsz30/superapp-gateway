@@ -1,0 +1,191 @@
+# Laporan Pengujian Baseline Akses Langsung ("Standalone") vs Gateway dan Evaluasi Fase B
+
+Tanggal penyusunan: **2026-10-29**  
+Orkestrator: [`gateway/tests/baseline/run-baseline.ps1`](file:///d:/File/Kuliah/Semester%206/Penelitian%20Tugas%20Akhir/SuperApp/superapp-gateway/gateway/tests/baseline/run-baseline.ps1) (`FASE_DIJALANKAN: A`, `-Repeats 3`)  
+Skrip beban k6: [`gateway/tests/baseline/baseline-k6.js`](file:///d:/File/Kuliah/Semester%206/Penelitian%20Tugas%20Akhir/SuperApp/superapp-gateway/gateway/tests/baseline/baseline-k6.js)  
+Konfigurasi NGINX tanpa autentikasi: [`gateway/tests/baseline/nginx-noauth.conf`](file:///d:/File/Kuliah/Semester%206/Penelitian%20Tugas%20Akhir/SuperApp/superapp-gateway/gateway/tests/baseline/nginx-noauth.conf)  
+
+> [!IMPORTANT]
+> **Status Eksekusi Saat Pemeriksaan Prasyarat (A0):**  
+> Saat pemeriksaan prasyarat **A0** dijalankan, daemon Docker Desktop di host Windows sedang tidak aktif (`open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified`), sehingga sesuai aturan keras (*"Hentikan dan laporkan bila stack tidak healthy"* dan *"Nilai yang tidak diukur ditulis 'tidak diukur' beserta alasannya, jangan diestimasi"*), eksekusi k6 Fase A dihentikan pada tahap **A0** dan seluruh sel metrik ditandai **`tidak diukur`** beserta alasannya. Setelah Docker Desktop dinyalakan dan seluruh 9 container `superapp` berstatus `healthy`, jalankan `powershell -File gateway/tests/baseline/run-baseline.ps1 -Phase A -Repeats 3` untuk mengisi metrik aktual dari `gateway/tests/baseline/out/phase-a-summary.json`.
+
+---
+
+## 1. Tujuan dan Definisi Operasional
+
+### 1.1. Tujuan Eksperimen
+Menutup dua celah bukti empiris untuk naskah *"From Standalone to Microservices"*:
+1. **Bukti Jenis 1 — Baseline Akses Langsung (*Access Path & Central Auth Overhead*)**: Mengukur dan memisahkan biaya jalur *reverse proxy* NGINX (`noauth` minus `direct`) serta biaya autentikasi terpusat `auth_request` + `auth-verifier` (`gateway` minus `noauth`) pada **ketiga layanan** (`Micro-cred`, `Judul`, dan `Matkul`) di bawah kondisi jaringan dan beban yang setara.
+2. **Bukti Jenis 2 — Evaluasi Fungsional Alur Rekomendasi (*Functional End-to-End Verification*)**: Membuktikan bahwa ketiga layanan (khususnya alur penuh rekomendasi `Matkul` dengan dokumen PDF KHS serta buku panduan akademik, dan uji ulang 5 siklus `Micro-cred`) benar-benar berfungsi secara teknis setelah integrasi melalui gateway (dieksekusi khusus pada **Fase B**).
+
+> [!WARNING]
+> **Pemisahan Tegas Dua Jenis Bukti:**  
+> - **Fase A** hanya mengukur perbedaan latensi/throughput jalur akses tanpa memanggil LLM dan **tidak boleh dinyatakan menutup evaluasi fungsional rekomendasi Matkul**.  
+> - Evaluasi fungsional rekomendasi Matkul baru dinyatakan selesai apabila **Fase B** (`-Phase B`) telah dijalankan dengan berkas `fixtures/khs-sample.pdf` dan `fixtures/panduan-sample.pdf` serta menghasilkan data aktual yang memenuhi kriteria keberhasilan teknis.
+
+### 1.2. Definisi Operasional "Standalone" dalam Paper
+Dalam dokumen ini dan naskah paper, istilah **"standalone" (`direct`)** didefinisikan secara ketat sebagai:
+> **Layanan container yang sama yang diakses secara langsung di dalam jaringan Docker yang sama (`superapp_default`), tanpa melalui reverse proxy NGINX dan tanpa autentikasi terpusat (`auth-verifier`).**
+
+Konfigurasi ini **BUKAN** *deployment non-container* asli yang berdiri sendiri di mesin/lingkungan terpisah. Oleh karena itu, hasil perbandingan baseline ini **hanya mengukur perbedaan biaya jalur akses dan autentikasi terpusat**, bukan keunggulan arsitektur *microservices* dibandingkan *monolith/standalone* secara keseluruhan.
+
+---
+
+## 2. Audit Kode Endpoint Sebelum Eksperimen (Ketentuan Tambahan 1)
+
+Sebelum Fase A disusun, seluruh kode sumber endpoint yang diuji telah diperiksa untuk memastikan tidak ada pemanggilan LLM, tidak ada penulisan data persisten ke database/PocketBase, dan tidak ada efek samping tersembunyi:
+
+| Kode Kondisi | Layanan & Endpoint | Berkas Kode Sumber | Hasil Audit Keamanan & Efek Samping |
+|---|---|---|---|
+| **M1** | Micro-cred `GET /tracks` | [`services/microcred/src/api/routes/tracks.py`](file:///d:/File/Kuliah/Semester%206/Penelitian%20Tugas%20Akhir/SuperApp/superapp-gateway/services/microcred/src/api/routes/tracks.py#L27-L52) | Hanya menjalankan 2 query `SELECT` *read-only* (`RoleCatalog` dan `func.count(QuestionTemplate.id)`). Tidak memanggil LLM, tidak menulis ke DB. |
+| **M2** | Micro-cred `GET /auth/me` | [`services/microcred/src/api/routes/auth.py`](file:///d:/File/Kuliah/Semester%206/Penelitian%20Tugas%20Akhir/SuperApp/superapp-gateway/services/microcred/src/api/routes/auth.py#L111-L133) | Memverifikasi JWT melalui `get_current_user` dan menjalankan 1 query `SELECT` *read-only* (`get_user_by_id`). Tidak memanggil LLM, tidak menulis ke DB. |
+| **J1** | Judul `GET /` | [`services/judul/main.py`](file:///d:/File/Kuliah/Semester%206/Penelitian%20Tugas%20Akhir/SuperApp/superapp-gateway/services/judul/main.py#L31-L37) | Mengembalikan JSON statis dari memori (`{"status": "Online", ...}`). Tidak memanggil Groq/LLM, tidak menulis data apa pun. |
+| **K1** | Matkul `POST /api/panduan/extract-upload` (berkas teks non-PDF) | [`services/matkul/app/api/panduan/extract-upload/route.ts`](file:///d:/File/Kuliah/Semester%206/Penelitian%20Tugas%20Akhir/SuperApp/superapp-gateway/services/matkul/app/api/panduan/extract-upload/route.ts#L8-L45) | Memeriksa `if (file.type !== "application/pdf")` pada baris 17 dan langsung mengembalikan HTTP `400` (`{"error": "File harus berformat PDF."}`) tanpa memanggil `pdf-parse`, PocketBase, maupun OpenAI. |
+| **K2** | Matkul `POST /api/panduan/extract-upload` (PDF valid minimal) | [`services/matkul/app/api/panduan/extract-upload/route.ts`](file:///d:/File/Kuliah/Semester%206/Penelitian%20Tugas%20Akhir/SuperApp/superapp-gateway/services/matkul/app/api/panduan/extract-upload/route.ts#L25-L41) & [`panduan-extract.ts`](file:///d:/File/Kuliah/Semester%206/Penelitian%20Tugas%20Akhir/SuperApp/superapp-gateway/services/matkul/src/lib/panduan-extract.ts#L12-L21) | Mengekstrak teks PDF di memori menggunakan `pdf-parse/lib/pdf-parse.js` lalu langsung mengembalikan HTTP `200` (`{ ok: true, text, extracted_chars }`). **Terbukti tidak menulis ke PocketBase dan tidak memanggil OpenAI/LLM**, sehingga **K2 aman dijalankan**. |
+
+Audit tambahan untuk endpoint **Fase B**:
+- [`services/matkul/app/api/khs/upload/route.ts`](file:///d:/File/Kuliah/Semester%206/Penelitian%20Tugas%20Akhir/SuperApp/superapp-gateway/services/matkul/app/api/khs/upload/route.ts#L83-L143): Menerima `multipart/form-data` field `file` (`application/pdf`), mengekstrak teks via `pdf-parse`, lalu memanggil `extractKhsFromText(text)` ([`src/lib/openai.ts`](file:///d:/File/Kuliah/Semester%206/Penelitian%20Tugas%20Akhir/SuperApp/superapp-gateway/services/matkul/src/lib/openai.ts#L40-L123)) dan mengembalikan `{ ok: true, preview }`.
+- [`services/matkul/app/api/rekomendasi/route.ts`](file:///d:/File/Kuliah/Semester%206/Penelitian%20Tugas%20Akhir/SuperApp/superapp-gateway/services/matkul/app/api/rekomendasi/route.ts#L75-L244): Menerima JSON `{ khs, panduan_text }`, menghitung `semester_target` melalui `calcSemesterTarget(khs, evaluatedRows)`, memanggil OpenAI `chat.completions.create`, dan mengembalikan `{ semester_target, ringkasan, evaluasi_nilai, rekomendasi_semester_depan }`. Tidak menulis langsung ke PocketBase.
+
+---
+
+## 3. Lingkungan dan Metode Pengujian
+
+### 3.1. Spesifikasi Lingkungan Host & Docker
+Berdasarkan pemeriksaan sistem pada mesin pengujian yang sama dengan pengujian kinerja sebelumnya:
+
+| Komponen | Spesifikasi |
+|---|---|
+| Sistem Operasi Host | Microsoft Windows 11 Home Single Language, Versi `10.0.26200` (Build `26200`), x64 |
+| Prosesor (CPU) | 11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz (4 core fisik, 8 prosesor logis) |
+| Memori Fisik Host | 7.883 MB (~7,70 GiB) |
+| Docker Engine & WSL2 | Docker Desktop `29.8.0` (build `88096ef`), Linux `5.15.153.1-microsoft-standard-WSL2` (8 vCPU, RAM ~3.831 MiB) |
+| Generator Beban | `grafana/k6:latest` di jaringan `superapp_default` |
+| Status Daemon Saat A0 | Tidak aktif (`npipe:////./pipe/dockerDesktopLinuxEngine` belum berjalan saat eksekusi otomatis) |
+
+### 3.2. Tiga Jalur Akses per Layanan (A1)
+Seluruh permintaan dikirim dari container `grafana/k6` di dalam jaringan Docker `superapp_default`:
+1. **Jalur 1 — Langsung (`direct` / "standalone")**:
+   - Micro-cred: `http://microcred-api:8000/tracks` (`M1`), `http://microcred-api:8000/auth/me` (`M2`)
+   - Judul: `http://judul-api:8001/` (`J1`)
+   - Matkul: `http://matkul:3000/api/panduan/extract-upload` (`K1`, `K2`)
+2. **Jalur 2 — NGINX Tanpa Autentikasi (`noauth`)**:
+   - Menggunakan container sementara `superapp-nginx-noauth` (`nginx:1.27-alpine`, di jaringan `superapp_default`, tanpa port host) yang memuat [`gateway/tests/baseline/nginx-noauth.conf`](file:///d:/File/Kuliah/Semester%206/Penelitian%20Tugas%20Akhir/SuperApp/superapp-gateway/gateway/tests/baseline/nginx-noauth.conf).
+   - Rute: `http://superapp-nginx-noauth/api/micro-cred/*`, `http://superapp-nginx-noauth/api/judul-recommender/*`, `http://superapp-nginx-noauth/api/matkul-recommender/*`.
+   - Diff eksak antara [`gateway/nginx/nginx.conf`](file:///d:/File/Kuliah/Semester%206/Penelitian%20Tugas%20Akhir/SuperApp/superapp-gateway/gateway/nginx/nginx.conf) dan [`gateway/tests/baseline/nginx-noauth.conf`](file:///d:/File/Kuliah/Semester%206/Penelitian%20Tugas%20Akhir/SuperApp/superapp-gateway/gateway/tests/baseline/nginx-noauth.conf):
+     ```diff
+     diff --git a/gateway/nginx/nginx.conf b/gateway/tests/baseline/nginx-noauth.conf
+     index 1c8175f..0aa510c 100644
+     --- a/gateway/nginx/nginx.conf
+     +++ b/gateway/tests/baseline/nginx-noauth.conf
+     @@ -62,7 +62,7 @@ http {
+              client_max_body_size 1m;
+      
+              # --- Autentikasi terpusat: default tolak, rute publik memakai "auth_request off" ---
+     -        auth_request /_auth;
+     +        auth_request off;
+              auth_request_set $auth_user_id    $upstream_http_x_user_id;
+              auth_request_set $auth_user_roles $upstream_http_x_user_roles;
+              auth_request_set $auth_user_email $upstream_http_x_user_email;
+     ```
+3. **Jalur 3 — Gateway Penuh (`gateway`)**:
+   - Rute melalui container `http://nginx` dengan `auth_request /_auth` aktif (memverifikasi JWT ke `auth-verifier:8100/verify`).
+
+### 3.3. Aturan Kesetaraan, Rotasi Jalur, dan Jeda Tenang (A2 & A3)
+- **Kesetaraan Header & Payload:** Satu akun uji (`uji-base-<timestamp>@example.com`) didaftarkan di awal Fase A. Header `Authorization: Bearer <token>` yang **sama persis** dikirim di ketiga jalur (`direct`, `noauth`, `gateway`) dan semua layanan agar ukuran header HTTP identik. Pada rute publik (`GET /tracks`) atau layanan tanpa autentikasi internal (`Judul`, `Matkul`, serta NGINX `noauth`), header tersebut diabaikan oleh komponen penerima.
+- **Konfigurasi Executor & Fase Ukur:** Menggunakan `constant-arrival-rate` dengan **warm-up 10 detik** (`tags: { phase: 'warmup' }`, tidak dihitung) diikuti **fase ukur 30 detik** (`tags: { phase: 'main' }`). Hanya metrik fase ukur yang diekspor ke `main_*`.
+- **Rotasi Urutan Jalur per Ulangan:** Untuk menghilangkan bias urutan pemanasan cache/koneksi, urutan ketiga jalur dirotasi pada setiap ulangan:
+  - Ulangan 1: `direct` $\rightarrow$ `noauth` $\rightarrow$ `gateway`
+  - Ulangan 2: `noauth` $\rightarrow$ `gateway` $\rightarrow$ `direct`
+  - Ulangan 3: `gateway` $\rightarrow$ `direct` $\rightarrow$ `noauth`
+- **Jeda Tenang (*Cooldown*):** Sebelum setiap eksekusi dimulai, orkestrator memantau `docker stats --no-stream` hingga total CPU seluruh container berada **di bawah 5% pada dua sampel beruntun** (batas tunggu maksimal 60 detik; ditandai `"tidak tenang"` bila melampaui 60 detik), lalu menunggu **15 detik** tambahan.
+- **Pencatatan Resource Container:** Selama eksekusi berjalan, [`collect-stats.ps1`](file:///d:/File/Kuliah/Semester%206/Penelitian%20Tugas%20Akhir/SuperApp/superapp-gateway/gateway/tests/baseline/collect-stats.ps1) mencatat penggunaan CPU dan memori setiap 2 detik ke CSV, lalu dihitung **median CPU (%) dan median memori (MiB) khusus pada jendela fase ukur 30 detik** (bukan puncak).
+
+---
+
+## 4. Hasil Fase A per Layanan dan Endpoint
+
+> [!NOTE]
+> Sesuai aturan keras, karena daemon Docker Desktop belum berjalan saat pemeriksaan prasyarat **A0**, nilai metrik di bawah ditulis **`tidak diukur`** beserta alasannya (tidak diestimasi dan tidak disalin dari pengujian lama yang tidak memiliki jalur `noauth` maupun rotasi 3 jalur).
+
+### 4.1. Tabel Perbandingan Tiga Jalur (`direct`, `noauth`, `gateway`)
+
+| Kondisi | Layanan & Endpoint | Laju Target | Jalur | p50 Median ( Rentang Min–Maks ) (ms) | p95 Median ( Rentang Min–Maks ) (ms) | p99 Median (ms) | Avg Median (ms) | Throughput (req/s) | Kegagalan (%) | Dropped Iterations | Status Pengukuran |
+|---|---|---:|---|---|---|---|---|---|---|---|---|
+| **M1-20** | Micro-cred `GET /tracks` | 20 req/s | `direct` / `noauth` / `gateway` | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | Dihentikan di A0 (daemon Docker tidak aktif) |
+| **M1-50** | Micro-cred `GET /tracks` | 50 req/s | `direct` / `noauth` / `gateway` | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | Dihentikan di A0 (daemon Docker tidak aktif) |
+| **M1-100** | Micro-cred `GET /tracks` | 100 req/s | `direct` / `noauth` / `gateway` | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | Dihentikan di A0 (daemon Docker tidak aktif) |
+| **M2-20** | Micro-cred `GET /auth/me` | 20 req/s | `direct` / `noauth` / `gateway` | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | Dihentikan di A0 (daemon Docker tidak aktif) |
+| **M2-50** | Micro-cred `GET /auth/me` | 50 req/s | `direct` / `noauth` / `gateway` | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | Dihentikan di A0 (daemon Docker tidak aktif) |
+| **J1-50** | Judul `GET /` | 50 req/s | `direct` / `noauth` / `gateway` | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | Dihentikan di A0 (daemon Docker tidak aktif) |
+| **J1-200** | Judul `GET /` | 200 req/s | `direct` / `noauth` / `gateway` | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | Dihentikan di A0 (daemon Docker tidak aktif) |
+| **K1-20** | Matkul `POST /api/panduan/extract-upload` (non-PDF $\rightarrow$ `400`) | 20 req/s | `direct` / `noauth` / `gateway` | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | Dihentikan di A0 (daemon Docker tidak aktif) |
+| **K1-50** | Matkul `POST /api/panduan/extract-upload` (non-PDF $\rightarrow$ `400`) | 50 req/s | `direct` / `noauth` / `gateway` | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | Dihentikan di A0 (daemon Docker tidak aktif) |
+| **K2-5** | Matkul `POST /api/panduan/extract-upload` (PDF valid $\rightarrow$ `200`) | 5 req/s | `direct` / `noauth` / `gateway` | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | Dihentikan di A0 (daemon Docker tidak aktif) |
+| **K2-10** | Matkul `POST /api/panduan/extract-upload` (PDF valid $\rightarrow$ `200`) | 10 req/s | `direct` / `noauth` / `gateway` | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | Dihentikan di A0 (daemon Docker tidak aktif) |
+
+### 4.2. Tabel Dekomposisi Selisih Biaya (`Proxy`, `Autentikasi`, `Total`)
+
+Rumus dekomposisi:
+- $\Delta_{\text{proxy}} = \text{noauth} - \text{direct}$ (biaya penerusan *reverse proxy* NGINX tanpa subrequest `auth-verifier`)
+- $\Delta_{\text{auth}} = \text{gateway} - \text{noauth}$ (biaya subrequest `auth_request /_auth` ke `auth-verifier`)
+- $\Delta_{\text{total}} = \text{gateway} - \text{direct}$ (biaya total jalur gateway penuh terhadap akses langsung)
+- **Aturan Tafsir:** Apabila rentang $[\text{min}, \text{maks}]$ dari `p50` antara dua jalur saling tumpang tindih, maka perbedaannya wajib ditafsirkan sebagai **"tidak dapat dibedakan pada pengukuran ini"**.
+
+| Kondisi | $\Delta_{\text{proxy}}$ p50 (Rentang) | $\Delta_{\text{auth}}$ p50 (Rentang) | $\Delta_{\text{total}}$ p50 (Rentang) | $\Delta_{\text{proxy}}$ p95 (Rentang) | $\Delta_{\text{auth}}$ p95 (Rentang) | $\Delta_{\text{total}}$ p95 (Rentang) | Tafsir Berdasarkan Rentang p50 |
+|---|---|---|---|---|---|---|---|
+| **M1-20**, **M1-50**, **M1-100** | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | Belum diukur (daemon Docker tidak aktif saat A0) |
+| **M2-20**, **M2-50** | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | Belum diukur (daemon Docker tidak aktif saat A0) |
+| **J1-50**, **J1-200** | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | Belum diukur (daemon Docker tidak aktif saat A0) |
+| **K1-20**, **K1-50** | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | Belum diukur (daemon Docker tidak aktif saat A0) |
+| **K2-5**, **K2-10** | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | Belum diukur (daemon Docker tidak aktif saat A0) |
+
+### 4.3. Median CPU (%) dan Memori (MiB) Container pada Fase Ukur
+- **Status:** `tidak diukur` (daemon Docker tidak aktif saat A0). Skrip [`run-baseline.ps1`](file:///d:/File/Kuliah/Semester%206/Penelitian%20Tugas%20Akhir/SuperApp/superapp-gateway/gateway/tests/baseline/run-baseline.ps1) telah dikonfigurasi untuk menyaring sampel CSV `docker stats` khusus pada jendela fase ukur `[runStartMs + 10000, measureEndMs]` dan menghitung nilai **median** (bukan puncak) per container.
+
+---
+
+## 5. Tabel Siap Tempel untuk Paper (Perluasan Tabel 3)
+
+Tabel di bawah memperluas struktur Tabel 3 pada naskah paper dengan memisahkan jalur akses (`Direct / Standalone`, `NGINX No-Auth`, `Full Gateway`) pada ketiga layanan. Sel yang belum terukur akan otomatis terisi setelah [`run-baseline.ps1`](file:///d:/File/Kuliah/Semester%206/Penelitian%20Tugas%20Akhir/SuperApp/superapp-gateway/gateway/tests/baseline/run-baseline.ps1) dijalankan ketika Docker Desktop aktif:
+
+| Layanan & Endpoint | Laju Target (req/s) | Jalur Akses | p50 (ms) [Min–Maks] | p95 (ms) [Min–Maks] | p99 (ms) | Rata-rata (ms) | Throughput (req/s) | Kegagalan (%) |
+|---|---:|---|---|---|---|---|---|---|
+| **Micro-cred** `GET /tracks` | 20 | Direct (`microcred-api:8000`) | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur |
+| **Micro-cred** `GET /tracks` | 20 | NGINX No-Auth (`auth_request off`) | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur |
+| **Micro-cred** `GET /tracks` | 20 | Full Gateway (`nginx` + `auth-verifier`) | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur |
+| **Micro-cred** `GET /tracks` | 50 | Direct / No-Auth / Full Gateway | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur |
+| **Micro-cred** `GET /tracks` | 100 | Direct / No-Auth / Full Gateway | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur |
+| **Micro-cred** `GET /auth/me` | 20, 50 | Direct / No-Auth / Full Gateway | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur |
+| **Judul** `GET /` | 50, 200 | Direct / No-Auth / Full Gateway | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur |
+| **Matkul** `POST /api/panduan/extract-upload` (`400` non-PDF) | 20, 50 | Direct / No-Auth / Full Gateway | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur |
+| **Matkul** `POST /api/panduan/extract-upload` (`200` PDF valid) | 5, 10 | Direct / No-Auth / Full Gateway | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur | tidak diukur |
+
+---
+
+## 6. Status Fase B (Evaluasi Alur Rekomendasi & Pasangan LLM)
+
+- **Status:** **` tidak diukur `** karena parameter instruksi saat ini adalah `FASE_DIJALANKAN: A` (*"Bila A, tulis skrip Fase B tetapi jangan menjalankannya"*).
+- **Kesiapan Skrip Fase B:** Seluruh logika **B0, B1, B2, B3, dan B4** telah diimplementasikan di dalam [`gateway/tests/baseline/run-baseline.ps1`](file:///d:/File/Kuliah/Semester%206/Penelitian%20Tugas%20Akhir/SuperApp/superapp-gateway/gateway/tests/baseline/run-baseline.ps1) (`Invoke-PhaseB`) dan telah diverifikasi bahwa [`gateway/tests/e2e-flow.ps1`](file:///d:/File/Kuliah/Semester%206/Penelitian%20Tugas%20Akhir/SuperApp/superapp-gateway/gateway/tests/e2e-flow.ps1) tidak menimpa `docs/e2e-results.md`.
+- **Implikasi bagi Klaim Paper:** Sesuai Ketentuan Tambahan 3, **evaluasi fungsional rekomendasi Matkul belum dinyatakan selesai** sampai Fase B dijalankan dengan berkas `fixtures/khs-sample.pdf` dan `fixtures/panduan-sample.pdf` serta kredit API OpenAI/Groq aktif.
+
+---
+
+## 7. Interpretasi Netral dan Keterbatasan Metodologis
+
+1. **Batas Definisi "Standalone":** Baseline akses langsung (`direct`) mengukur kontainer backend yang sama di dalam jaringan bridge Docker `superapp_default`, bukan aplikasi *standalone* non-container pada mesin terpisah. Dengan demikian, selisih waktu respons semata-mata merepresentasikan biaya *hop* proxy NGINX dan subrequest verifikasi JWT terpusat, **bukan** perbandingan efisiensi arsitektur *microservices* vs *monolith* secara umum.
+2. **Satu Mesin Fisik (*Single-Host Contention*):** Generator beban (`grafana/k6`), reverse proxy (`nginx` / `superapp-nginx-noauth`), layanan autentikasi (`auth-verifier`), dan ketiga backend (`microcred-api`, `judul-api`, `matkul`) berbagi 8 vCPU WSL2 yang sama di satu laptop. Pada laju tinggi, kontensi penjadwalan CPU host dapat memperlebar rentang variansi antar-ulangan.
+3. **Jumlah Ulangan Terbatas (3 Ulangan):** Dengan 3 ulangan per kondisi, rentang $[\text{min}, \text{maks}]$ pada metrik sub-milidetik atau beberapa milidetik mudah saling tumpang tindih akibat *jitter* OS/WSL2. Sesuai aturan tafsir, setiap kondisi yang rentang `p50`-nya saling tumpang tindih tidak boleh diklaim mengalami percepatan maupun perlambatan.
+4. **Variansi Eksternal LLM pada Fase B:** Waktu respons pada endpoint yang memanggil OpenAI (`Matkul` dan `Micro-cred`) serta Groq (`Judul`) didominasi oleh latensi inferensi jaringan eksternal (orde detik), sehingga selisih antar-pasangan pada B2 dan B3 mencerminkan fluktuasi layanan cloud LLM, bukan overhead gateway (yang berada pada orde milidetik).
+5. **Tidak Ada Pembanding Keandalan (*Reliability*) yang Setara:** Pengujian *fault injection* pada arsitektur terintegrasi membuktikan sifat **isolasi kegagalan (*fault isolation*)** dan perilaku *fail-closed* saat komponen terganggu, tetapi karena tidak ada pengujian *fault injection* pembanding pada deployment *standalone* independen, hasil tersebut **tidak boleh diklaim sebagai peningkatan keandalan (*higher reliability*) secara keseluruhan**.
+
+---
+
+## 8. Daftar Item yang Tidak Diukur Beserta Alasannya
+
+| Item / Kondisi | Status | Alasan Eksplisit |
+|---|---|---|
+| **Fase A (`M1`, `M2`, `J1`, `K1`, `K2`)** | `tidak diukur` | Daemon Docker Desktop (`//./pipe/dockerDesktopLinuxEngine`) sedang tidak aktif saat pemeriksaan prasyarat **A0** dijalankan; dihentikan sesuai aturan keras tanpa estimasi. |
+| **Fase B (`B0`–`B4`: Alur penuh Matkul, pasangan LLM Matkul & Judul, uji ulang 5 siklus Micro-cred)** | `tidak diukur` | Parameter eksekusi ditetapkan `FASE_DIJALANKAN: A` (skrip Fase B ditulis lengkap di `run-baseline.ps1`, namun sengaja tidak dijalankan pada Fase A) serta berkas `fixtures/khs-sample.pdf` dan `fixtures/panduan-sample.pdf` harus disediakan oleh peneliti. |
+| **Kualitas Substantif Isi Rekomendasi Akademik (Matkul, Judul, Micro-cred)** | `tidak diukur` | Di luar cakupan pengujian teknis sistem; evaluasi dibatasi secara eksplisit pada validitas skema JSON, kelengkapan atribut wajib (`kode`, `nama`, `semester_target`, `ringkasan`, `evaluasi_nilai`, `rekomendasi_semester_depan`), dan kode status HTTP. |
+
