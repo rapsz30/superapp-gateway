@@ -1,0 +1,1 @@
+export { mockKhsResponse } from './khs'
