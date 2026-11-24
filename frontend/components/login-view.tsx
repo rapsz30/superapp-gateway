@@ -1,71 +1,69 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff } from 'lucide-react'
+import { errorMessage, tokenStore } from '@/src/lib/api'
+import { authService } from '@/src/services/auth-service'
 
 const loginArtwork = '/images/student-gateway-login-asset.svg'
 const facultyOptions = ['Fakultas Teknik', 'Teknologi Industri']
 const studyProgramOptions = ['Informatika']
-
-type FrontendAccount = {
-  fullName: string
-  email: string
-  nim: string
-  faculty: string
-  studyProgram: string
-  password: string
-}
 
 export function LoginView() {
   const router = useRouter()
   const [register, setRegister] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showRecoveryHelp, setShowRecoveryHelp] = useState(false)
-  const [createdAccount, setCreatedAccount] = useState<FrontendAccount | null>(null)
+  const [submitting, setSubmitting] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [formNotice, setFormNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const formData = new FormData(event.currentTarget)
+  useEffect(() => {
+    // Sudah punya sesi: langsung ke beranda (sesi yang kedaluwarsa akan dibersihkan oleh apiFetch).
+    if (tokenStore.get()) router.replace('/beranda')
+  }, [router])
 
-    if (register) {
-      if (password !== confirmPassword) {
-        setFormNotice({ type: 'error', message: 'Konfirmasi kata sandi tidak cocok.' })
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (submitting) return
+    const formData = new FormData(event.currentTarget)
+    const normalizedEmail = email.trim().toLowerCase()
+
+    if (register && password !== confirmPassword) {
+      setFormNotice({ type: 'error', message: 'Konfirmasi kata sandi tidak cocok.' })
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      if (register) {
+        await authService.register({
+          email: normalizedEmail,
+          password,
+          full_name: String(formData.get('fullName') ?? '').trim(),
+          nim: String(formData.get('nim') ?? '').trim(),
+          faculty: String(formData.get('faculty') ?? ''),
+          study_program: String(formData.get('studyProgram') ?? ''),
+        })
+        setPassword('')
+        setConfirmPassword('')
+        setFormNotice({ type: 'success', message: 'Akun berhasil dibuat. Silakan masuk dengan email dan kata sandi Anda.' })
+        setRegister(false)
+        setShowRecoveryHelp(false)
         return
       }
 
-      setCreatedAccount({
-        fullName: String(formData.get('fullName') ?? '').trim(),
-        email: email.trim().toLowerCase(),
-        nim: String(formData.get('nim') ?? '').trim(),
-        faculty: String(formData.get('faculty') ?? ''),
-        studyProgram: String(formData.get('studyProgram') ?? ''),
-        password,
-      })
-      setPassword('')
-      setConfirmPassword('')
-      setFormNotice({ type: 'success', message: 'Akun berhasil dibuat. Silakan masuk dengan email dan kata sandi Anda.' })
-      setRegister(false)
-      setShowRecoveryHelp(false)
-      return
+      await authService.login(normalizedEmail, password)
+      setFormNotice(null)
+      router.push('/beranda')
+    } catch (error) {
+      setFormNotice({ type: 'error', message: errorMessage(error, 'Tidak dapat memproses permintaan. Coba lagi.') })
+    } finally {
+      setSubmitting(false)
     }
-
-    if (!createdAccount) {
-      setFormNotice({ type: 'error', message: 'Buat akun terlebih dahulu sebelum masuk.' })
-      return
-    }
-
-    if (email.trim().toLowerCase() !== createdAccount.email || password !== createdAccount.password) {
-      setFormNotice({ type: 'error', message: 'Email atau kata sandi tidak sesuai dengan akun yang dibuat.' })
-      return
-    }
-
-    setFormNotice(null)
-    router.push('/beranda')
   }
 
   return (
@@ -97,7 +95,7 @@ export function LoginView() {
             <>
               <label className="field">
                 <span>NIM</span>
-                <input name="nim" inputMode="numeric" autoComplete="off" placeholder="Masukkan NIM" required />
+                <input name="nim" inputMode="numeric" pattern="[0-9]{6,15}" title="NIM terdiri dari 6 sampai 15 digit angka" autoComplete="off" placeholder="Masukkan NIM" required />
               </label>
               <label className="field">
                 <span>Fakultas</span>
@@ -118,7 +116,7 @@ export function LoginView() {
           <label className="field">
             <span>{register ? 'Kata sandi' : 'Password'}</span>
             <span className="password-field-wrap">
-              <input name="password" type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => { setPassword(event.target.value); setFormNotice(null) }} autoComplete={register ? 'new-password' : 'current-password'} placeholder={register ? 'Masukkan kata sandi' : 'Masukkan password'} required />
+              <input name="password" type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => { setPassword(event.target.value); setFormNotice(null) }} autoComplete={register ? 'new-password' : 'current-password'} minLength={register ? 8 : undefined} placeholder={register ? 'Masukkan kata sandi' : 'Masukkan password'} required />
               <button className="password-reveal" type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'} aria-pressed={showPassword}>
                 {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
               </button>
@@ -134,7 +132,7 @@ export function LoginView() {
             <button className="login-forgot" type="button" onClick={() => setShowRecoveryHelp((visible) => !visible)}>Lupa password?</button>
             {showRecoveryHelp && <p className="login-recovery-help" role="status">Hubungi admin kampus untuk bantuan mengatur ulang password.</p>}
           </>}
-          <button className="login-submit" type="submit">{register ? 'Daftar' : 'Masuk'}</button>
+          <button className="login-submit" type="submit" disabled={submitting}>{submitting ? 'Memproses...' : register ? 'Daftar' : 'Masuk'}</button>
           <p className="login-switch">{register ? 'Sudah punya akun?' : 'Belum punya akun?'}{' '}
             <button type="button" onClick={() => { setRegister((value) => !value); setShowRecoveryHelp(false); setFormNotice(null); setPassword(''); setConfirmPassword('') }}>{register ? 'Masuk' : 'Daftar'}</button>
           </p>

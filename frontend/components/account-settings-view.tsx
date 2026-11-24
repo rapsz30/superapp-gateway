@@ -3,6 +3,8 @@
 import { useState, type FormEvent } from 'react'
 import { ArrowLeft, CheckCircle2, Eye, EyeOff, KeyRound, MailCheck, ShieldCheck } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
+import { errorMessage } from '@/src/lib/api'
+import { authService } from '@/src/services/auth-service'
 
 type AccountSettingsViewProps = {
   email: string
@@ -16,11 +18,14 @@ export function AccountSettingsView({ email: initialEmail }: AccountSettingsView
   const [email, setEmail] = useState(initialEmail)
   const [feedback, setFeedback] = useState('')
   const [passwordMismatch, setPasswordMismatch] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
-  function handlePasswordChange(event: FormEvent<HTMLFormElement>) {
+  async function handlePasswordChange(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (submitting) return
     const form = event.currentTarget
     const values = new FormData(form)
+    const currentPassword = String(values.get('currentPassword') ?? '')
     const newPassword = String(values.get('newPassword') ?? '')
     const confirmation = String(values.get('confirmPassword') ?? '')
 
@@ -31,8 +36,17 @@ export function AccountSettingsView({ email: initialEmail }: AccountSettingsView
     }
 
     setPasswordMismatch(false)
-    form.reset()
-    setFeedback(t('Kata sandi berhasil diubah.'))
+    setSubmitting(true)
+    setFeedback('')
+    try {
+      await authService.changePassword(currentPassword, newPassword)
+      form.reset()
+      setFeedback(t('Kata sandi berhasil diubah.'))
+    } catch (caught) {
+      setFeedback(errorMessage(caught, 'Gagal mengubah kata sandi.'))
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   function handleEmailSubmit(event: FormEvent<HTMLFormElement>) {
@@ -97,7 +111,7 @@ export function AccountSettingsView({ email: initialEmail }: AccountSettingsView
               <PasswordField id="current-password" name="currentPassword" label={t('Kata sandi saat ini')} autoComplete="current-password" />
               <PasswordField id="new-password" name="newPassword" label={t('Kata sandi baru')} autoComplete="new-password" minLength={8} hint={t('Gunakan minimal 8 karakter.')} onValueChange={handlePasswordEdit} />
               <PasswordField id="confirm-password" name="confirmPassword" label={t('Ulangi kata sandi baru')} autoComplete="new-password" minLength={8} invalid={passwordMismatch} error={passwordMismatch ? feedback : undefined} onValueChange={handlePasswordEdit} />
-              <button className="primary account-settings-submit" type="submit">{t('Simpan kata sandi')}</button>
+              <button className="primary account-settings-submit" type="submit" disabled={submitting}>{submitting ? 'Menyimpan...' : t('Simpan kata sandi')}</button>
               {feedback && !passwordMismatch && <p className="account-settings-feedback" role="status" aria-live="polite">{feedback}</p>}
             </form>
             <div className="account-reset-row">

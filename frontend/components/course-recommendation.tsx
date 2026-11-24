@@ -2,18 +2,19 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, Check, Download, FileText, Loader2, LockKeyhole, Plus, Trash2, Upload, X } from 'lucide-react'
-import { academicTargets, recommendations, type AcademicTarget } from '@/lib/mock-data/course-recommendation'
-import { mockKhsService } from '@/src/services/khs-services'
-import type { KhsCourse, KhsStudent, NonCourseActivity } from '@/src/types/khs'
+import { academicTargets, GRADE_POINTS, type AcademicTarget } from '@/src/lib/academic-targets'
+import { errorMessage } from '@/src/lib/api'
+import { GRADE_OPTIONS, khsService } from '@/src/services/khs-services'
+import type { CourseRecommendationResult, KhsCourse, KhsStudent, NonCourseActivity } from '@/src/types/khs'
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6
 const steps = ['Unggah KHS', 'Preview', 'Input nilai', 'Panduan akademik', 'Target akademik', 'Rekomendasi']
-const gradeOptions = ['A', 'A-', 'A/B', 'B+', 'B', 'B-', 'B/C', 'C+', 'C', 'C-', 'C/D', 'D+', 'D', 'E', 'F']
+const gradeOptions = GRADE_OPTIONS
 const activityOptions = ['Pengembangan Diri Qur\'ani', 'Student Soft Skill Development', 'Pelatihan Kepemimpinan dan Dakwah', 'Pendalaman Nilai Dasar Islam', 'Pelatihan Pengembangan Diri']
-const initialStudent: KhsStudent = { name: 'Vivi Zalzabilah ZI', nim: '23523230', faculty: 'Teknologi Industri', program: 'Informatika', advisor: '[Nama DPA]', credits: '122 SKS', gpa: '3,81' }
+const initialStudent: KhsStudent = { name: '-', nim: '-', faculty: '-', program: '-', advisor: '-', credits: '-', gpa: '-' }
 const totalSteps = 5
 
-export function CourseRecommendation() {
+export function CourseRecommendation({ studentFallback }: { studentFallback?: Partial<KhsStudent> }) {
   const [step, setStep] = useState<Step>(1)
   const mobileStepperRef = useRef<HTMLDivElement>(null)
   const [file, setFile] = useState<File | null>(null)
@@ -26,25 +27,63 @@ export function CourseRecommendation() {
   const [grades, setGrades] = useState<KhsCourse[]>([])
   const [activities, setActivities] = useState<NonCourseActivity[]>([])
   const [error, setError] = useState('')
+  const [guideText, setGuideText] = useState('')
+  const [result, setResult] = useState<CourseRecommendationResult | null>(null)
   const currentTitle = step === 1 ? 'Unggah KHS' : step === 2 ? 'Preview KHS' : step === 3 ? 'Input dan edit nilai' : step === 4 ? 'Unggah panduan akademik' : step === 5 ? 'Target Akademik' : 'Rekomendasi mata kuliah'
   const currentDescription = step === 1 ? 'Pastikan file KHS Anda dalam format PDF.' : step === 2 ? 'Pastikan seluruh data sudah benar sebelum melanjutkan.' : step === 3 ? 'Perbaiki hasil ekstraksi KHS sebelum lanjut ke rekomendasi.' : step === 4 ? 'Rekomendasi mata kuliah disusun berdasarkan panduan akademik program studi Anda.' : step === 5 ? 'Pilih prioritas studi Anda untuk hasil rekomendasi yang lebih terpersonalisasi.' : 'Rekomendasi disusun berdasarkan data akademik dan target Anda.'
 
-  async function upload(setter: (file: File) => void, input: HTMLInputElement, processKhs = false) {
+  async function upload(kind: 'khs' | 'guide', input: HTMLInputElement) {
     const selected = input.files?.[0]
     if (!selected) return
     if (selected.type !== 'application/pdf') { setError('Gunakan file PDF dengan ukuran maksimal 10 MB.'); return }
     if (selected.size > 10 * 1024 * 1024) { setError('Ukuran file terlalu besar. Maksimal 10 MB.'); return }
-    setError(''); setter(selected)
-    if (processKhs) {
-      setIsProcessing(true)
-      const response = await mockKhsService.processDocument(selected)
-      setStudent(response.student)
-      setGrades(response.courses)
+    setError('')
+    setIsProcessing(true)
+    try {
+      if (kind === 'khs') {
+        const response = await khsService.processDocument(selected, studentFallback)
+        setFile(selected)
+        setStudent(response.student)
+        setGrades(response.courses)
+        setResult(null)
+        if (response.warning) setError(response.warning)
+        else if (!response.courses.length) setError('Tidak ada mata kuliah yang terbaca dari KHS. Periksa file Anda.')
+      } else {
+        const text = await khsService.extractGuide(selected)
+        setGuideFile(selected)
+        setGuideText(text)
+        setResult(null)
+      }
+    } catch (caught) {
+      setError(errorMessage(caught, 'File tidak dapat diproses.'))
+    } finally {
+      setIsProcessing(false)
+      input.value = ''
+    }
+  }
+
+  async function generate() {
+    setIsProcessing(true)
+    try {
+      setResult(await khsService.recommend(student, grades, guideText))
+      setStep(6)
+    } catch (caught) {
+      setError(errorMessage(caught, 'Rekomendasi tidak dapat dibuat. Coba lagi.'))
+    } finally {
       setIsProcessing(false)
     }
   }
 
-  function next() { if (step === 5 && !target) { setError('Silakan pilih target akademik terlebih dahulu.'); return } setError(''); setStep((value) => Math.min(6, value + 1) as Step) }
+  async function next() {
+    if (step === 3) {
+      if (grades.length === 0) { setError('Minimal harus ada 1 mata kuliah.'); return }
+      if (grades.some((course) => !course.name.trim())) { setError('Lengkapi nama semua mata kuliah atau hapus baris yang kosong.'); return }
+    }
+    if (step === 5 && !target) { setError('Silakan pilih target akademik terlebih dahulu.'); return }
+    setError('')
+    if (step === 5) { await generate(); return }
+    setStep((value) => Math.min(6, value + 1) as Step)
+  }
   function back() { setError(''); setStep((value) => Math.max(1, value - 1) as Step) }
 
   const totalCredits = useMemo(() => grades.reduce((sum, course) => sum + course.credits, 0), [grades])
@@ -72,6 +111,8 @@ export function CourseRecommendation() {
   function resetWorkflow() {
     setFile(null)
     setGuideFile(null)
+    setGuideText('')
+    setResult(null)
     setInputResetKey((value) => value + 1)
     setIsProcessing(false)
     setTarget(null)
@@ -87,12 +128,12 @@ export function CourseRecommendation() {
     {step < 6 && <div className="course-heading"><div><h1>{currentTitle}</h1><p>{currentDescription}</p></div><span className="step-label">Langkah {step} dari 5</span></div>}
     {step < 6 && <div className="workflow-stepper desktop-workflow-stepper" aria-label="Progress rekomendasi mata kuliah">{steps.slice(0, 5).map((label, index) => <div className={`workflow-step ${index + 1 < step ? 'done' : ''} ${index + 1 === step ? 'current' : ''}`} key={label}><span>{index + 1 < step ? <Check /> : index + 1}</span><b>{label}</b></div>)}</div>}
     {step < 6 && <div ref={mobileStepperRef} className="workflow-stepper mobile-workflow-stepper" aria-label="Progress rekomendasi mata kuliah">{steps.slice(0, totalSteps).map((label, index) => <div className={`workflow-step ${index + 1 < step ? 'done' : ''} ${index + 1 === step ? 'current' : ''}`} data-current={index + 1 === step || undefined} key={label}><span>{index + 1 < step ? <Check /> : index + 1}</span><b>{label}</b></div>)}</div>}
-    {step === 1 && <UploadStep inputKey={inputResetKey} progress={progress} file={file} error={error} isProcessing={isProcessing} onUpload={(input) => upload(setFile, input, true)} onRemove={() => setFile(null)} />}
+    {step === 1 && <UploadStep inputKey={inputResetKey} progress={progress} file={file} error={error} isProcessing={isProcessing} onUpload={(input) => upload('khs', input)} onRemove={() => { setFile(null); setGrades([]); setStudent(initialStudent); setResult(null) }} />}
     {step === 2 && <PreviewStep progress={progress} student={student} grades={grades} />}
     {step === 3 && <EditStep progress={progress} grades={grades} setGrades={setGrades} activities={activities} setActivities={setActivities} totalCredits={totalCredits} />}
-    {step === 4 && <GuideStep inputKey={inputResetKey} progress={progress} file={guideFile} error={error} onUpload={(input) => upload(setGuideFile, input)} onRemove={() => setGuideFile(null)} />}
+    {step === 4 && <GuideStep inputKey={inputResetKey} progress={progress} file={guideFile} error={error} onUpload={(input) => upload('guide', input)} onRemove={() => { setGuideFile(null); setGuideText(''); setResult(null) }} />}
     {step === 5 && <TargetStep progress={progress} target={target} setTarget={setTarget} />}
-    {step === 6 && target && <ResultsStep student={student} target={target} activities={activities} onChangeGuide={() => setStep(4)} />}
+    {step === 6 && target && result && <ResultsStep student={student} target={target} grades={grades} activities={activities} result={result} onChangeGuide={() => setStep(4)} />}
     {error && <p className="form-error" role="alert">{error}</p>}
     <div className="workflow-actions" role="group" aria-label="Navigasi langkah rekomendasi">{step > 1 && step < 6 && <button className="outline-button" onClick={back}>Kembali</button>}{step < 6 ? <button className="primary" onClick={next} disabled={isProcessing || step === 1 && (!file || !grades.length) || step === 4 && !guideFile}>{isProcessing ? <><Loader2 className="spin" /> Sedang memproses...</> : <>{step === 5 ? 'Lihat hasil rekomendasi' : step === 3 ? 'Simpan dan lanjut' : 'Lanjut'}</>}</button> : <button className="primary" onClick={() => setRestartOpen(true)}>Mulai ulang</button>}</div>{restartOpen && <RestartDialog onCancel={() => setRestartOpen(false)} onConfirm={resetWorkflow} />}
   </div>
@@ -101,18 +142,18 @@ export function CourseRecommendation() {
 function UploadStep({ inputKey, progress, file, error, isProcessing, onUpload, onRemove }: { inputKey: number; progress: number; file: File | null; error: string; isProcessing: boolean; onUpload: (input: HTMLInputElement) => void; onRemove: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const openPicker = () => inputRef.current?.click()
-  return <section className="workflow-card"><div className="card-topline"><b>Langkah 1 dari 5</b><span>Unggah KHS</span></div><div className="progress-line"><i style={{ width: `${progress}%` }} /></div><h2>Unggah KHS</h2><p>Pastikan file KHS Anda dalam format PDF.</p>{isProcessing ? <div className="processing-state"><Loader2 className="spin" /><strong>Sedang memproses dokumen KHS...</strong><small>Menyiapkan mock data untuk preview akademik.</small></div> : <div className={`upload-zone ${file ? 'uploaded' : ''}`} role="button" tabIndex={0} onClick={openPicker} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openPicker() } }}><input key={inputKey} ref={inputRef} type="file" accept="application/pdf" onChange={(event) => onUpload(event.currentTarget)} /><div className="upload-icon">{file ? <Check /> : <Upload />}</div><strong>{file ? file.name : 'Klik untuk memilih file KHS'}</strong><small>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · File siap diproses` : 'Format PDF · Maksimal 10 MB'}</small><div className="upload-actions"><button type="button" className="primary small" onClick={(event) => { event.stopPropagation(); openPicker() }}>{file ? 'Ganti file' : 'Pilih file'}</button>{file && <button type="button" className="outline-button small" onClick={(event) => { event.stopPropagation(); onRemove() }}><X /> Hapus</button>}</div></div>}{error && <p className="form-error">{error}</p>}</section>
+  return <section className="workflow-card"><div className="card-topline"><b>Langkah 1 dari 5</b><span>Unggah KHS</span></div><div className="progress-line"><i style={{ width: `${progress}%` }} /></div><h2>Unggah KHS</h2><p>Pastikan file KHS Anda dalam format PDF.</p>{isProcessing ? <div className="processing-state"><Loader2 className="spin" /><strong>Sedang memproses dokumen KHS...</strong><small>Membaca dan mengekstrak nilai dari file KHS. Proses ini bisa memakan waktu hingga satu menit.</small></div> : <div className={`upload-zone ${file ? 'uploaded' : ''}`} role="button" tabIndex={0} onClick={openPicker} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openPicker() } }}><input key={inputKey} ref={inputRef} type="file" accept="application/pdf" onChange={(event) => onUpload(event.currentTarget)} /><div className="upload-icon">{file ? <Check /> : <Upload />}</div><strong>{file ? file.name : 'Klik untuk memilih file KHS'}</strong><small>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · File siap diproses` : 'Format PDF · Maksimal 10 MB'}</small><div className="upload-actions"><button type="button" className="primary small" onClick={(event) => { event.stopPropagation(); openPicker() }}>{file ? 'Ganti file' : 'Pilih file'}</button>{file && <button type="button" className="outline-button small" onClick={(event) => { event.stopPropagation(); onRemove() }}><X /> Hapus</button>}</div></div>}{error && <p className="form-error">{error}</p>}</section>
 }
 
-function PreviewStep({ progress, student, grades }: { progress: number; student: KhsStudent; grades: KhsCourse[] }) { return <section className="workflow-card"><div className="card-topline"><b>Langkah 2 dari 5</b><span>Preview</span></div><div className="progress-line"><i style={{ width: `${progress}%` }} /></div><h2>Informasi mahasiswa</h2><div className="student-summary">{Object.entries(student).map(([key, value]) => <div key={key}><span>{key}</span><b>{value}</b></div>)}</div><h2>Daftar mata kuliah</h2><div className="academic-table-scroll"><div className="academic-table"><div className="table-row table-head"><span>No</span><span>Kode</span><span>Mata kuliah</span><span>SKS</span><span>Nilai</span></div>{grades.map((course, index) => <div className="table-row" key={course.code}><span>{index + 1}</span><span>{course.code}</span><b>{course.name}</b><span>{course.credits}</span><strong>{course.grade}</strong></div>)}</div></div></section> }
+function PreviewStep({ progress, student, grades }: { progress: number; student: KhsStudent; grades: KhsCourse[] }) { return <section className="workflow-card"><div className="card-topline"><b>Langkah 2 dari 5</b><span>Preview</span></div><div className="progress-line"><i style={{ width: `${progress}%` }} /></div><h2>Informasi mahasiswa</h2><div className="student-summary">{Object.entries(student).map(([key, value]) => <div key={key}><span>{key}</span><b>{value}</b></div>)}</div><h2>Daftar mata kuliah</h2><div className="academic-table-scroll"><div className="academic-table"><div className="table-row table-head"><span>No</span><span>Kode</span><span>Mata kuliah</span><span>SKS</span><span>Nilai</span></div>{grades.map((course, index) => <div className="table-row" key={`${course.code}-${index}`}><span>{index + 1}</span><span>{course.code}</span><b>{course.name}</b><span>{course.credits}</span><strong>{course.grade}</strong></div>)}</div></div></section> }
 
 function EditStep({ progress, grades, setGrades, activities, setActivities, totalCredits }: { progress: number; grades: KhsCourse[]; setGrades: (value: KhsCourse[]) => void; activities: NonCourseActivity[]; setActivities: (value: NonCourseActivity[]) => void; totalCredits: number }) {
   const [activity, setActivity] = useState<NonCourseActivity>({ name: '', group: '', year: '2026', grade: '' })
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'course' | 'activity'; index: number; label: string } | null>(null)
-  const gradePoints: Record<string, number> = { A: 4, 'A-': 3.7, 'A/B': 3.5, 'B+': 3.3, B: 3, 'B-': 2.7, 'C+': 2.3, C: 2, D: 1, E: 0 }
+  const gradePoints = GRADE_POINTS
   const estimatedGpa = grades.length ? (grades.reduce((sum, course) => sum + (gradePoints[course.grade] ?? 0) * course.credits, 0) / Math.max(totalCredits, 1)).toFixed(2) : '0.00'
 
-  function addCourse() { setGrades([...grades, { code: `SIF${grades.length + 100}`, name: 'Mata kuliah baru', credits: 3, grade: 'B' }]) }
+  function addCourse() { setGrades([...grades, { code: '', name: '', credits: 3, grade: '' }]) }
   function addActivity() {
     if (!activity.name || !activity.grade) return
     if (activities.some((item) => item.name === activity.name)) return
@@ -128,7 +169,7 @@ function EditStep({ progress, grades, setGrades, activities, setActivities, tota
   }
 
   return <>
-    <section className="workflow-card"><div className="card-topline"><b>Langkah 3 dari 5</b><span>Input nilai</span></div><div className="progress-line"><i style={{ width: `${progress}%` }} /></div><div className="edit-table">{grades.map((course, index) => <div className="edit-row" key={course.code}><span>{index + 1}</span><input aria-label={`Kode ${course.name}`} value={course.code} onChange={(event) => setGrades(grades.map((item, itemIndex) => itemIndex === index ? { ...item, code: event.target.value } : item))} /><input aria-label={`Mata kuliah ${course.code}`} value={course.name} onChange={(event) => setGrades(grades.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} /><input aria-label={`SKS ${course.name}`} type="number" min="1" value={course.credits} onChange={(event) => setGrades(grades.map((item, itemIndex) => itemIndex === index ? { ...item, credits: Number(event.target.value) } : item))} /><select aria-label={`Nilai ${course.name}`} value={course.grade} onChange={(event) => setGrades(grades.map((item, itemIndex) => itemIndex === index ? { ...item, grade: event.target.value } : item))}>{gradeOptions.map((grade) => <option key={grade} value={grade}>{grade}</option>)}</select><button type="button" className="delete-course" aria-label={`Hapus ${course.name}`} onClick={() => setDeleteTarget({ type: 'course', index, label: course.name })}><Trash2 /></button></div>)}</div><button type="button" className="outline-button add-course-button" onClick={addCourse}><Plus /> Tambah mata kuliah</button><p className="table-summary"><b>{totalCredits} SKS</b> dari {grades.length} mata kuliah, perkiraan IPK <b>{estimatedGpa}</b>.</p></section>
+    <section className="workflow-card"><div className="card-topline"><b>Langkah 3 dari 5</b><span>Input nilai</span></div><div className="progress-line"><i style={{ width: `${progress}%` }} /></div><div className="edit-table">{grades.map((course, index) => <div className="edit-row" key={index}><span>{index + 1}</span><input aria-label={`Kode ${course.name}`} value={course.code} onChange={(event) => setGrades(grades.map((item, itemIndex) => itemIndex === index ? { ...item, code: event.target.value } : item))} /><input aria-label={`Mata kuliah ${course.code}`} value={course.name} onChange={(event) => setGrades(grades.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} /><input aria-label={`SKS ${course.name}`} type="number" min="1" value={course.credits} onChange={(event) => setGrades(grades.map((item, itemIndex) => itemIndex === index ? { ...item, credits: Number(event.target.value) } : item))} /><select aria-label={`Nilai ${course.name}`} value={course.grade} onChange={(event) => setGrades(grades.map((item, itemIndex) => itemIndex === index ? { ...item, grade: event.target.value } : item))}><option value="" disabled>Pilih nilai</option>{gradeOptions.map((grade) => <option key={grade} value={grade}>{grade}</option>)}</select><button type="button" className="delete-course" aria-label={`Hapus ${course.name}`} onClick={() => setDeleteTarget({ type: 'course', index, label: course.name })}><Trash2 /></button></div>)}</div><button type="button" className="outline-button add-course-button" onClick={addCourse}><Plus /> Tambah mata kuliah</button><p className="table-summary"><b>{totalCredits} SKS</b> dari {grades.length} mata kuliah, perkiraan IPK <b>{estimatedGpa}</b>.</p></section>
     <section className="workflow-card activity-card original-activity-card"><h2>Kegiatan non-mata kuliah</h2><p>Tambahkan nilai kegiatan di luar mata kuliah jika ada</p><div className="activity-form-grid"><label>Nama kegiatan<select value={activity.name} onChange={(event) => setActivity({ ...activity, name: event.target.value })}><option value="">Pilih kegiatan</option>{activityOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select></label><label>Kelas/Kelompok<input value={activity.group} onChange={(event) => setActivity({ ...activity, group: event.target.value })} placeholder="Contoh: PTA-N" /></label><label>Tahun (opsional)<input value={activity.year} onChange={(event) => setActivity({ ...activity, year: event.target.value })} placeholder="2026" /></label><label>Nilai akhir<select value={activity.grade} onChange={(event) => setActivity({ ...activity, grade: event.target.value })}><option value="">Pilih nilai</option>{gradeOptions.map((grade) => <option key={grade} value={grade}>{grade}</option>)}</select></label></div><div className="activity-add-row"><button className="primary activity-add-button" type="button" onClick={addActivity}><Plus /> Tambah kegiatan</button></div><div className="activity-list-heading"><b>Daftar kegiatan</b><span>Total: {activities.length}</span></div><div className="activity-table"><div className="activity-table-head"><span>No</span><span>Kegiatan</span><span>Kelas/Kelompok</span><span>Nilai akhir</span><span>Tahun</span><span>Aksi</span></div>{activities.length === 0 ? <div className="activity-empty">Belum ada data.</div> : activities.map((item, index) => <div className="activity-table-row" key={`${item.name}-${index}`}><span>{index + 1}</span><b>{item.name}</b><span>{item.group || '-'}</span><span>{item.grade}</span><span>{item.year || '-'}</span><button type="button" className="delete-course" aria-label={`Hapus ${item.name}`} onClick={() => setDeleteTarget({ type: 'activity', index, label: item.name })}><Trash2 /></button></div>)}</div></section>
     {deleteTarget && <ConfirmDeleteDialog label={deleteTarget.label} onCancel={() => setDeleteTarget(null)} onConfirm={confirmDelete} />}
   </>
@@ -146,17 +187,21 @@ function GuideStep({ inputKey, progress, file, error, onUpload, onRemove }: { in
 
 function TargetStep({ progress, target, setTarget }: { progress: number; target: AcademicTarget | null; setTarget: (value: AcademicTarget) => void }) { return <section className="workflow-card"><div className="card-topline"><b>Langkah 5 dari 5</b><span>Target akademik</span></div><div className="progress-line"><i style={{ width: `${progress}%` }} /></div><h2>Apa prioritas studi Anda?</h2><div className="target-options">{academicTargets.map((option) => <label className={`target-option ${target === option.id ? 'selected' : ''}`} key={option.id}><input type="radio" name="target" checked={target === option.id} onChange={() => setTarget(option.id)} /><span className="radio-dot" /><div><b>{option.title}</b><p>{option.description}</p></div><strong>Nilai minimal<br />{option.minimum}</strong></label>)}</div></section> }
 
-function ResultsStep({ student, target, activities, onChangeGuide }: { student: KhsStudent; target: AcademicTarget; activities: NonCourseActivity[]; onChangeGuide: () => void }) {
+function ResultsStep({ student, target, grades, activities, result, onChangeGuide }: { student: KhsStudent; target: AcademicTarget; grades: KhsCourse[]; activities: NonCourseActivity[]; result: CourseRecommendationResult; onChangeGuide: () => void }) {
   const targetOption = academicTargets.find((item) => item.id === target)
+  const creditsByCode = new Map(grades.map((course) => [course.code.toUpperCase(), course.credits]))
+  const nextCourses = result.rekomendasi_semester_depan.filter((item) => item.jenis === 'baru').map((item) => ({ name: item.nama, code: item.kode, credits: item.sks ? `${item.sks} SKS` : undefined, note: item.alasan }))
+  const attentionCourses = result.evaluasi_nilai.map((item) => { const sks = creditsByCode.get(item.kode.toUpperCase()); return { name: item.nama, code: item.kode, credits: sks ? `${sks} SKS` : undefined, note: item.saran, grade: item.nilai } })
+  const belowTargetCandidates = grades.map((course) => ({ name: course.name, code: course.code, credits: `${course.credits} SKS`, grade: course.grade }))
   return <div className="results-stack">
-    <div className="result-hero result-hero-with-action"><div><h2>Halo, {student.name.split(' ZI')[0]}</h2><p>Mahasiswa {student.program}. Anda telah menyelesaikan {student.credits} dari 33 mata kuliah dengan IPK kumulatif {student.gpa}. Target lulus semester 8.</p></div><div className="result-actions"><button type="button" className="outline-button export-pdf-button" onClick={() => window.print()}><Download /> Export ke PDF</button><button type="button" className="primary guide-change-button" onClick={onChangeGuide}>Ganti panduan akademik <ArrowRight /></button></div></div>
-    <ResultSection title="Rekomendasi berdasarkan panduan akademik" description="Mata kuliah semester 8 sesuai panduan prodi." tone="blue" items={recommendations.required} />
-    <ResultSection title="Mata kuliah yang perlu diulang" description="Nilai pada mata kuliah berikut belum memenuhi ketentuan akademik. Prioritaskan untuk ditinjau kembali." tone="purple" items={recommendations.attention} />
-    <TargetResultSection targetTitle={targetOption?.title || ''} minimum={targetOption?.minimum || ''} items={recommendations.target} />
+    <div className="result-hero result-hero-with-action"><div><h2>Halo, {student.name}</h2><p>Mahasiswa {student.program}. Total {student.credits} dengan IPK kumulatif {student.gpa}. Rekomendasi ini disusun untuk semester {result.semester_target}.</p>{result.ringkasan && <p>{result.ringkasan}</p>}</div><div className="result-actions"><button type="button" className="outline-button export-pdf-button" onClick={() => window.print()}><Download /> Export ke PDF</button><button type="button" className="primary guide-change-button" onClick={onChangeGuide}>Ganti panduan akademik <ArrowRight /></button></div></div>
+    <ResultSection title="Rekomendasi berdasarkan panduan akademik" description={`Mata kuliah semester ${result.semester_target} sesuai panduan prodi.`} tone="blue" items={nextCourses} />
+    <ResultSection title="Mata kuliah yang perlu diulang" description="Nilai pada mata kuliah berikut belum memenuhi ketentuan akademik. Prioritaskan untuk ditinjau kembali." tone="purple" items={attentionCourses} />
+    <TargetResultSection targetTitle={targetOption?.title || ''} minimum={targetOption?.minimum || ''} items={belowTargetCandidates} />
     <ActivityResultSection activities={activities} />
   </div>
 }
 function ActivityResultSection({ activities }: { activities: NonCourseActivity[] }) { return <section className="result-section activity-result-section"><div className="result-section-head"><h2>Kegiatan non-mata kuliah</h2><p>Aktivitas akademik di luar mata kuliah yang Anda masukkan.</p></div>{activities.length === 0 ? <div className="activity-result-empty">Belum ada kegiatan non-mata kuliah yang ditambahkan.</div> : <div className="activity-result-table"><div className="activity-result-row activity-result-head"><span>Kode</span><span>Kegiatan</span><span>Nilai akhir</span></div>{activities.map((activity) => <div className="activity-result-row" key={`${activity.name}-${activity.year}`}><b>{activityCode(activity.name)}</b><span>{activity.name}</span><strong>{activity.grade || 'Belum ada'}</strong></div>)}</div>}</section> }
 function activityCode(name: string) { const codes: Record<string, string> = { "Pengembangan Diri Qur'ani": 'PDQ', 'Student Soft Skill Development': 'S3D', 'Pelatihan Kepemimpinan dan Dakwah': 'PKD', 'Pendalaman Nilai Dasar Islam': 'PNDI', 'Pelatihan Pengembangan Diri': 'PPD' }; return codes[name] || '—' }
-function ResultSection({ title, description, tone, items }: { title: string; description: string; tone: string; items: Array<{ name: string; code: string; credits?: string; note?: string; grade?: string }> }) { return <section className={`result-section ${tone}`}><div className="result-section-head"><h2>{title}</h2><p>{description}</p></div>{items.map((item, index) => <div className="result-row" key={item.name}><span>{index + 1}</span><div><b>{item.name}</b><small>{item.code} {item.credits && `· ${item.credits}`}</small></div><p>{item.note || 'Nilai saat ini'}</p>{item.grade && <strong>{item.grade}</strong>}</div>)}</section> }
-function TargetResultSection({ targetTitle, minimum, items }: { targetTitle: string; minimum: string; items: Array<{ name: string; code: string; credits?: string; grade?: string }> }) { const points: Record<string, number> = { A: 4, 'A-': 3.7, 'A/B': 3.5, 'B+': 3.3, B: 3, 'B-': 2.7, 'C+': 2.3, C: 2, D: 1, E: 0 }; const minimumPoints = points[minimum] ?? 3; const belowTarget = items.filter((item) => (points[item.grade || ''] ?? 0) < minimumPoints); return <section className="result-section green"><div className="result-section-head"><h2>Langkah menuju target</h2><p>Tingkatkan nilai pada mata kuliah berikut untuk mendukung target akademik Anda.</p><span className="target-badge">Target dipilih: {targetTitle} · minimal {minimum}</span></div><div className="target-result-head"><span>Nilai di Bawah Target</span><span>Nilai saat ini</span></div>{belowTarget.length ? belowTarget.map((item, index) => <div className="result-row target-result-row" key={item.name}><span>{index + 1}</span><div><b>{item.name}</b><small>{item.code} {item.credits && `· ${item.credits}`}</small></div><span className="target-current-grade">{item.grade || 'Belum ada'}</span></div>) : <div className="activity-result-empty">Tidak ada mata kuliah di bawah target.</div>}</section> }
+function ResultSection({ title, description, tone, items }: { title: string; description: string; tone: string; items: Array<{ name: string; code: string; credits?: string; note?: string; grade?: string }> }) { return <section className={`result-section ${tone}`}><div className="result-section-head"><h2>{title}</h2><p>{description}</p></div>{items.length === 0 && <div className="activity-result-empty">Tidak ada data untuk bagian ini.</div>}{items.map((item, index) => <div className="result-row" key={`${item.code}-${index}`}><span>{index + 1}</span><div><b>{item.name}</b><small>{item.code} {item.credits && `· ${item.credits}`}</small></div><p>{item.note || 'Nilai saat ini'}</p>{item.grade && <strong>{item.grade}</strong>}</div>)}</section> }
+function TargetResultSection({ targetTitle, minimum, items }: { targetTitle: string; minimum: string; items: Array<{ name: string; code: string; credits?: string; grade?: string }> }) { const points = GRADE_POINTS; const minimumPoints = points[minimum] ?? 3; const belowTarget = items.filter((item) => (points[item.grade || ''] ?? 0) < minimumPoints); return <section className="result-section green"><div className="result-section-head"><h2>Langkah menuju target</h2><p>Tingkatkan nilai pada mata kuliah berikut untuk mendukung target akademik Anda.</p><span className="target-badge">Target dipilih: {targetTitle} · minimal {minimum}</span></div><div className="target-result-head"><span>Nilai di Bawah Target</span><span>Nilai saat ini</span></div>{belowTarget.length ? belowTarget.map((item, index) => <div className="result-row target-result-row" key={item.name}><span>{index + 1}</span><div><b>{item.name}</b><small>{item.code} {item.credits && `· ${item.credits}`}</small></div><span className="target-current-grade">{item.grade || 'Belum ada'}</span></div>) : <div className="activity-result-empty">Tidak ada mata kuliah di bawah target.</div>}</section> }
