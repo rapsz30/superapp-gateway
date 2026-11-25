@@ -30,6 +30,6 @@ pb_data/
 .idea/
 .DS_Store
 Thumbs.db
-*.logstruktur_proyek*.txt
-
+*.log
 struktur_proyek*.txt
+

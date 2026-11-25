@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350" font-family="'Plus Jakarta Sans','Poppins','Helvetica Neue',Arial,sans-serif">
+  <defs>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.82"/>
+      <stop offset="1" stop-color="#e6f0ff" stop-opacity="0.55"/>
+    </linearGradient>
+    <linearGradient id="blueg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f9bff"/>
+      <stop offset="1" stop-color="#1b4fe0"/>
+    </linearGradient>
+    <linearGradient id="hubg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5aa6ff"/>
+      <stop offset="1" stop-color="#1238c8"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#0a2a8a" flood-opacity="0.28"/>
+    </filter>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="4"/></filter>
+  </defs>
+
+  <!-- Transparent illustration foreground -->
+
+
+  <!-- Connector lines between cards (dashed) -->
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.75" stroke-width="2.5" stroke-dasharray="3 9" stroke-linecap="round">
+    <path d="M360,355 C130,360 110,600 150,850"/>
+    <path d="M720,355 C950,360 970,600 930,850"/>
+    <path d="M440,955 L640,955"/>
+  </g>
+  <!-- Connector lines hub to cards -->
+  <g fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round">
+    <path d="M540,460 L540,615"/>
+    <path d="M482,742 L260,850"/>
+    <path d="M598,742 L820,850"/>
+  </g>
+  <!-- Connector dots -->
+  <g fill="#0b2a7a" stroke="#ffffff" stroke-width="3">
+    <circle cx="540" cy="460" r="7"/><circle cx="540" cy="615" r="7"/>
+    <circle cx="260" cy="850" r="7"/><circle cx="820" cy="850" r="7"/>
+    <circle cx="360" cy="355" r="6"/><circle cx="720" cy="355" r="6"/>
+    <circle cx="150" cy="850" r="6"/><circle cx="930" cy="850" r="6"/>
+    <circle cx="440" cy="955" r="6"/><circle cx="640" cy="955" r="6"/>
+  </g>
+
+  <!-- Hub -->
+  <circle cx="540" cy="700" r="140" fill="#ffffff" fill-opacity="0.14"/>
+  <circle cx="540" cy="700" r="112" fill="#ffffff" fill-opacity="0.24"/>
+  <circle cx="540" cy="700" r="84" fill="url(#hubg)" stroke="#ffffff" stroke-width="5" filter="url(#shadow)"/>
+  <g fill="#ffffff">
+    <polygon points="540,662 596,688 540,714 484,688"/>
+    <path d="M512,704 L512,724 Q540,742 568,724 L568,704 L540,718 Z" fill-opacity="0.92"/>
+  </g>
+  <path d="M596,688 L596,722" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="596" cy="726" r="5" fill="#ffffff"/>
+
+  <!-- Card A: Judul TA -->
+  <g transform="translate(360,250)">
+    <rect width="360" height="210" rx="28" fill="url(#glass)" stroke="#ffffff" stroke-opacity="0.95" stroke-width="2" filter="url(#shadow)"/>
+    <text x="28" y="48" font-size="21" font-weight="700" fill="#0b2a6f">Rekomendasi Judul TA</text>
+    <text x="28" y="74" font-size="15" fill="#3f64ad">Judul, metodologi, referensi</text>
+    <rect x="24" y="112" width="270" height="12" rx="6" fill="#bcd5ff"/>
+    <rect x="24" y="134" width="200" height="10" rx="5" fill="#d3e3ff"/>
+    <rect x="24" y="162" width="72" height="26" rx="13" fill="#dbeafe"/><text x="60" y="180" text-anchor="middle" font-size="12" font-weight="600" fill="#2563eb">Judul</text>
+    <rect x="106" y="162" width="82" height="26" rx="13" fill="#dbeafe"/><text x="147" y="180" text-anchor="middle" font-size="12" font-weight="600" fill="#2563eb">Metodologi</text>
+    <rect x="198" y="162" width="82" height="26" rx="13" fill="#dbeafe"/><text x="239" y="180" text-anchor="middle" font-size="12" font-weight="600" fill="#2563eb">Referensi</text>
+  </g>
+
+  <!-- Card B: Mata Kuliah -->
+  <g transform="translate(80,850)">
+    <rect width="360" height="210" rx="28" fill="url(#glass)" stroke="#ffffff" stroke-opacity="0.95" stroke-width="2" filter="url(#shadow)"/>
+    <text x="28" y="48" font-size="21" font-weight="700" fill="#0b2a6f">Rekomendasi Mata Kuliah</text>
+    <text x="28" y="74" font-size="15" fill="#3f64ad">Analisis transkrip KHS</text>
+    <g>
+      <rect x="24" y="110" width="312" height="24" rx="12" fill="#fff" fill-opacity="0.75"/>
+      <circle cx="40" cy="122" r="7" fill="#22c55e"/><rect x="56" y="118" width="150" height="8" rx="4" fill="#bcd5ff"/>
+      <rect x="262" y="114" width="64" height="16" rx="8" fill="#dcfce7"/><text x="294" y="126" text-anchor="middle" font-size="11" font-weight="700" fill="#15803d">Ambil</text>
+      <rect x="24" y="140" width="312" height="24" rx="12" fill="#fff" fill-opacity="0.75"/>
+      <circle cx="40" cy="152" r="7" fill="#f59e0b"/><rect x="56" y="148" width="120" height="8" rx="4" fill="#bcd5ff"/>
+      <rect x="262" y="144" width="64" height="16" rx="8" fill="#fef3c7"/><text x="294" y="156" text-anchor="middle" font-size="11" font-weight="700" fill="#b45309">Tunda</text>
+      <rect x="24" y="170" width="312" height="24" rx="12" fill="#fff" fill-opacity="0.75"/>
+      <circle cx="40" cy="182" r="7" fill="#ef4444"/><rect x="56" y="178" width="136" height="8" rx="4" fill="#bcd5ff"/>
+      <rect x="262" y="174" width="64" height="16" rx="8" fill="#fee2e2"/><text x="294" y="186" text-anchor="middle" font-size="11" font-weight="700" fill="#b91c1c">Ulang</text>
+    </g>
+  </g>
+
+  <!-- Card C: Micro-credential -->
+  <g transform="translate(640,850)">
+    <rect width="360" height="210" rx="28" fill="url(#glass)" stroke="#ffffff" stroke-opacity="0.95" stroke-width="2" filter="url(#shadow)"/>
+    <text x="28" y="48" font-size="21" font-weight="700" fill="#0b2a6f">Micro-credential</text>
+    <text x="28" y="74" font-size="15" fill="#3f64ad">Kursus sesuai kompetensi</text>
+    <rect x="24" y="112" width="312" height="36" rx="13" fill="#fff" fill-opacity="0.75"/>
+    <rect x="38" y="122" width="160" height="9" rx="4.5" fill="#bcd5ff"/><rect x="38" y="136" width="100" height="7" rx="3.5" fill="#d3e3ff"/>
+    <rect x="266" y="121" width="56" height="20" rx="10" fill="#dbeafe"/><text x="294" y="136" text-anchor="middle" font-size="12" font-weight="700" fill="#2563eb">92%</text>
+    <rect x="24" y="156" width="312" height="36" rx="13" fill="#fff" fill-opacity="0.75"/>
+    <rect x="38" y="166" width="140" height="9" rx="4.5" fill="#bcd5ff"/><rect x="38" y="180" width="110" height="7" rx="3.5" fill="#d3e3ff"/>
+    <rect x="266" y="165" width="56" height="20" rx="10" fill="#dbeafe"/><text x="294" y="180" text-anchor="middle" font-size="12" font-weight="700" fill="#2563eb">88%</text>
+  </g>
+
+  <!-- Bottom text -->
+</svg>
