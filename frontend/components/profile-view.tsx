@@ -1,7 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { CheckCircle2, LockKeyhole, UserRound } from 'lucide-react'
+import { LockKeyhole, UserRound } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 
 type ProfileDetails = {
@@ -14,22 +13,10 @@ type ProfileDetails = {
 
 type ProfileViewProps = {
   profile: ProfileDetails
-  onChange: (profile: ProfileDetails) => void
 }
 
-export function ProfileView({ profile, onChange }: ProfileViewProps) {
+export function ProfileView({ profile }: ProfileViewProps) {
   const { t } = useLanguage()
-  const [isSaved, setIsSaved] = useState(false)
-
-  function updateField(field: keyof Omit<ProfileDetails, 'email'>, value: string) {
-    onChange({ ...profile, [field]: value })
-    setIsSaved(false)
-  }
-
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setIsSaved(true)
-  }
 
   return (
     <section className="profile-view" aria-labelledby="profile-title">
@@ -38,15 +25,15 @@ export function ProfileView({ profile, onChange }: ProfileViewProps) {
         <div>
           <p className="eyebrow">{t('Profil mahasiswa')}</p>
           <h1 id="profile-title">{t('Profil saya')}</h1>
-          <p>{t('Kelola informasi akademik dan identitas Anda.')}</p>
+          <p>{t('Data akademik Anda dikelola oleh admin kampus.')}</p>
         </div>
       </header>
 
-      <form className="profile-card" onSubmit={handleSubmit}>
+      <form className="profile-card" onSubmit={(event) => event.preventDefault()}>
         <div className="profile-card-heading">
           <div>
             <h2>{t('Informasi pribadi')}</h2>
-            <p>{t('Perbarui data profil akademik Anda.')}</p>
+            <p>{t('Data ini tidak dapat diubah sendiri. Hubungi admin akademik bila ada yang keliru.')}</p>
           </div>
         </div>
 
@@ -61,26 +48,22 @@ export function ProfileView({ profile, onChange }: ProfileViewProps) {
           </label>
           <label className="profile-field" htmlFor="profile-name">
             <span>{t('Nama lengkap')}</span>
-            <input id="profile-name" value={profile.name} onChange={(event) => updateField('name', event.target.value)} autoComplete="name" maxLength={100} required />
+            <input id="profile-name" value={profile.name} readOnly autoComplete="name" maxLength={100} />
           </label>
           <label className="profile-field" htmlFor="profile-nim">
             <span>{t('Nomor Induk Mahasiswa (NIM)')}</span>
-            <input id="profile-nim" value={profile.nim} onChange={(event) => updateField('nim', event.target.value)} inputMode="numeric" maxLength={30} required />
+            <input id="profile-nim" value={profile.nim} readOnly inputMode="numeric" maxLength={30} />
           </label>
           <label className="profile-field" htmlFor="profile-faculty">
             <span>{t('Fakultas')}</span>
-            <input id="profile-faculty" value={profile.faculty} onChange={(event) => updateField('faculty', event.target.value)} maxLength={100} required />
+            <input id="profile-faculty" value={profile.faculty} readOnly maxLength={100} />
           </label>
           <label className="profile-field" htmlFor="profile-major">
-            <span>{t('Jurusan')}</span>
-            <input id="profile-major" value={profile.major} onChange={(event) => updateField('major', event.target.value)} maxLength={100} required />
+            <span>{t('Program studi')}</span>
+            <input id="profile-major" value={profile.major} readOnly maxLength={100} />
           </label>
         </div>
 
-        <div className="profile-form-footer">
-          <p className="profile-save-status" role={isSaved ? 'alert' : undefined} aria-live="assertive">{isSaved && <><CheckCircle2 aria-hidden="true" />{t('Perubahan profil berhasil disimpan.')}</>}</p>
-          <button className="primary profile-save-button" type="submit">{t('Simpan perubahan')}</button>
-        </div>
       </form>
     </section>
   )

@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Award, BookOpen, Brain, Sprout, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock3, Download, ExternalLink, FileText, Home, ListChecks, Loader2, LogOut, Menu, PenLine, Printer, RefreshCw, ShieldCheck, Sparkles, UserRound, X } from 'lucide-react'
+import { Settings, ArrowLeft, Award, BookOpen, Brain, Sprout, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock3, Download, ExternalLink, FileText, Home, ListChecks, Loader2, LogOut, Menu, PenLine, Printer, RefreshCw, ShieldCheck, Sparkles, UserRound, X } from 'lucide-react'
 import { AppContent } from '@/components/app-content'
 import { CourseRecommendation } from '@/components/course-recommendation'
 import { AssessmentResults } from '@/components/assessment-results'
@@ -42,7 +42,7 @@ function Brand() {
 
 function GraduationCap() { return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m3 8 9-5 9 5-9 5-9-5Z"/><path d="M7 10v5c3 2 7 2 10 0v-5M21 9v6"/></svg> }
 
-function Sidebar({ active, onSelect, open, onClose, collapsed, onToggle, onLogout }: { active: string; onSelect: (item: string) => void; open: boolean; onClose: () => void; collapsed: boolean; onToggle: () => void; onLogout: () => void }) {
+function Sidebar({ active, onSelect, open, onClose, collapsed, onToggle, onLogout, showAdmin }: { showAdmin?: boolean; active: string; onSelect: (item: string) => void; open: boolean; onClose: () => void; collapsed: boolean; onToggle: () => void; onLogout: () => void }) {
   const { t } = useLanguage()
   return <>
     <aside id="student-sidebar" className={`sidebar ${open ? 'sidebar-open' : ''} ${collapsed ? 'sidebar-collapsed' : ''}`}>
@@ -52,6 +52,7 @@ function Sidebar({ active, onSelect, open, onClose, collapsed, onToggle, onLogou
         {index === 1 && <div className="menu-label nav-section">{t('Rekomendasi')}</div>}
         <button className={`nav-item ${active === label ? 'active' : ''}`} onClick={() => { onSelect(label); onClose() }} title={collapsed ? t(label) : undefined} aria-label={collapsed ? t(label) : undefined}><Icon /><span>{t(label)}</span></button>
       </div>)}</nav>
+      {showAdmin && <a className="nav-item" href="/admin/beranda" title={collapsed ? t('Administrasi') : undefined} aria-label={t('Administrasi')}><Settings /><span>{t('Administrasi')}</span></a>}
       <button type="button" className="logout" onClick={onLogout} title={collapsed ? t('Keluar') : undefined}><LogOut /><span>{t('Keluar')}</span></button>
     </aside>
     <button
@@ -799,9 +800,8 @@ export default function Page() {
   const { user, loading } = useCurrentUser()
   const [active, setActive] = useState('Beranda')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
-  const [profileOverride, setProfileOverride] = useState<{ email: string; name: string; nim: string; faculty: string; major: string } | null>(null)
 
-  const profile = profileOverride ?? {
+  const profile = {
     email: user?.email ?? '',
     name: user?.full_name || user?.email || 'Mahasiswa',
     nim: user?.nim || '-',
@@ -828,7 +828,7 @@ export default function Page() {
 
   const render =
     active === 'Pengaturan Akun' ? <AccountSettingsView email={profile.email} /> :
-    active === 'Profil Saya' ? <ProfileView profile={profile} onChange={setProfileOverride} /> :
+    active === 'Profil Saya' ? <ProfileView profile={profile} /> :
     active === 'Judul Tugas Akhir' ? <ThesisView /> :
     active === 'Mata Kuliah' ? <CourseRecommendation studentFallback={{ name: profile.name, nim: profile.nim, faculty: profile.faculty, program: profile.major }} /> :
     active === 'Micro-Credential' ? <MicroView studentName={profile.name} onReturnToHome={() => setActive('Beranda')} /> :
@@ -836,7 +836,7 @@ export default function Page() {
 
   return (
     <div className={`app ${sidebarCollapsed ? 'app-sidebar-collapsed' : ''}`}>
-      <Sidebar active={active} onSelect={setActive} open={false} onClose={() => {}} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((value) => !value)} onLogout={handleLogout} />
+      <Sidebar showAdmin={!!user?.roles.some((r) => ['superadmin', 'dekan', 'kajur', 'kaprodi'].includes(r))} active={active} onSelect={setActive} open={false} onClose={() => {}} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((value) => !value)} onLogout={handleLogout} />
       <main className="main">
         <Topbar active={active} onSelect={setActive} onLogout={handleLogout} profile={profile} />
         <AppContent>{render}</AppContent>

@@ -1,3 +1,9 @@
+> **DEPRECATED (2026-11-25):** koleksi PocketBase `users`, `pengguna`, `jurusan`, dan
+> `panduan_akademik` tidak lagi menjadi sumber kebenaran. Akun, struktur organisasi, dan panduan
+> akademik per prodi (berversi) dikelola layanan `identity` (lihat `docs/identity/`). Koleksi lama
+> dibiarkan agar data tidak hilang. Layanan ini belum dialihkan; itu tahap lanjutan.
+> Berkas `pb_migrations/` dibuat otomatis oleh PocketBase, jadi penanda ini ditaruh di sini.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

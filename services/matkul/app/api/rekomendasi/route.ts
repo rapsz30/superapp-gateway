@@ -2,6 +2,8 @@ import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import type { NilaiUII } from "@/src/lib/uii-grade";
 import { getMutu, getStatusLulus } from "@/src/lib/uii-grade";
+import { IdentityError, ambilKonteks } from "@/src/lib/identity";
+import { nimBerbeda, peringatanKonteks, type KonteksAkademik } from "@/src/lib/konteks";
 
 
 export const runtime = "nodejs";
@@ -75,14 +77,45 @@ const safeJson = (raw: string) => {
 export async function POST(req: Request) {
   try {
     const { khs, panduan_text } = (await req.json()) as { khs?: KhsPreview; panduan_text?: string };
-    if (!khs || !panduan_text) {
-      return NextResponse.json({ error: "khs dan panduan_text wajib dikirim" }, { status: 400 });
+    if (!khs) {
+      return NextResponse.json({ error: "khs wajib dikirim" }, { status: 400 });
     }
 
-    const panduanText = String(panduan_text ?? "").trim();
+    // Dasar rekomendasi = panduan aktif PRODI mahasiswa, diambil dari layanan identity.
+    // Lewat gateway, header Authorization selalu ada; panduan_text dari klien DIABAIKAN.
+    // Jalur panduan_text hanya untuk pemanggilan langsung tanpa token (debug lokal).
+    const authorization = req.headers.get("authorization");
+    let konteks: KonteksAkademik | null = null;
+    const peringatan: string[] = [];
+    let panduanText = "";
+
+    if (authorization) {
+      try {
+        konteks = await ambilKonteks(authorization);
+      } catch (e) {
+        if (e instanceof IdentityError) {
+          return NextResponse.json({ error: e.message, kode: e.kode }, { status: e.status });
+        }
+        throw e;
+      }
+      if (nimBerbeda(khs.mahasiswa?.nim, konteks.mahasiswa?.nim)) {
+        return NextResponse.json(
+          {
+            error: "NIM pada KHS tidak sama dengan NIM akun Anda. Unggah KHS milik Anda sendiri.",
+            kode: "nim_tidak_cocok",
+          },
+          { status: 422 }
+        );
+      }
+      peringatan.push(...peringatanKonteks(khs, konteks));
+      panduanText = String(konteks.panduan.teks ?? "").trim();
+    } else {
+      panduanText = String(panduan_text ?? "").trim();
+    }
+
     if (!panduanText) {
       return NextResponse.json(
-        { error: "Teks panduan kosong. Pastikan PDF panduan berhasil diekstrak." },
+        { error: "Teks panduan kosong. Pastikan panduan akademik prodi sudah diunggah dan berisi teks." },
         { status: 400 }
       );
     }
@@ -123,7 +156,7 @@ ATURAN NILAI:
 - Mata kuliah yang statusnya "Tidak Lulus" atau "Lulus (bersyarat)" SUDAH otomatis ditandai sistem untuk diulang/diperbaiki — kamu TIDAK perlu memasukkannya ke "rekomendasi_semester_depan", cukup beri SARAN untuk masing-masing di "evaluasi_nilai".
 - Gunakan angka total_sks, total_mk, dan ipk persis seperti yang diberikan di bawah ini saat menulis "ringkasan" — JANGAN mengarang angka lain.
 
-PANDUAN AKADEMIK:
+PANDUAN AKADEMIK${konteks ? ` PROGRAM STUDI ${konteks.prodi.nama.toUpperCase()} (versi ${konteks.panduan.versi})` : ""}:
 """
 ${panduanText.slice(0, 120000)}
 """
@@ -132,8 +165,9 @@ DATA MAHASISWA:
 ${JSON.stringify(
   {
     nama: khs.mahasiswa?.nama ?? "",
-    nim: khs.mahasiswa?.nim ?? "",
-    fakultas: khs.mahasiswa?.fakultas ?? khs.mahasiswa?.prodi ?? "",
+    nim: konteks?.mahasiswa?.nim ?? khs.mahasiswa?.nim ?? "",
+    program_studi: konteks?.prodi.nama ?? khs.mahasiswa?.prodi ?? "",
+    fakultas: konteks?.prodi.fakultas?.nama ?? khs.mahasiswa?.fakultas ?? khs.mahasiswa?.prodi ?? "",
     total_sks: totalSks,
     total_mk: totalMk,
     ipk: ipk,
@@ -233,6 +267,18 @@ ATURAN:
     const rekomendasiSemesterDepan = [...repeatRekom, ...newRekom];
 
     return NextResponse.json({
+      // Jejak dasar rekomendasi: versi panduan yang dipakai dicatat agar pengajuan ke
+      // pembimbing akademik tetap merujuk aturan yang berlaku saat itu.
+      panduan: konteks
+        ? {
+            id: konteks.panduan.id,
+            versi: konteks.panduan.versi,
+            judul: konteks.panduan.judul,
+            prodi: { id: konteks.prodi.id, kode: konteks.prodi.kode, nama: konteks.prodi.nama },
+          }
+        : null,
+      pembimbing_akademik: konteks?.pembimbing_akademik ?? null,
+      peringatan,
       semester_target: semesterTarget,
       ringkasan: String(parsed?.ringkasan ?? "").trim(),
       evaluasi_nilai: autoEval,

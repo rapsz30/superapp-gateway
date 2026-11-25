@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SALINAN dari alurkerja-connector/bpmn/perencanaan-studi-semester.bpmn (StudentGateway), dengan dua perubahan:
+    1. kunci proses: perencanaan-studi-superapp
+    2. nama topik berawalan "superapp-" (superapp-ekstraksi-khs, superapp-rekomendasi-matkul, superapp-revisi-rencana)
+  Keduanya agar worker StudentGateway yang lama tidak mengambil tugas proses ini.
+  Worker superapp: alurkerja-connector/ (TOPIC_PREFIX=superapp-, ALURKERJA_PROCESS_NAME=perencanaan-studi-superapp).
+  Alur dan variabel selebihnya sama. Lihat docs/identity/13-proses-alurkerja-penuh.md.
+-->
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  id="Definitions_PerencanaanStudi"
+                  targetNamespace="http://studentgateway.example/bpmn"
+                  exporter="StudentGateway"
+                  exporterVersion="0.1">
+
+  <bpmn:collaboration id="Collaboration_PerencanaanStudi">
+    <bpmn:participant id="Participant_Pool" name="Perencanaan Studi Semester" processRef="perencanaan-studi-superapp" />
+  </bpmn:collaboration>
+
+  <bpmn:process id="perencanaan-studi-superapp" name="Perencanaan Studi Semester" isExecutable="true">
+    <bpmn:documentation>Mahasiswa meminta rencana studi lewat chatbot, AI membaca KHS dan menyusun rekomendasi mata kuliah, dosen PA menyetujui atau meminta revisi di Tasklist, lalu mahasiswa menerima hasilnya. Ambang keyakinan 0,9 dan pengingat 2 hari adalah usulan awal.</bpmn:documentation>
+
+    <bpmn:laneSet id="LaneSet_1">
+      <bpmn:lane id="Lane_Mahasiswa" name="Mahasiswa (lewat chatbot)">
+        <bpmn:flowNodeRef>Start_Minta</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Unggah</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Periksa</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_Disetujui</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Sistem" name="Sistem (AlurKerja + agen AI)">
+        <bpmn:flowNodeRef>Task_BacaKhs</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>GW_Yakin</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Rekom</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Revisi</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_KirimRencana</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_DosenPA" name="Dosen PA (Tasklist AlurKerja)">
+        <bpmn:flowNodeRef>Task_Tinjau</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Boundary_2Hari</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Pengingat</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_Pengingat</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>GW_Keputusan</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Prodi" name="Prodi (Kaprodi, Report)">
+        <bpmn:flowNodeRef>Task_Catat</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+
+    <bpmn:startEvent id="Start_Minta" name="Minta rencana">
+      <bpmn:documentation>Mahasiswa menekan "Minta rencana" di chatbot; chatbot memanggil direct-start untuk memulai proses.</bpmn:documentation>
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:userTask id="Task_Unggah" name="Unggah KHS &amp; pilih semester (di chatbot)" camunda:assignee="${initiator}">
+      <bpmn:documentation>Mahasiswa mengunggah KHS (PDF) dan memilih semester target di chatbot. Chatbot menyelesaikan tugas ini lewat direct-complete dengan variabel khs_file_id dan semester_target. Penerima tugas: ${initiator}, yaitu akun layanan chatbot yang memulai proses.</bpmn:documentation>
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_1b</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:serviceTask id="Task_BacaKhs" name="Baca KHS &amp; panduan akademik" camunda:type="external" camunda:topic="superapp-ekstraksi-khs">
+      <bpmn:documentation>Langkah AI (worker). Masukan (dari tugas Unggah KHS): khs_file_id, semester_target. Keluaran: khs_ref, ipk, sks_lulus, mk_lulus, mk_ulang, keyakinan.</bpmn:documentation>
+      <bpmn:incoming>Flow_1b</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:exclusiveGateway id="GW_Yakin" name="Ekstraksi yakin?" default="Flow_Ragu">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_Yakin</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Ragu</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:userTask id="Task_Periksa" name="Periksa hasil ekstraksi (di chatbot)" camunda:assignee="${initiator}">
+      <bpmn:documentation>Chatbot menampilkan pratinjau hasil ekstraksi; mahasiswa mengonfirmasi lewat direct-complete.</bpmn:documentation>
+      <bpmn:incoming>Flow_Ragu</bpmn:incoming>
+      <bpmn:outgoing>Flow_5</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:serviceTask id="Task_Rekom" name="Rekomendasi mata kuliah" camunda:type="external" camunda:topic="superapp-rekomendasi-matkul">
+      <bpmn:documentation>Langkah AI (worker). Masukan: khs_ref, semester_target. Keluaran: rencana_ref, rencana_mk, total_sks, alasan, peringatan, ada_peringatan, jumlah_revisi.</bpmn:documentation>
+      <bpmn:incoming>Flow_Yakin</bpmn:incoming>
+      <bpmn:incoming>Flow_5</bpmn:incoming>
+      <bpmn:outgoing>Flow_6</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:userTask id="Task_Tinjau" name="Tinjau &amp; putuskan rencana studi - NIM ${execution.getVariable('nim_mahasiswa')}" camunda:assignee="${execution.getVariable('dosen_pa')}">
+      <bpmn:documentation>Form menampilkan rencana, alasan, dan peringatan. Keluaran: keputusan (setuju atau revisi) dan catatan_dosen. Form dibuat di Form Builder AlurKerja Studio.</bpmn:documentation>
+      <bpmn:incoming>Flow_6</bpmn:incoming>
+      <bpmn:incoming>Flow_10</bpmn:incoming>
+      <bpmn:outgoing>Flow_7</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:boundaryEvent id="Boundary_2Hari" name="lewat 2 hari" cancelActivity="false" attachedToRef="Task_Tinjau">
+      <bpmn:outgoing>Flow_13</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="TimerDef_2Hari">
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">P2D</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+
+    <bpmn:sendTask id="Task_Pengingat" name="Kirim pengingat ke dosen PA (WA atau email)" camunda:expression="${true}">
+      <bpmn:documentation>Memakai fitur Notification AlurKerja. Tugas dosen tetap terbuka. PLACEHOLDER: ekspresi ${true} hanya agar model bisa di-deploy; atur pengiriman sebenarnya di Studio (properti Notifications).</bpmn:documentation>
+      <bpmn:incoming>Flow_13</bpmn:incoming>
+      <bpmn:outgoing>Flow_14</bpmn:outgoing>
+    </bpmn:sendTask>
+
+    <bpmn:endEvent id="End_Pengingat" name="Pengingat terkirim">
+      <bpmn:incoming>Flow_14</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:exclusiveGateway id="GW_Keputusan" name="Keputusan?" default="Flow_Revisi">
+      <bpmn:incoming>Flow_7</bpmn:incoming>
+      <bpmn:outgoing>Flow_Setuju</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Revisi</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:serviceTask id="Task_Revisi" name="Revisi sesuai catatan dosen" camunda:type="external" camunda:topic="superapp-revisi-rencana">
+      <bpmn:documentation>Langkah AI (worker). Masukan: rencana_ref, catatan_dosen, jumlah_revisi. Keluaran: rencana baru, jumlah_revisi bertambah satu. Kembali ke dosen.</bpmn:documentation>
+      <bpmn:incoming>Flow_Revisi</bpmn:incoming>
+      <bpmn:outgoing>Flow_10</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sendTask id="Task_KirimRencana" name="Kirim rencana ke mahasiswa (WA/email + chatbot)" camunda:expression="${true}">
+      <bpmn:documentation>Memakai Notification AlurKerja; chatbot menampilkan hasil lewat cek status. PLACEHOLDER: ekspresi ${true} hanya agar model bisa di-deploy; atur pengiriman sebenarnya di Studio (properti Notifications).</bpmn:documentation>
+      <bpmn:incoming>Flow_Setuju</bpmn:incoming>
+      <bpmn:outgoing>Flow_11</bpmn:outgoing>
+    </bpmn:sendTask>
+
+    <bpmn:serviceTask id="Task_Catat" name="Catat ringkasan ke laporan prodi (tanpa nama mahasiswa)" camunda:expression="${true}">
+      <bpmn:documentation>Menyimpan: prodi, semester_target, total_sks, ada_peringatan, jumlah_revisi, waktu keputusan dosen. Tidak memuat nama atau NIM. Kaprodi melihat rekap per semester di dashboard Report AlurKerja. Variabel ringkasan sudah ada sebagai variabel proses (prodi, semester_target, total_sks, ada_peringatan, jumlah_revisi). PLACEHOLDER: ekspresi ${true} hanya agar model bisa di-deploy; sambungkan ke Report Builder/Integration di Studio.</bpmn:documentation>
+      <bpmn:incoming>Flow_11</bpmn:incoming>
+      <bpmn:outgoing>Flow_12</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:endEvent id="End_Disetujui" name="Rencana disetujui">
+      <bpmn:incoming>Flow_12</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:textAnnotation id="Ann_Laporan">
+      <bpmn:text>Data laporan: ringkasan tanpa nama mahasiswa (prodi, semester_target, total_sks, ada_peringatan, jumlah_revisi, waktu keputusan)</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:association id="Assoc_Laporan" sourceRef="Task_Catat" targetRef="Ann_Laporan" />
+
+    <bpmn:textAnnotation id="Ann_Dashboard">
+      <bpmn:text>Dashboard Kaprodi (Report AlurKerja), per semester: rencana diajukan dan disetujui; rata-rata waktu keputusan dosen PA dan jumlah revisi; mahasiswa dengan peringatan (SKS, IPK, mata kuliah ulang); mata kuliah yang paling banyak diambil dan diulang.</bpmn:text>
+    </bpmn:textAnnotation>
+
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="Start_Minta" targetRef="Task_Unggah" />
+    <bpmn:sequenceFlow id="Flow_1b" sourceRef="Task_Unggah" targetRef="Task_BacaKhs" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_BacaKhs" targetRef="GW_Yakin" />
+    <bpmn:sequenceFlow id="Flow_Yakin" name="yakin" sourceRef="GW_Yakin" targetRef="Task_Rekom">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${keyakinan &gt;= 0.9}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Ragu" name="ragu" sourceRef="GW_Yakin" targetRef="Task_Periksa" />
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="Task_Periksa" targetRef="Task_Rekom" />
+    <bpmn:sequenceFlow id="Flow_6" sourceRef="Task_Rekom" targetRef="Task_Tinjau" />
+    <bpmn:sequenceFlow id="Flow_7" sourceRef="Task_Tinjau" targetRef="GW_Keputusan" />
+    <bpmn:sequenceFlow id="Flow_Setuju" name="setuju" sourceRef="GW_Keputusan" targetRef="Task_KirimRencana">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${keputusan == 'setuju'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Revisi" name="revisi" sourceRef="GW_Keputusan" targetRef="Task_Revisi" />
+    <bpmn:sequenceFlow id="Flow_10" sourceRef="Task_Revisi" targetRef="Task_Tinjau" />
+    <bpmn:sequenceFlow id="Flow_11" sourceRef="Task_KirimRencana" targetRef="Task_Catat" />
+    <bpmn:sequenceFlow id="Flow_12" sourceRef="Task_Catat" targetRef="End_Disetujui" />
+    <bpmn:sequenceFlow id="Flow_13" sourceRef="Boundary_2Hari" targetRef="Task_Pengingat" />
+    <bpmn:sequenceFlow id="Flow_14" sourceRef="Task_Pengingat" targetRef="End_Pengingat" />
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_PerencanaanStudi">
+
+      <bpmndi:BPMNShape id="Participant_Pool_di" bpmnElement="Participant_Pool" isHorizontal="true">
+        <dc:Bounds x="160" y="60" width="1780" height="680" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Mahasiswa_di" bpmnElement="Lane_Mahasiswa" isHorizontal="true">
+        <dc:Bounds x="190" y="60" width="1750" height="170" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Sistem_di" bpmnElement="Lane_Sistem" isHorizontal="true">
+        <dc:Bounds x="190" y="230" width="1750" height="170" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_DosenPA_di" bpmnElement="Lane_DosenPA" isHorizontal="true">
+        <dc:Bounds x="190" y="400" width="1750" height="170" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Prodi_di" bpmnElement="Lane_Prodi" isHorizontal="true">
+        <dc:Bounds x="190" y="570" width="1750" height="170" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Start_Minta_di" bpmnElement="Start_Minta">
+        <dc:Bounds x="240" y="127" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="222" y="170" width="72" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Unggah_di" bpmnElement="Task_Unggah">
+        <dc:Bounds x="340" y="105" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_BacaKhs_di" bpmnElement="Task_BacaKhs">
+        <dc:Bounds x="340" y="275" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="GW_Yakin_di" bpmnElement="GW_Yakin" isMarkerVisible="true">
+        <dc:Bounds x="530" y="290" width="50" height="50" />
+        <bpmndi:BPMNLabel><dc:Bounds x="510" y="347" width="90" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Periksa_di" bpmnElement="Task_Periksa">
+        <dc:Bounds x="640" y="105" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Rekom_di" bpmnElement="Task_Rekom">
+        <dc:Bounds x="780" y="275" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Tinjau_di" bpmnElement="Task_Tinjau">
+        <dc:Bounds x="960" y="445" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Boundary_2Hari_di" bpmnElement="Boundary_2Hari">
+        <dc:Bounds x="1042" y="507" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="1085" y="540" width="70" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Pengingat_di" bpmnElement="Task_Pengingat">
+        <dc:Bounds x="720" y="445" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Pengingat_di" bpmnElement="End_Pengingat">
+        <dc:Bounds x="640" y="467" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="GW_Keputusan_di" bpmnElement="GW_Keputusan" isMarkerVisible="true">
+        <dc:Bounds x="1130" y="460" width="50" height="50" />
+        <bpmndi:BPMNLabel><dc:Bounds x="1128" y="517" width="60" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Revisi_di" bpmnElement="Task_Revisi">
+        <dc:Bounds x="1150" y="275" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_KirimRencana_di" bpmnElement="Task_KirimRencana">
+        <dc:Bounds x="1330" y="275" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Catat_di" bpmnElement="Task_Catat">
+        <dc:Bounds x="1500" y="615" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Disetujui_di" bpmnElement="End_Disetujui">
+        <dc:Bounds x="1760" y="127" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="1738" y="170" width="80" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Ann_Laporan_di" bpmnElement="Ann_Laporan">
+        <dc:Bounds x="1290" y="620" width="190" height="70" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Ann_Dashboard_di" bpmnElement="Ann_Dashboard">
+        <dc:Bounds x="820" y="600" width="440" height="110" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
+        <di:waypoint x="276" y="145" /><di:waypoint x="340" y="145" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1b_di" bpmnElement="Flow_1b">
+        <di:waypoint x="400" y="185" /><di:waypoint x="400" y="275" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2">
+        <di:waypoint x="460" y="315" /><di:waypoint x="530" y="315" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Yakin_di" bpmnElement="Flow_Yakin">
+        <di:waypoint x="580" y="315" /><di:waypoint x="780" y="315" />
+        <bpmndi:BPMNLabel><dc:Bounds x="665" y="297" width="30" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Ragu_di" bpmnElement="Flow_Ragu">
+        <di:waypoint x="555" y="290" /><di:waypoint x="555" y="145" /><di:waypoint x="640" y="145" />
+        <bpmndi:BPMNLabel><dc:Bounds x="562" y="215" width="26" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_5_di" bpmnElement="Flow_5">
+        <di:waypoint x="760" y="145" /><di:waypoint x="840" y="145" /><di:waypoint x="840" y="275" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_6_di" bpmnElement="Flow_6">
+        <di:waypoint x="900" y="315" /><di:waypoint x="990" y="315" /><di:waypoint x="990" y="445" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_7_di" bpmnElement="Flow_7">
+        <di:waypoint x="1080" y="485" /><di:waypoint x="1130" y="485" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Setuju_di" bpmnElement="Flow_Setuju">
+        <di:waypoint x="1180" y="485" /><di:waypoint x="1390" y="485" /><di:waypoint x="1390" y="355" />
+        <bpmndi:BPMNLabel><dc:Bounds x="1270" y="467" width="36" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Revisi_di" bpmnElement="Flow_Revisi">
+        <di:waypoint x="1155" y="460" /><di:waypoint x="1155" y="425" /><di:waypoint x="1210" y="425" /><di:waypoint x="1210" y="355" />
+        <bpmndi:BPMNLabel><dc:Bounds x="1220" y="400" width="30" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_10_di" bpmnElement="Flow_10">
+        <di:waypoint x="1150" y="315" /><di:waypoint x="1050" y="315" /><di:waypoint x="1050" y="445" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_11_di" bpmnElement="Flow_11">
+        <di:waypoint x="1450" y="315" /><di:waypoint x="1560" y="315" /><di:waypoint x="1560" y="615" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_12_di" bpmnElement="Flow_12">
+        <di:waypoint x="1620" y="655" /><di:waypoint x="1778" y="655" /><di:waypoint x="1778" y="163" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_13_di" bpmnElement="Flow_13">
+        <di:waypoint x="1060" y="543" /><di:waypoint x="1060" y="555" /><di:waypoint x="780" y="555" /><di:waypoint x="780" y="525" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_14_di" bpmnElement="Flow_14">
+        <di:waypoint x="720" y="485" /><di:waypoint x="676" y="485" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Assoc_Laporan_di" bpmnElement="Assoc_Laporan">
+        <di:waypoint x="1500" y="655" /><di:waypoint x="1480" y="655" />
+      </bpmndi:BPMNEdge>
+
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

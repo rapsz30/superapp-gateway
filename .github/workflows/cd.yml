@@ -42,6 +42,14 @@ jobs:
             context: ./infra/pocketbase
             file: ./infra/pocketbase/Dockerfile
             build_args: ""
+          - service: identity-api
+            context: ./services/identity
+            file: ./services/identity/Dockerfile
+            build_args: ""
+          - service: alurkerja-connector
+            context: ./alurkerja-connector
+            file: ./alurkerja-connector/Dockerfile
+            build_args: ""
           - service: auth-verifier
             context: ./gateway/auth
             file: ./gateway/auth/Dockerfile

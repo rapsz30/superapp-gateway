@@ -7,17 +7,19 @@ import { errorMessage, tokenStore } from '@/src/lib/api'
 import { authService } from '@/src/services/auth-service'
 
 const loginArtwork = '/images/student-gateway-login-asset.svg'
-const facultyOptions = ['Fakultas Teknik', 'Teknologi Industri']
-const studyProgramOptions = ['Informatika']
+// Harus sama dengan kebijakan layanan identity.
+const MIN_PASSWORD_LENGTH = 10
 
 export function LoginView() {
   const router = useRouter()
-  const [register, setRegister] = useState(false)
+  // 'ganti': akun baru dibuat admin dengan sandi sementara, wajib diganti sebelum memakai layanan.
+  const [mode, setMode] = useState<'masuk' | 'ganti'>('masuk')
   const [showPassword, setShowPassword] = useState(false)
   const [showRecoveryHelp, setShowRecoveryHelp] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [formNotice, setFormNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
@@ -29,34 +31,33 @@ export function LoginView() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (submitting) return
-    const formData = new FormData(event.currentTarget)
-    const normalizedEmail = email.trim().toLowerCase()
 
-    if (register && password !== confirmPassword) {
-      setFormNotice({ type: 'error', message: 'Konfirmasi kata sandi tidak cocok.' })
-      return
+    if (mode === 'ganti') {
+      if (newPassword.length < MIN_PASSWORD_LENGTH) {
+        setFormNotice({ type: 'error', message: `Kata sandi baru minimal ${MIN_PASSWORD_LENGTH} karakter.` })
+        return
+      }
+      if (newPassword !== confirmPassword) {
+        setFormNotice({ type: 'error', message: 'Konfirmasi kata sandi tidak cocok.' })
+        return
+      }
     }
 
     setSubmitting(true)
     try {
-      if (register) {
-        await authService.register({
-          email: normalizedEmail,
-          password,
-          full_name: String(formData.get('fullName') ?? '').trim(),
-          nim: String(formData.get('nim') ?? '').trim(),
-          faculty: String(formData.get('faculty') ?? ''),
-          study_program: String(formData.get('studyProgram') ?? ''),
-        })
-        setPassword('')
-        setConfirmPassword('')
-        setFormNotice({ type: 'success', message: 'Akun berhasil dibuat. Silakan masuk dengan email dan kata sandi Anda.' })
-        setRegister(false)
-        setShowRecoveryHelp(false)
+      if (mode === 'ganti') {
+        await authService.changePassword(password, newPassword)
+        setFormNotice(null)
+        router.push('/beranda')
         return
       }
 
-      await authService.login(normalizedEmail, password)
+      const user = await authService.login(email.trim().toLowerCase(), password)
+      if (user.mustChangePassword) {
+        setMode('ganti')
+        setFormNotice({ type: 'success', message: 'Kata sandi Anda masih sementara. Buat kata sandi baru untuk melanjutkan.' })
+        return
+      }
       setFormNotice(null)
       router.push('/beranda')
     } catch (error) {
@@ -65,6 +66,8 @@ export function LoginView() {
       setSubmitting(false)
     }
   }
+
+  const changing = mode === 'ganti'
 
   return (
     <main className="login-page">
@@ -75,67 +78,47 @@ export function LoginView() {
         </div>
       </section>
       <section className="login-panel" aria-labelledby="login-title">
-        <form
-          className={register ? 'login-form login-form-register' : 'login-form'}
-          onSubmit={handleSubmit}
-        >
-          <h2 id="login-title">{register ? 'Buat akun baru' : 'Masuk ke Student Gateway'}</h2>
+        <form className={changing ? 'login-form login-form-register' : 'login-form'} onSubmit={handleSubmit}>
+          <h2 id="login-title">{changing ? 'Buat kata sandi baru' : 'Masuk ke Student Gateway'}</h2>
           {formNotice && <p className={`login-notice login-notice-${formNotice.type}`} role={formNotice.type === 'error' ? 'alert' : 'status'}>{formNotice.message}</p>}
-          {register && (
-            <label className="field">
-              <span>Nama lengkap</span>
-              <input name="fullName" autoComplete="name" placeholder="Nama sesuai data kampus" required />
-            </label>
-          )}
-          <label className="field">
-            <span>Email</span>
-            <input name="email" type="email" autoComplete="email" value={email} onChange={(event) => { setEmail(event.target.value); setFormNotice(null) }} placeholder="Masukkan email" required />
-          </label>
-          {register && (
+          {!changing && (
             <>
               <label className="field">
-                <span>NIM</span>
-                <input name="nim" inputMode="numeric" pattern="[0-9]{6,15}" title="NIM terdiri dari 6 sampai 15 digit angka" autoComplete="off" placeholder="Masukkan NIM" required />
+                <span>Email</span>
+                <input name="email" type="email" autoComplete="email" value={email} onChange={(event) => { setEmail(event.target.value); setFormNotice(null) }} placeholder="Masukkan email" required />
               </label>
               <label className="field">
-                <span>Fakultas</span>
-                <select name="faculty" defaultValue="" required>
-                  <option value="" disabled>Pilih fakultas</option>
-                  {facultyOptions.map((faculty) => <option key={faculty} value={faculty}>{faculty}</option>)}
-                </select>
+                <span>Password</span>
+                <span className="password-field-wrap">
+                  <input name="password" type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => { setPassword(event.target.value); setFormNotice(null) }} autoComplete="current-password" placeholder="Masukkan password" required />
+                  <button className="password-reveal" type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'} aria-pressed={showPassword}>
+                    {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                  </button>
+                </span>
+              </label>
+              <button className="login-forgot" type="button" onClick={() => setShowRecoveryHelp((visible) => !visible)}>Lupa password?</button>
+              {showRecoveryHelp && <p className="login-recovery-help" role="status">Hubungi admin kampus untuk bantuan mengatur ulang password.</p>}
+            </>
+          )}
+          {changing && (
+            <>
+              <label className="field">
+                <span>Kata sandi baru</span>
+                <span className="password-field-wrap">
+                  <input name="newPassword" type={showPassword ? 'text' : 'password'} value={newPassword} onChange={(event) => { setNewPassword(event.target.value); setFormNotice(null) }} autoComplete="new-password" minLength={MIN_PASSWORD_LENGTH} placeholder={`Minimal ${MIN_PASSWORD_LENGTH} karakter`} required />
+                  <button className="password-reveal" type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'} aria-pressed={showPassword}>
+                    {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                  </button>
+                </span>
               </label>
               <label className="field">
-                <span>Program studi</span>
-                <select name="studyProgram" defaultValue="" required>
-                  <option value="" disabled>Pilih program studi</option>
-                  {studyProgramOptions.map((program) => <option key={program} value={program}>{program}</option>)}
-                </select>
+                <span>Konfirmasi kata sandi baru</span>
+                <input name="confirmPassword" type="password" value={confirmPassword} onChange={(event) => { setConfirmPassword(event.target.value); setFormNotice(null) }} autoComplete="new-password" placeholder="Masukkan ulang kata sandi baru" required />
               </label>
             </>
           )}
-          <label className="field">
-            <span>{register ? 'Kata sandi' : 'Password'}</span>
-            <span className="password-field-wrap">
-              <input name="password" type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => { setPassword(event.target.value); setFormNotice(null) }} autoComplete={register ? 'new-password' : 'current-password'} minLength={register ? 8 : undefined} placeholder={register ? 'Masukkan kata sandi' : 'Masukkan password'} required />
-              <button className="password-reveal" type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'} aria-pressed={showPassword}>
-                {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-              </button>
-            </span>
-          </label>
-          {register && (
-            <label className="field">
-              <span>Konfirmasi kata sandi</span>
-              <input name="confirmPassword" type="password" value={confirmPassword} onChange={(event) => { setConfirmPassword(event.target.value); setFormNotice(null) }} autoComplete="new-password" placeholder="Masukkan ulang kata sandi" required />
-            </label>
-          )}
-          {!register && <>
-            <button className="login-forgot" type="button" onClick={() => setShowRecoveryHelp((visible) => !visible)}>Lupa password?</button>
-            {showRecoveryHelp && <p className="login-recovery-help" role="status">Hubungi admin kampus untuk bantuan mengatur ulang password.</p>}
-          </>}
-          <button className="login-submit" type="submit" disabled={submitting}>{submitting ? 'Memproses...' : register ? 'Daftar' : 'Masuk'}</button>
-          <p className="login-switch">{register ? 'Sudah punya akun?' : 'Belum punya akun?'}{' '}
-            <button type="button" onClick={() => { setRegister((value) => !value); setShowRecoveryHelp(false); setFormNotice(null); setPassword(''); setConfirmPassword('') }}>{register ? 'Masuk' : 'Daftar'}</button>
-          </p>
+          <button className="login-submit" type="submit" disabled={submitting}>{submitting ? 'Memproses...' : changing ? 'Simpan dan lanjut' : 'Masuk'}</button>
+          {!changing && <p className="login-switch">Akun dibuat oleh admin kampus. Belum punya akun? Hubungi admin akademik prodi Anda.</p>}
         </form>
       </section>
     </main>

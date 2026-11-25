@@ -382,3 +382,10 @@ body, button, input, textarea, select { font-family:'Roboto',sans-serif; }body {
 @media (max-width:760px) {
   .app-content .page-content.home-view { padding:0 0 32px; }
 }
+
+/* Progres pengajuan ke pembimbing akademik */
+.submit-steps { list-style: none; margin: 0.75rem 0; padding: 0; display: grid; gap: 0.35rem; }
+.submit-steps li[data-state='selesai'] { color: var(--success, #15803d); }
+.submit-steps li[data-state='aktif'] { font-weight: 600; }
+.submit-steps li[data-state='menunggu'] { opacity: 0.6; }
+.submit-steps li[data-state='galat'] { color: var(--destructive, #b91c1c); }

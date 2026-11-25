@@ -10,7 +10,10 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
+import time
 
+import httpx
 import jwt
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -20,10 +23,20 @@ from fastapi.responses import JSONResponse
 # Method di bawah pada path yang cocok hanya boleh untuk role admin.
 # ---------------------------------------------------------------------------
 WRITE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
-ADMIN_ONLY_RULES = [
-    (WRITE_METHODS, re.compile(r"^/api/micro-cred/(tracks|questions)(/.*)?$")),
+ALL_METHODS = WRITE_METHODS | {"GET", "HEAD"}
+# Role admin lama (Micro-cred) dan superadmin baru (identity) sama-sama dianggap administrator.
+ADMIN_ROLES = frozenset({"admin", "superadmin"})
+SUPERADMIN_ROLES = frozenset({"superadmin"})
+
+# (method, pola path, role yang diizinkan). Role di luar daftar ditolak 403.
+ROLE_RULES = [
+    (WRITE_METHODS, re.compile(r"^/api/micro-cred/(tracks|questions)(/.*)?$"), ADMIN_ROLES),
+    # Identity: struktur organisasi, orang, dan akun hanya dikelola superadmin.
+    (WRITE_METHODS, re.compile(r"^/api/identity/(fakultas|jurusan)(/.*)?$"), SUPERADMIN_ROLES),
+    (WRITE_METHODS, re.compile(r"^/api/identity/prodi(/[^/]+)?$"), SUPERADMIN_ROLES),
+    (WRITE_METHODS, re.compile(r"^/api/identity/(orang|akun)(/.*)?$"), SUPERADMIN_ROLES),
+    (ALL_METHODS, re.compile(r"^/api/identity/audit(/.*)?$"), SUPERADMIN_ROLES),
 ]
-ADMIN_ROLE = "admin"
 
 # Nama env sama dengan services/microcred/src/core/config.py (JWT_SECRET sengaja tanpa default)
 # Nilai bawaan JWT_SECRET di services/microcred/src/core/config.py. Tidak boleh dipakai.
@@ -36,7 +49,18 @@ if not JWT_SECRET.strip() or JWT_SECRET == INSECURE_DEFAULT_SECRET:
         "Isi JWT_SECRET dengan secret sungguhan di .env Micro-cred. Verifier tidak mau start."
     )
 JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
-DEFAULT_ROLES = ("student", "advisor", "admin")
+# Role lama Micro-cred (student, advisor, admin) dan role identity yang baru.
+DEFAULT_ROLES = (
+    "student",
+    "advisor",
+    "admin",
+    "superadmin",
+    "dekan",
+    "kajur",
+    "kaprodi",
+    "dosen_pa",
+    "mahasiswa",
+)
 
 
 def _load_allowed_roles() -> frozenset[str]:
@@ -56,6 +80,57 @@ def _load_allowed_roles() -> frozenset[str]:
 ALLOWED_ROLES = _load_allowed_roles()
 
 app = FastAPI(title="auth-verifier", docs_url=None, redoc_url=None, openapi_url=None)
+
+
+# ---------------------------------------------------------------------------
+# Pemeriksaan versi token ke layanan identity (opsional; aktif bila kedua env terisi).
+# Hasil di-cache singkat supaya tidak membebani identity pada setiap permintaan.
+# ---------------------------------------------------------------------------
+IDENTITY_URL = os.environ.get("IDENTITY_URL", "").rstrip("/")
+INTERNAL_TOKEN = os.environ.get("INTERNAL_TOKEN", "")
+TV_CACHE_TTL = float(os.environ.get("TV_CACHE_TTL", "5"))
+_TV_CACHE_MAKS = 10_000
+_tv_cache: dict[tuple[str, int], tuple[float, bool]] = {}
+_tv_lock = threading.Lock()
+_http: httpx.Client | None = None
+
+
+def _klien() -> httpx.Client:
+    global _http
+    if _http is None:
+        _http = httpx.Client(timeout=2.0)
+    return _http
+
+
+def _versi_token_sah(sub: str, tv) -> bool | None:
+    """True bila versi token cocok dan akun aktif; False bila tidak; None bila identity tidak terjangkau."""
+    if not isinstance(tv, int) or isinstance(tv, bool):
+        return False
+    kunci = (sub, tv)
+    sekarang = time.monotonic()
+    with _tv_lock:
+        hit = _tv_cache.get(kunci)
+        if hit and hit[0] > sekarang:
+            return hit[1]
+    try:
+        r = _klien().get(
+            f"{IDENTITY_URL}/internal/akun/{sub}/versi-token",
+            headers={"X-Internal-Token": INTERNAL_TOKEN},
+        )
+    except httpx.HTTPError:
+        return None
+    if r.status_code == 404:
+        sah = False  # akun tidak ada lagi
+    elif r.status_code == 200:
+        data = r.json()
+        sah = data.get("status") == "aktif" and data.get("versi_token") == tv
+    else:
+        return None
+    with _tv_lock:
+        if len(_tv_cache) >= _TV_CACHE_MAKS:
+            _tv_cache.clear()
+        _tv_cache[kunci] = (sekarang + TV_CACHE_TTL, sah)
+    return sah
 
 
 def _deny(status_code: int, detail: str) -> JSONResponse:
@@ -117,6 +192,15 @@ def verify(request: Request) -> JSONResponse:
     if not isinstance(sub, str) or not sub.strip() or not _latin1_ok(sub):
         return _deny(401, "Token tidak ada atau tidak valid")
 
+    # Token identity memuat versi token (tv). Tanda tangan saja belum cukup: akun bisa saja sudah
+    # ditangguhkan atau berganti sandi sejak token terbit. Token lama (Micro-cred) tanpa tv dilewati.
+    if IDENTITY_URL and INTERNAL_TOKEN and payload.get("tv") is not None:
+        sah = _versi_token_sah(sub, payload.get("tv"))
+        if sah is None:
+            return _deny(503, "Layanan autentikasi tidak tersedia")  # fail closed
+        if not sah:
+            return _deny(401, "Token tidak ada atau tidak valid")
+
     roles = payload.get("roles")
     if (
         not isinstance(roles, list)
@@ -132,8 +216,8 @@ def verify(request: Request) -> JSONResponse:
         return _deny(403, "Akses ditolak")
 
     path = _clean_path(uri)
-    for methods, pattern in ADMIN_ONLY_RULES:
-        if method.upper() in methods and pattern.match(path) and ADMIN_ROLE not in roles:
+    for methods, pattern, diizinkan in ROLE_RULES:
+        if method.upper() in methods and pattern.match(path) and not diizinkan.intersection(roles):
             return _deny(403, "Akses ditolak")
 
     response = JSONResponse(status_code=200, content={"status": "ok"})

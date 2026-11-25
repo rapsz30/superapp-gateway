@@ -1,3 +1,8 @@
+/**
+ * DEPRECATED (2026-11-25): panduan akademik sekarang berasal dari layanan identity (satu panduan
+ * aktif per prodi, dikelola kaprodi). /api/rekomendasi tidak lagi memakai teks yang diunggah pengguna
+ * bila permintaan membawa token. Rute ini dipertahankan hanya untuk uji lokal tanpa gateway.
+ */
 import { NextResponse } from "next/server";
 import { extractTextFromPdfBuffer } from "@/src/lib/panduan-extract";
 

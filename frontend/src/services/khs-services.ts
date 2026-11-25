@@ -1,6 +1,7 @@
 import { ApiError, apiFetch } from '@/src/lib/api'
 import type {
   CourseRecommendationResult,
+  GuideInfo,
   KhsCourse,
   KhsPreview,
   KhsProcessResult,
@@ -57,25 +58,40 @@ export const khsService = {
     return { student, courses, warning: response.warning }
   },
 
-  /** Unggah PDF panduan akademik. Hanya ekstraksi teks (tanpa LLM). */
-  async extractGuide(file: File): Promise<string> {
-    const form = new FormData()
-    form.append('file_pdf', file)
-    const response = await apiFetch<{ ok?: boolean; text?: string }>('/api/matkul-recommender/panduan/extract-upload', {
-      method: 'POST',
-      body: form,
-    })
-    const text = String(response.text ?? '').trim()
-    if (!text) throw new ApiError('Teks panduan akademik kosong. Pastikan PDF bukan hasil scan.', 422)
-    return text
+  /**
+   * Panduan akademik aktif milik prodi mahasiswa. Dikelola kaprodi di layanan identity; mahasiswa
+   * tidak mengunggah panduan sendiri. Server memakai panduan yang sama saat menyusun rekomendasi.
+   */
+  async getGuide(): Promise<GuideInfo> {
+    const data = await apiFetch<{
+      prodi: { nama: string; fakultas: { nama: string } | null }
+      pembimbing_akademik: { nama_lengkap: string } | null
+      panduan: { id: string; versi: number; judul: string; berlaku_mulai: string | null }
+    }>('/api/identity/akademik/konteks?tanpa_teks=true')
+    return {
+      panduanId: data.panduan.id,
+      version: data.panduan.versi,
+      title: data.panduan.judul,
+      effectiveFrom: data.panduan.berlaku_mulai,
+      program: data.prodi.nama,
+      faculty: data.prodi.fakultas?.nama ?? null,
+      advisorName: data.pembimbing_akademik?.nama_lengkap ?? null,
+    }
   },
 
-  /** Rekomendasi mata kuliah semester berikutnya (memakai LLM). */
-  async recommend(student: KhsStudent, courses: KhsCourse[], guideText: string): Promise<CourseRecommendationResult> {
+  /** Buka PDF panduan di tab baru. Berkas butuh token, jadi diunduh dulu lalu ditampilkan lewat blob. */
+  async openGuideFile(panduanId: string): Promise<void> {
+    const file = await apiFetch<Blob>(`/api/identity/panduan/${panduanId}/berkas`, { blob: true })
+    const url = URL.createObjectURL(file)
+    window.open(url, '_blank', 'noopener')
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  },
+
+  /** Rekomendasi mata kuliah semester berikutnya (memakai LLM). Panduan prodi dipilih server dari akun. */
+  async recommend(student: KhsStudent, courses: KhsCourse[]): Promise<CourseRecommendationResult> {
     return apiFetch<CourseRecommendationResult>('/api/matkul-recommender/rekomendasi', {
       method: 'POST',
       json: {
-        panduan_text: guideText,
         khs: {
           mahasiswa: { nama: student.name, nim: student.nim, fakultas: student.faculty, prodi: student.program },
           nilai: courses.map((course) => ({

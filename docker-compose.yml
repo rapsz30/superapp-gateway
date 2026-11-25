@@ -62,6 +62,41 @@ services:
       timeout: 5s
       retries: 5
 
+  # ---------- Identity (akun, struktur organisasi, peran) ----------
+  # Database sendiri; tidak menyentuh db milik Micro-cred.
+  identity-db:
+    restart: unless-stopped
+    image: postgres:15.5
+    env_file: ./services/identity/.env
+    volumes:
+      - identity_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  identity-api:
+    restart: unless-stopped
+    build:
+      context: ./services/identity
+    env_file: ./services/identity/.env
+    extra_hosts:
+      # AlurKerja lokal: alurkerja.local ada di hosts laptop; dari kontainer harus menunjuk ke host.
+      - "alurkerja.local:host-gateway"
+    volumes:
+      - identity_panduan:/data/panduan
+      - ./alurkerja-connector/certs/rootCA.pem:/certs/rootCA.pem:ro
+    depends_on:
+      identity-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   # ---------- Judul TA ----------
   judul-api:
     restart: unless-stopped
@@ -91,6 +126,43 @@ services:
       timeout: 5s
       retries: 5
 
+  # Basis data langkah proses AlurKerja (berkas KHS, hasil ekstraksi, rencana). Terpisah dari identity dan Micro-cred.
+  # POSTGRES_* dan DATABASE_URL ada di services/matkul/.env.local.
+  matkul-db:
+    restart: unless-stopped
+    image: postgres:15.5
+    env_file: ./services/matkul/.env.local
+    volumes:
+      - matkul_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Worker External Task AlurKerja: menjalankan langkah AI (baca KHS, rekomendasi, revisi) lewat endpoint
+  # /api/matkul/* di layanan matkul. Tidak dibuka ke luar.
+  alurkerja-connector:
+    restart: unless-stopped
+    build:
+      context: ./alurkerja-connector
+    env_file: ./alurkerja-connector/.env
+    environment:
+      GATEWAY_URL: http://matkul:3000
+      ALURKERJA_ET_FETCH_PATH: /external-task/fetchAndLock
+      TOPIC_PREFIX: superapp-
+      ALURKERJA_PROCESS_NAME: perencanaan-studi-superapp
+      NODE_EXTRA_CA_CERTS: /certs/rootCA.pem
+    extra_hosts:
+      # AlurKerja lokal: alurkerja.local ada di file hosts laptop (127.0.0.1); dari kontainer harus menunjuk ke host.
+      - "alurkerja.local:host-gateway"
+    volumes:
+      # Salin root CA mkcert ke alurkerja-connector/certs/rootCA.pem (tidak di-commit).
+      - ./alurkerja-connector/certs/rootCA.pem:/certs/rootCA.pem:ro
+    depends_on:
+      matkul:
+        condition: service_healthy
+
   matkul:
     restart: unless-stopped
     build:
@@ -104,8 +176,14 @@ services:
       PDFTOTEXT_PATH: /usr/bin/pdftotext
       NEXT_PUBLIC_POCKETBASE_URL: http://pocketbase:8090
       NEXT_PUBLIC_PB_URL: http://pocketbase:8090
+      # Panduan akademik per prodi diambil dari layanan identity (jaringan internal compose).
+      IDENTITY_URL: http://identity-api:8002
     depends_on:
       pocketbase:
+        condition: service_healthy
+      identity-api:
+        condition: service_healthy
+      matkul-db:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -116,12 +194,18 @@ services:
 
   # ---------- Gateway ----------
   # Verifier JWT untuk NGINX auth_request. env_file dipakai supaya JWT_SECRET selalu
-  # sinkron dengan Micro-cred (catatan: verifier menerima seluruh .env Micro-cred).
+  # sinkron dengan Micro-cred dan identity (verifier menerima seluruh isi kedua .env).
+  # JWT_SECRET di kedua berkas WAJIB sama. Yang terakhir (identity) menang bila berbeda.
   auth-verifier:
     restart: unless-stopped
     build:
       context: ./gateway/auth
-    env_file: ./services/microcred/.env
+    env_file:
+      - ./services/microcred/.env
+      - ./services/identity/.env
+    environment:
+      # Verifier memeriksa versi token ke identity (menangkap penangguhan akun dan ganti sandi).
+      IDENTITY_URL: http://identity-api:8002
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8100/health', timeout=3)"]
       interval: 10s
@@ -135,7 +219,7 @@ services:
     volumes:
       - ./gateway/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
-      - "127.0.0.1:8080:80"
+      - "127.0.0.1:${GATEWAY_PORT:-8080}:80"
     # restart: true -> NGINX ikut restart bila backend dibuat ulang oleh compose,
     # karena NGINX me-resolve IP upstream hanya saat start (IP lama jadi basi).
     depends_on:
@@ -151,6 +235,9 @@ services:
       matkul:
         condition: service_healthy
         restart: true
+      identity-api:
+        condition: service_healthy
+        restart: true
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
       interval: 10s
@@ -158,6 +245,9 @@ services:
       retries: 5
 
 volumes:
+  matkul_pg:
+  identity_pg:
+  identity_panduan:
   microcred_pg:
   microcred_redis:
   pb_data:

@@ -1,5 +1,6 @@
 import { apiFetch, tokenStore } from '@/src/lib/api'
 
+/** Pengguna untuk tampilan. Sumber: layanan identity (GET /api/identity/auth/saya). */
 export interface AuthUser {
   id: string
   email: string
@@ -7,53 +8,82 @@ export interface AuthUser {
   nim: string | null
   faculty: string | null
   study_program: string | null
-  role: string
+  /** Peran aktif, misalnya ["mahasiswa"] atau ["dosen_pa", "kaprodi"]. */
+  roles: string[]
+  mustChangePassword: boolean
 }
 
 interface TokenResponse {
   access_token: string
-  refresh_token?: string | null
+  refresh_token: string
   token_type: string
   expires_in: number
+  wajib_ganti_sandi: boolean
+  peran: string[]
 }
 
-export interface RegisterPayload {
+interface ProfilResponse {
+  id: string
+  nama_lengkap: string
+  nim: string | null
   email: string
-  password: string
-  full_name: string
-  nim: string
-  faculty: string
-  study_program: string
+  wajib_ganti_sandi: boolean
+  peran: string[]
+  akademik: {
+    prodi: { nama: string }
+    fakultas: { nama: string } | null
+  } | null
+}
+
+const BASE = '/api/identity'
+
+function mapUser(profil: ProfilResponse): AuthUser {
+  return {
+    id: profil.id,
+    email: profil.email,
+    full_name: profil.nama_lengkap,
+    nim: profil.nim,
+    faculty: profil.akademik?.fakultas?.nama ?? null,
+    study_program: profil.akademik?.prodi.nama ?? null,
+    roles: profil.peran,
+    mustChangePassword: profil.wajib_ganti_sandi,
+  }
 }
 
 export const authService = {
-  async register(payload: RegisterPayload): Promise<void> {
-    await apiFetch('/api/micro-cred/auth/register', { method: 'POST', json: payload, auth: false })
-  },
-
+  /**
+   * Masuk. Akun dibuat oleh admin kampus (tidak ada pendaftaran mandiri), sehingga sandi awal
+   * bersifat sementara dan `mustChangePassword` bernilai true sampai diganti.
+   */
   async login(email: string, password: string): Promise<AuthUser> {
-    const result = await apiFetch<{ user: AuthUser; tokens: TokenResponse }>('/api/micro-cred/auth/login', {
+    const tokens = await apiFetch<TokenResponse>(`${BASE}/auth/login`, {
       method: 'POST',
-      json: { email, password },
+      json: { email, sandi: password },
       auth: false,
     })
-    tokenStore.set(result.tokens.access_token, result.tokens.refresh_token)
-    return result.user
+    tokenStore.set(tokens.access_token, tokens.refresh_token)
+    return this.me()
   },
 
   async me(): Promise<AuthUser> {
-    const result = await apiFetch<{ user: AuthUser }>('/api/micro-cred/auth/me')
-    return result.user
+    return mapUser(await apiFetch<ProfilResponse>(`${BASE}/auth/saya`))
   },
 
+  /** Ganti kata sandi. Server membatalkan token lama dan mengembalikan token baru, yang langsung disimpan. */
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
-    await apiFetch('/api/micro-cred/auth/change-password', {
+    const tokens = await apiFetch<TokenResponse>(`${BASE}/auth/ganti-sandi`, {
       method: 'POST',
-      json: { current_password: currentPassword, new_password: newPassword },
+      json: { sandi_lama: currentPassword, sandi_baru: newPassword },
     })
+    tokenStore.set(tokens.access_token, tokens.refresh_token)
   },
 
+  /** Keluar: cabut refresh token di server (tanpa menunggu hasilnya), lalu hapus sesi lokal. */
   logout() {
+    const refresh = tokenStore.getRefresh()
+    if (refresh && tokenStore.get()) {
+      void apiFetch(`${BASE}/auth/logout`, { method: 'POST', json: { refresh_token: refresh } }).catch(() => undefined)
+    }
     tokenStore.clear()
   },
 }

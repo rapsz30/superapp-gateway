@@ -40,11 +40,22 @@ jobs:
           sed "s|^JWT_SECRET=.*|JWT_SECRET=${MOCK_JWT_SECRET}|" services/microcred/.env.example > services/microcred/.env
           sed -i "s|^AUTO_PROCESS_JOBS=.*|AUTO_PROCESS_JOBS=true|" services/microcred/.env
 
+          sed -e "s|^JWT_SECRET=.*|JWT_SECRET=${MOCK_JWT_SECRET}|"               -e "s|ganti-dengan-sandi-database|ci-db-password|g"               services/identity/.env.example > services/identity/.env
+
+          cat << 'EOF' > alurkerja-connector/.env
+          GATEWAY_TOKEN=ci-dummy-service-token-not-for-production
+          EOF
+
           cat << 'EOF' > services/judul/.env
           GROQ_API_KEY=gsk_ci_dummy_key_not_for_production
           EOF
 
           cat << 'EOF' > services/matkul/.env.local
+          MATKUL_SERVICE_TOKEN=ci-dummy-service-token-not-for-production
+          POSTGRES_DB=matkul
+          POSTGRES_USER=matkul
+          POSTGRES_PASSWORD=ci-db-password
+          DATABASE_URL=postgresql://matkul:ci-db-password@matkul-db:5432/matkul
           OPENAI_API_KEY=sk-ci-dummy-key-not-for-production
           PB_ADMIN_EMAIL=admin@example.com
           PB_ADMIN_PASSWORD=ci-dummy-password-12345
@@ -147,6 +158,115 @@ jobs:
           AUTO_PROCESS_JOBS: "false"
         run: poetry run pytest tests -q -p no:cacheprovider
 
+  test-identity:
+    name: Tests (Identity)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/identity
+    services:
+      postgres:
+        image: postgres:15.5
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_DB: identity_test
+          POSTGRES_USER: identity
+          POSTGRES_PASSWORD: identity
+        options: >-
+          --health-cmd "pg_isready -U identity -d identity_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run Identity test suite
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg2://identity:identity@localhost:5432/identity_test
+        run: python -m pytest -p no:cacheprovider
+
+  test-verifier:
+    name: Tests (Gateway verifier)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r gateway/auth/requirements.txt pytest
+
+      - name: Run verifier tests
+        working-directory: gateway/auth
+        run: python -m pytest -p no:cacheprovider tests
+
+  test-matkul:
+    name: Unit Tests (Matkul)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run logic tests (NIM dan prodi)
+        working-directory: services/matkul
+        run: node --test tests/konteks.test.mjs tests/proses.test.mjs
+
+  test-connector:
+    name: Tests (AlurKerja connector)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: alurkerja-connector
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check and test
+        run: npm run typecheck && npm test
+
+  test-frontend:
+    name: Tests (Frontend)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run API client tests (refresh token, sesi)
+        working-directory: frontend
+        run: node --test tests/api.test.mjs
+
   build:
     name: Build Service Images
     runs-on: ubuntu-latest
@@ -176,6 +296,14 @@ jobs:
           - service: pocketbase
             context: ./infra/pocketbase
             file: ./infra/pocketbase/Dockerfile
+            build_args: ""
+          - service: identity-api
+            context: ./services/identity
+            file: ./services/identity/Dockerfile
+            build_args: ""
+          - service: alurkerja-connector
+            context: ./alurkerja-connector
+            file: ./alurkerja-connector/Dockerfile
             build_args: ""
           - service: auth-verifier
             context: ./gateway/auth

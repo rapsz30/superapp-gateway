@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, Check, Download, FileText, Loader2, LockKeyhole, Plus, Trash2, Upload, X } from 'lucide-react'
+import { ArrowRight, Check, Download, FileText, Loader2, Plus, Trash2, Upload, X } from 'lucide-react'
 import { academicTargets, GRADE_POINTS, type AcademicTarget } from '@/src/lib/academic-targets'
 import { errorMessage } from '@/src/lib/api'
 import { GRADE_OPTIONS, khsService } from '@/src/services/khs-services'
-import type { CourseRecommendationResult, KhsCourse, KhsStudent, NonCourseActivity } from '@/src/types/khs'
+import { pengajuanService, STATUS_LABEL, type Submission } from '@/src/services/pengajuan-service'
+import type { CourseRecommendationResult, GuideInfo, KhsCourse, KhsStudent, NonCourseActivity } from '@/src/types/khs'
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6
 const steps = ['Unggah KHS', 'Preview', 'Input nilai', 'Panduan akademik', 'Target akademik', 'Rekomendasi']
@@ -20,19 +21,20 @@ export function CourseRecommendation({ studentFallback }: { studentFallback?: Pa
   const [file, setFile] = useState<File | null>(null)
   const [restartOpen, setRestartOpen] = useState(false)
   const [inputResetKey, setInputResetKey] = useState(0)
-  const [guideFile, setGuideFile] = useState<File | null>(null)
+  const [guide, setGuide] = useState<GuideInfo | null>(null)
+  const [guideLoading, setGuideLoading] = useState(false)
+  const [guideError, setGuideError] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const [target, setTarget] = useState<AcademicTarget | null>(null)
   const [student, setStudent] = useState<KhsStudent>(initialStudent)
   const [grades, setGrades] = useState<KhsCourse[]>([])
   const [activities, setActivities] = useState<NonCourseActivity[]>([])
   const [error, setError] = useState('')
-  const [guideText, setGuideText] = useState('')
   const [result, setResult] = useState<CourseRecommendationResult | null>(null)
-  const currentTitle = step === 1 ? 'Unggah KHS' : step === 2 ? 'Preview KHS' : step === 3 ? 'Input dan edit nilai' : step === 4 ? 'Unggah panduan akademik' : step === 5 ? 'Target Akademik' : 'Rekomendasi mata kuliah'
-  const currentDescription = step === 1 ? 'Pastikan file KHS Anda dalam format PDF.' : step === 2 ? 'Pastikan seluruh data sudah benar sebelum melanjutkan.' : step === 3 ? 'Perbaiki hasil ekstraksi KHS sebelum lanjut ke rekomendasi.' : step === 4 ? 'Rekomendasi mata kuliah disusun berdasarkan panduan akademik program studi Anda.' : step === 5 ? 'Pilih prioritas studi Anda untuk hasil rekomendasi yang lebih terpersonalisasi.' : 'Rekomendasi disusun berdasarkan data akademik dan target Anda.'
+  const currentTitle = step === 1 ? 'Unggah KHS' : step === 2 ? 'Preview KHS' : step === 3 ? 'Input dan edit nilai' : step === 4 ? 'Panduan akademik prodi Anda' : step === 5 ? 'Target Akademik' : 'Rekomendasi mata kuliah'
+  const currentDescription = step === 1 ? 'Pastikan file KHS Anda dalam format PDF.' : step === 2 ? 'Pastikan seluruh data sudah benar sebelum melanjutkan.' : step === 3 ? 'Perbaiki hasil ekstraksi KHS sebelum lanjut ke rekomendasi.' : step === 4 ? 'Rekomendasi disusun dari panduan akademik resmi program studi Anda. Anda tidak perlu mengunggahnya.' : step === 5 ? 'Pilih prioritas studi Anda untuk hasil rekomendasi yang lebih terpersonalisasi.' : 'Rekomendasi disusun berdasarkan data akademik dan target Anda.'
 
-  async function upload(kind: 'khs' | 'guide', input: HTMLInputElement) {
+  async function upload(input: HTMLInputElement) {
     const selected = input.files?.[0]
     if (!selected) return
     if (selected.type !== 'application/pdf') { setError('Gunakan file PDF dengan ukuran maksimal 10 MB.'); return }
@@ -40,20 +42,13 @@ export function CourseRecommendation({ studentFallback }: { studentFallback?: Pa
     setError('')
     setIsProcessing(true)
     try {
-      if (kind === 'khs') {
-        const response = await khsService.processDocument(selected, studentFallback)
-        setFile(selected)
-        setStudent(response.student)
-        setGrades(response.courses)
-        setResult(null)
-        if (response.warning) setError(response.warning)
-        else if (!response.courses.length) setError('Tidak ada mata kuliah yang terbaca dari KHS. Periksa file Anda.')
-      } else {
-        const text = await khsService.extractGuide(selected)
-        setGuideFile(selected)
-        setGuideText(text)
-        setResult(null)
-      }
+      const response = await khsService.processDocument(selected, studentFallback)
+      setFile(selected)
+      setStudent(response.student)
+      setGrades(response.courses)
+      setResult(null)
+      if (response.warning) setError(response.warning)
+      else if (!response.courses.length) setError('Tidak ada mata kuliah yang terbaca dari KHS. Periksa file Anda.')
     } catch (caught) {
       setError(errorMessage(caught, 'File tidak dapat diproses.'))
     } finally {
@@ -65,7 +60,7 @@ export function CourseRecommendation({ studentFallback }: { studentFallback?: Pa
   async function generate() {
     setIsProcessing(true)
     try {
-      setResult(await khsService.recommend(student, grades, guideText))
+      setResult(await khsService.recommend(student, grades))
       setStep(6)
     } catch (caught) {
       setError(errorMessage(caught, 'Rekomendasi tidak dapat dibuat. Coba lagi.'))
@@ -85,6 +80,24 @@ export function CourseRecommendation({ studentFallback }: { studentFallback?: Pa
     setStep((value) => Math.min(6, value + 1) as Step)
   }
   function back() { setError(''); setStep((value) => Math.max(1, value - 1) as Step) }
+
+  // Panduan prodi dimuat saat langkah 4 dibuka. Satu kali per sesi: prodi mahasiswa tidak berubah.
+  async function loadGuide() {
+    setGuideLoading(true)
+    setGuideError('')
+    try {
+      setGuide(await khsService.getGuide())
+    } catch (caught) {
+      setGuide(null)
+      setGuideError(errorMessage(caught, 'Panduan akademik tidak dapat dimuat.'))
+    } finally {
+      setGuideLoading(false)
+    }
+  }
+  useEffect(() => {
+    if (step === 4 && !guide && !guideLoading && !guideError) void loadGuide()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step])
 
   const totalCredits = useMemo(() => grades.reduce((sum, course) => sum + course.credits, 0), [grades])
   const progress = Math.min(step, totalSteps) / totalSteps * 100
@@ -110,8 +123,6 @@ export function CourseRecommendation({ studentFallback }: { studentFallback?: Pa
 
   function resetWorkflow() {
     setFile(null)
-    setGuideFile(null)
-    setGuideText('')
     setResult(null)
     setInputResetKey((value) => value + 1)
     setIsProcessing(false)
@@ -128,14 +139,14 @@ export function CourseRecommendation({ studentFallback }: { studentFallback?: Pa
     {step < 6 && <div className="course-heading"><div><h1>{currentTitle}</h1><p>{currentDescription}</p></div><span className="step-label">Langkah {step} dari 5</span></div>}
     {step < 6 && <div className="workflow-stepper desktop-workflow-stepper" aria-label="Progress rekomendasi mata kuliah">{steps.slice(0, 5).map((label, index) => <div className={`workflow-step ${index + 1 < step ? 'done' : ''} ${index + 1 === step ? 'current' : ''}`} key={label}><span>{index + 1 < step ? <Check /> : index + 1}</span><b>{label}</b></div>)}</div>}
     {step < 6 && <div ref={mobileStepperRef} className="workflow-stepper mobile-workflow-stepper" aria-label="Progress rekomendasi mata kuliah">{steps.slice(0, totalSteps).map((label, index) => <div className={`workflow-step ${index + 1 < step ? 'done' : ''} ${index + 1 === step ? 'current' : ''}`} data-current={index + 1 === step || undefined} key={label}><span>{index + 1 < step ? <Check /> : index + 1}</span><b>{label}</b></div>)}</div>}
-    {step === 1 && <UploadStep inputKey={inputResetKey} progress={progress} file={file} error={error} isProcessing={isProcessing} onUpload={(input) => upload('khs', input)} onRemove={() => { setFile(null); setGrades([]); setStudent(initialStudent); setResult(null) }} />}
+    {step === 1 && <UploadStep inputKey={inputResetKey} progress={progress} file={file} error={error} isProcessing={isProcessing} onUpload={upload} onRemove={() => { setFile(null); setGrades([]); setStudent(initialStudent); setResult(null) }} />}
     {step === 2 && <PreviewStep progress={progress} student={student} grades={grades} />}
     {step === 3 && <EditStep progress={progress} grades={grades} setGrades={setGrades} activities={activities} setActivities={setActivities} totalCredits={totalCredits} />}
-    {step === 4 && <GuideStep inputKey={inputResetKey} progress={progress} file={guideFile} error={error} onUpload={(input) => upload('guide', input)} onRemove={() => { setGuideFile(null); setGuideText(''); setResult(null) }} />}
+    {step === 4 && <GuideStep progress={progress} guide={guide} loading={guideLoading} error={guideError} onRetry={() => void loadGuide()} />}
     {step === 5 && <TargetStep progress={progress} target={target} setTarget={setTarget} />}
-    {step === 6 && target && result && <ResultsStep student={student} target={target} grades={grades} activities={activities} result={result} onChangeGuide={() => setStep(4)} />}
+    {step === 6 && target && result && <ResultsStep student={student} target={target} grades={grades} activities={activities} result={result} file={file} />}
     {error && <p className="form-error" role="alert">{error}</p>}
-    <div className="workflow-actions" role="group" aria-label="Navigasi langkah rekomendasi">{step > 1 && step < 6 && <button className="outline-button" onClick={back}>Kembali</button>}{step < 6 ? <button className="primary" onClick={next} disabled={isProcessing || step === 1 && (!file || !grades.length) || step === 4 && !guideFile}>{isProcessing ? <><Loader2 className="spin" /> Sedang memproses...</> : <>{step === 5 ? 'Lihat hasil rekomendasi' : step === 3 ? 'Simpan dan lanjut' : 'Lanjut'}</>}</button> : <button className="primary" onClick={() => setRestartOpen(true)}>Mulai ulang</button>}</div>{restartOpen && <RestartDialog onCancel={() => setRestartOpen(false)} onConfirm={resetWorkflow} />}
+    <div className="workflow-actions" role="group" aria-label="Navigasi langkah rekomendasi">{step > 1 && step < 6 && <button className="outline-button" onClick={back}>Kembali</button>}{step < 6 ? <button className="primary" onClick={next} disabled={isProcessing || step === 1 && (!file || !grades.length) || step === 4 && !guide}>{isProcessing ? <><Loader2 className="spin" /> Sedang memproses...</> : <>{step === 5 ? 'Lihat hasil rekomendasi' : step === 3 ? 'Simpan dan lanjut' : 'Lanjut'}</>}</button> : <button className="primary" onClick={() => setRestartOpen(true)}>Mulai ulang</button>}</div>{restartOpen && <RestartDialog onCancel={() => setRestartOpen(false)} onConfirm={resetWorkflow} />}
   </div>
 }
 
@@ -179,22 +190,29 @@ function RestartDialog({ onCancel, onConfirm }: { onCancel: () => void; onConfir
 
 function ConfirmDeleteDialog({ label, onCancel, onConfirm }:  { label: string; onCancel: () => void; onConfirm: () => void }) { return <div className="dialog-backdrop" role="presentation" onMouseDown={onCancel}><div className="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-dialog-title" aria-describedby="delete-dialog-description" onMouseDown={(event) => event.stopPropagation()}><button type="button" className="dialog-close" aria-label="Tutup dialog" onClick={onCancel}><X /></button><div className="dialog-icon"><Trash2 /></div><h2 id="delete-dialog-title">Hapus data?</h2><p id="delete-dialog-description">Apakah Anda yakin ingin menghapus <b>{label}</b>? Data yang dihapus tidak dapat dikembalikan.</p><div className="dialog-actions"><button type="button" className="outline-button" onClick={onCancel}>Batal</button><button type="button" className="danger-button" onClick={onConfirm}>Ya, hapus</button></div></div></div> }
 
-function GuideStep({ inputKey, progress, file, error, onUpload, onRemove }: { inputKey: number; progress: number; file: File | null; error: string; onUpload: (input: HTMLInputElement) => void; onRemove: () => void }) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const openPicker = () => inputRef.current?.click()
-  return <section className="workflow-card"><div className="card-topline"><b>Langkah 4 dari 5</b><span>Panduan akademik</span></div><div className="progress-line"><i style={{ width: `${progress}%` }} /></div><h2>Unggah panduan akademik</h2><p>Pastikan file panduan dalam format PDF.</p><div className="info-callout"><LockKeyhole /> File hanya diproses untuk membuat rekomendasi dan tidak disimpan ke database.</div><div className={`upload-zone compact ${file ? 'uploaded' : ''}`} role="button" tabIndex={0} onClick={openPicker} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openPicker() } }}><input key={inputKey} ref={inputRef} type="file" accept="application/pdf" onChange={(event) => onUpload(event.currentTarget)} /><div className="upload-icon">{file ? <Check /> : <Upload />}</div><strong>{file ? file.name : 'Klik untuk memilih file panduan'}</strong><small>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · File siap diproses` : 'Format PDF'}</small><div className="upload-actions"><button type="button" className="primary small" onClick={(event) => { event.stopPropagation(); openPicker() }}>{file ? 'Ganti file' : 'Pilih file'}</button>{file && <button type="button" className="outline-button small" onClick={(event) => { event.stopPropagation(); onRemove() }}><X /> Hapus</button>}</div></div>{error && <p className="form-error">{error}</p>}</section>
+function GuideStep({ progress, guide, loading, error, onRetry }: { progress: number; guide: GuideInfo | null; loading: boolean; error: string; onRetry: () => void }) {
+  const [opening, setOpening] = useState(false)
+  const [openError, setOpenError] = useState('')
+  async function openFile() {
+    if (!guide) return
+    setOpening(true)
+    setOpenError('')
+    try { await khsService.openGuideFile(guide.panduanId) } catch (caught) { setOpenError(errorMessage(caught, 'Berkas panduan tidak dapat dibuka.')) } finally { setOpening(false) }
+  }
+  return <section className="workflow-card"><div className="card-topline"><b>Langkah 4 dari 5</b><span>Panduan akademik</span></div><div className="progress-line"><i style={{ width: `${progress}%` }} /></div><h2>Panduan akademik prodi Anda</h2>{loading ? <div className="processing-state"><Loader2 className="spin" /><strong>Memuat panduan akademik...</strong></div> : guide ? <><p>Rekomendasi akan mengikuti aturan di panduan ini.</p><div className="info-callout"><FileText /> <span><b>{guide.title}</b><br />Program studi {guide.program}{guide.faculty ? `, ${guide.faculty}` : ''} · Versi {guide.version}{guide.effectiveFrom ? ` · berlaku mulai ${new Date(guide.effectiveFrom).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}{guide.advisorName ? <><br />Pembimbing akademik: {guide.advisorName}</> : null}</span></div><div className="upload-actions"><button type="button" className="outline-button small" onClick={openFile} disabled={opening}>{opening ? 'Membuka...' : 'Lihat panduan (PDF)'}</button></div>{openError && <p className="form-error" role="alert">{openError}</p>}</> : <><p className="form-error" role="alert">{error || 'Panduan akademik tidak tersedia.'}</p><div className="upload-actions"><button type="button" className="outline-button small" onClick={onRetry}>Coba lagi</button></div></>}</section>
 }
 
 function TargetStep({ progress, target, setTarget }: { progress: number; target: AcademicTarget | null; setTarget: (value: AcademicTarget) => void }) { return <section className="workflow-card"><div className="card-topline"><b>Langkah 5 dari 5</b><span>Target akademik</span></div><div className="progress-line"><i style={{ width: `${progress}%` }} /></div><h2>Apa prioritas studi Anda?</h2><div className="target-options">{academicTargets.map((option) => <label className={`target-option ${target === option.id ? 'selected' : ''}`} key={option.id}><input type="radio" name="target" checked={target === option.id} onChange={() => setTarget(option.id)} /><span className="radio-dot" /><div><b>{option.title}</b><p>{option.description}</p></div><strong>Nilai minimal<br />{option.minimum}</strong></label>)}</div></section> }
 
-function ResultsStep({ student, target, grades, activities, result, onChangeGuide }: { student: KhsStudent; target: AcademicTarget; grades: KhsCourse[]; activities: NonCourseActivity[]; result: CourseRecommendationResult; onChangeGuide: () => void }) {
+function ResultsStep({ student, target, grades, activities, result, file }: { student: KhsStudent; target: AcademicTarget; grades: KhsCourse[]; activities: NonCourseActivity[]; result: CourseRecommendationResult; file: File | null }) {
   const targetOption = academicTargets.find((item) => item.id === target)
   const creditsByCode = new Map(grades.map((course) => [course.code.toUpperCase(), course.credits]))
   const nextCourses = result.rekomendasi_semester_depan.filter((item) => item.jenis === 'baru').map((item) => ({ name: item.nama, code: item.kode, credits: item.sks ? `${item.sks} SKS` : undefined, note: item.alasan }))
   const attentionCourses = result.evaluasi_nilai.map((item) => { const sks = creditsByCode.get(item.kode.toUpperCase()); return { name: item.nama, code: item.kode, credits: sks ? `${sks} SKS` : undefined, note: item.saran, grade: item.nilai } })
   const belowTargetCandidates = grades.map((course) => ({ name: course.name, code: course.code, credits: `${course.credits} SKS`, grade: course.grade }))
   return <div className="results-stack">
-    <div className="result-hero result-hero-with-action"><div><h2>Halo, {student.name}</h2><p>Mahasiswa {student.program}. Total {student.credits} dengan IPK kumulatif {student.gpa}. Rekomendasi ini disusun untuk semester {result.semester_target}.</p>{result.ringkasan && <p>{result.ringkasan}</p>}</div><div className="result-actions"><button type="button" className="outline-button export-pdf-button" onClick={() => window.print()}><Download /> Export ke PDF</button><button type="button" className="primary guide-change-button" onClick={onChangeGuide}>Ganti panduan akademik <ArrowRight /></button></div></div>
+    <div className="result-hero result-hero-with-action"><div><h2>Halo, {student.name}</h2><p>Mahasiswa {student.program}. Total {student.credits} dengan IPK kumulatif {student.gpa}. Rekomendasi ini disusun untuk semester {result.semester_target}.</p>{result.ringkasan && <p>{result.ringkasan}</p>}{result.panduan && <p><small>Dasar rekomendasi: Panduan akademik Prodi {result.panduan.prodi.nama}, versi {result.panduan.versi}.</small></p>}{result.peringatan?.map((warning) => <p className="form-error" role="status" key={warning}>{warning}</p>)}</div><div className="result-actions"><button type="button" className="outline-button export-pdf-button" onClick={() => window.print()}><Download /> Export ke PDF</button></div></div>
+    <SubmitCard result={result} file={file} />
     <ResultSection title="Rekomendasi berdasarkan panduan akademik" description={`Mata kuliah semester ${result.semester_target} sesuai panduan prodi.`} tone="blue" items={nextCourses} />
     <ResultSection title="Mata kuliah yang perlu diulang" description="Nilai pada mata kuliah berikut belum memenuhi ketentuan akademik. Prioritaskan untuk ditinjau kembali." tone="purple" items={attentionCourses} />
     <TargetResultSection targetTitle={targetOption?.title || ''} minimum={targetOption?.minimum || ''} items={belowTargetCandidates} />
@@ -205,3 +223,68 @@ function ActivityResultSection({ activities }: { activities: NonCourseActivity[]
 function activityCode(name: string) { const codes: Record<string, string> = { "Pengembangan Diri Qur'ani": 'PDQ', 'Student Soft Skill Development': 'S3D', 'Pelatihan Kepemimpinan dan Dakwah': 'PKD', 'Pendalaman Nilai Dasar Islam': 'PNDI', 'Pelatihan Pengembangan Diri': 'PPD' }; return codes[name] || '—' }
 function ResultSection({ title, description, tone, items }: { title: string; description: string; tone: string; items: Array<{ name: string; code: string; credits?: string; note?: string; grade?: string }> }) { return <section className={`result-section ${tone}`}><div className="result-section-head"><h2>{title}</h2><p>{description}</p></div>{items.length === 0 && <div className="activity-result-empty">Tidak ada data untuk bagian ini.</div>}{items.map((item, index) => <div className="result-row" key={`${item.code}-${index}`}><span>{index + 1}</span><div><b>{item.name}</b><small>{item.code} {item.credits && `· ${item.credits}`}</small></div><p>{item.note || 'Nilai saat ini'}</p>{item.grade && <strong>{item.grade}</strong>}</div>)}</section> }
 function TargetResultSection({ targetTitle, minimum, items }: { targetTitle: string; minimum: string; items: Array<{ name: string; code: string; credits?: string; grade?: string }> }) { const points = GRADE_POINTS; const minimumPoints = points[minimum] ?? 3; const belowTarget = items.filter((item) => (points[item.grade || ''] ?? 0) < minimumPoints); return <section className="result-section green"><div className="result-section-head"><h2>Langkah menuju target</h2><p>Tingkatkan nilai pada mata kuliah berikut untuk mendukung target akademik Anda.</p><span className="target-badge">Target dipilih: {targetTitle} · minimal {minimum}</span></div><div className="target-result-head"><span>Nilai di Bawah Target</span><span>Nilai saat ini</span></div>{belowTarget.length ? belowTarget.map((item, index) => <div className="result-row target-result-row" key={item.name}><span>{index + 1}</span><div><b>{item.name}</b><small>{item.code} {item.credits && `· ${item.credits}`}</small></div><span className="target-current-grade">{item.grade || 'Belum ada'}</span></div>) : <div className="activity-result-empty">Tidak ada mata kuliah di bawah target.</div>}</section> }
+
+
+/**
+ * Ajukan rencana studi ke dosen pembimbing akademik lewat proses AlurKerja. KHS asli diunggah ulang ke server:
+ * hasil resmi dihitung proses di server (hasil di atas hanya pratinjau), jadi tidak ada yang bisa dipalsukan klien.
+ */
+function SubmitCard({ result, file }: { result: CourseRecommendationResult; file: File | null }) {
+  const [submission, setSubmission] = useState<Submission | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const advisor = result.pembimbing_akademik?.nama_lengkap
+
+  // Pulihkan pengajuan yang masih berjalan (mis. halaman dimuat ulang).
+  useEffect(() => {
+    let active = true
+    pengajuanService.findOpen().then((open) => { if (active && open) setSubmission(open) }).catch(() => undefined)
+    return () => { active = false }
+  }, [])
+
+  // Selama berjalan, perbarui tiap 5 detik (server membaca keadaan proses dari AlurKerja).
+  useEffect(() => {
+    if (submission?.status !== 'diajukan') return
+    const timer = window.setInterval(() => {
+      pengajuanService.get(submission.id).then(setSubmission).catch(() => undefined)
+    }, 5_000)
+    return () => window.clearInterval(timer)
+  }, [submission?.id, submission?.status])
+
+  async function run(action: () => Promise<Submission>) {
+    setBusy(true)
+    setError('')
+    try { setSubmission(await action()) } catch (caught) { setError(errorMessage(caught, 'Permintaan tidak dapat diproses.')) } finally { setBusy(false) }
+  }
+
+  const running = submission?.status === 'diajukan'
+  const finished = submission && !running
+  const bacaan = submission?.hasil_bacaan
+  const rencana = submission?.rencana
+  return <section className="workflow-card submit-card" aria-live="polite">
+    <h2>Ajukan ke pembimbing akademik</h2>
+    {!submission && <p>Kirim KHS Anda kepada {advisor ? <b>{advisor}</b> : 'pembimbing akademik Anda'}. Sistem membaca KHS, menyusun rencana studi dari panduan prodi Anda, lalu menunggu keputusan pembimbing.</p>}
+    {submission && <>
+      <div className="info-callout"><Check /> <span><b>{STATUS_LABEL[submission.status]}</b>{submission.dpa && <><br />Pembimbing akademik: {submission.dpa.nama_lengkap}</>}{submission.jumlah_revisi > 0 && <><br />Sudah direvisi {submission.jumlah_revisi} kali</>}{submission.catatan_dpa && <><br />Catatan pembimbing: {submission.catatan_dpa}</>}{submission.panduan.versi_aktif_sekarang && submission.panduan.versi_aktif_sekarang > submission.panduan.versi && <><br />Panduan prodi sudah diperbarui sejak pengajuan ini dibuat.</>}</span></div>
+      <ol className="submit-steps" aria-label="Progres pengajuan">{submission.langkah.map((step) => <li key={step.kunci} data-state={step.keadaan}><b>{step.keadaan === 'selesai' ? '✓ ' : step.keadaan === 'aktif' ? '… ' : step.keadaan === 'galat' ? '! ' : '○ '}{step.label}</b>{step.keterangan && <small> — {step.keterangan}</small>}</li>)}</ol>
+      {submission.pesan_galat && <p className="form-error" role="alert">Proses terhenti: {submission.pesan_galat}. Anda dapat membatalkan lalu mencoba lagi.</p>}
+      {running && submission.tahap === 'periksa' && bacaan && <div className="info-callout"><span>
+        <b>Periksa hasil bacaan KHS</b><br />
+        IPK {bacaan.ipk ?? '-'} · SKS lulus {bacaan.sks_lulus ?? '-'} · perlu diulang: {bacaan.mk_ulang?.length ? bacaan.mk_ulang.join(', ') : 'tidak ada'}
+        {bacaan.nim_cocok === false && <><br /><b>NIM pada KHS tidak sama dengan NIM akun Anda.</b> Batalkan, lalu ajukan dengan KHS milik Anda.</>}
+      </span></div>}
+      {rencana?.rencana_mk && <div className="info-callout"><span>
+        <b>Rencana studi dari sistem ({rencana.total_sks ?? 0} SKS)</b><br />
+        {rencana.rencana_mk.map((mk) => <span key={mk.kode}>{mk.kode} {mk.nama}{mk.sks ? ` (${mk.sks} SKS)` : ''}<br /></span>)}
+        {rencana.peringatan?.map((w) => <small key={w}>⚠ {w}<br /></small>)}
+      </span></div>}
+    </>}
+    {error && <p className="form-error" role="alert">{error}</p>}
+    <div className="upload-actions">
+      {(!submission || finished) && <button type="button" className="primary" disabled={busy || !file} onClick={() => file && run(() => pengajuanService.submit(file, result.semester_target))}>{busy ? <><Loader2 className="spin" /> Mengirim...</> : submission ? 'Ajukan lagi' : 'Ajukan sekarang'}</button>}
+      {running && submission.tahap === 'periksa' && bacaan?.nim_cocok !== false && <button type="button" className="primary" disabled={busy} onClick={() => run(() => pengajuanService.confirmCheck(submission.id))}>Data sudah benar, lanjutkan</button>}
+      {running && <button type="button" className="outline-button" disabled={busy} onClick={() => run(() => pengajuanService.cancel(submission.id))}>Batalkan pengajuan</button>}
+    </div>
+    {!file && !submission && <small>Unggah ulang KHS dari awal untuk mengajukan.</small>}
+  </section>
+}

@@ -1,4 +1,9 @@
-"""Authentication routes - register, login, token refresh, profile."""
+"""Authentication routes - register, login, token refresh, profile.
+
+DEPRECATED (2026-11-25): sumber akun sekarang layanan `identity`
+(/api/identity/auth/*). Rute di sini dibekukan: jangan membuat akun baru lewat
+/register. Dibiarkan hanya agar akun dan klien lama tetap berfungsi selama masa transisi.
+"""
 
 from __future__ import annotations
 

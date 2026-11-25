@@ -9,6 +9,7 @@ Gateway berjalan di `127.0.0.1:8080`. Konfigurasi: `gateway/nginx/nginx.conf`.
 | `/api/matkul-recommender/*` | `matkul:3000` | `/api/*` (contoh: `/api/matkul-recommender/khs/upload` → `/api/khs/upload`) |
 | `/api/judul-recommender/*` | `judul-api:8001` | `/*` (contoh: `/get-recommendations`) |
 | `/api/micro-cred/*` | `microcred-api:8000` | `/*` (contoh: `/auth/login`) |
+| `/api/identity/*` | `identity-api:8002` | `/*` (contoh: `/auth/login`). Publik: `auth/login`, `auth/refresh`, `health` |
 | `/healthz` | dijawab NGINX | `200 {"status":"ok"}` |
 | lainnya | - | `404 {"detail":"Not found"}` |
 
@@ -20,6 +21,7 @@ Header `Authorization` diteruskan apa adanya (belum ada autentikasi di gateway).
 | Lokasi | `client_max_body_size` |
 |---|---|
 | Matkul | 16m |
+| Identity | 21m (panduan PDF maksimal 20 MB) |
 | Lainnya | 1m |
 
 Melebihi batas → `413 {"detail":"Ukuran file melebihi batas"}`.

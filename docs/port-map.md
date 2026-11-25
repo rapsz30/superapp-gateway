@@ -9,9 +9,10 @@ Semua klien memakai satu alamat: `http://127.0.0.1:8080`.
 | `/api/matkul-recommender/*` | `matkul:3000` | `/api/*` |
 | `/api/judul-recommender/*` | `judul-api:8001` | `/*` |
 | `/api/micro-cred/*` | `microcred-api:8000` | `/*` |
+| `/api/identity/*` | `identity-api:8002` | `/*` |
 | `/healthz` | dijawab NGINX | - |
 
-Semua rute `/api/*` wajib token JWT (`Authorization: Bearer ...`) kecuali `POST /api/micro-cred/auth/register`, `POST /api/micro-cred/auth/login`, dan `GET /api/micro-cred/health`. Detail di [auth-gateway.md](auth-gateway.md).
+Semua rute `/api/*` wajib token JWT (`Authorization: Bearer ...`) kecuali `POST /api/micro-cred/auth/register` (deprecated), `POST /api/micro-cred/auth/login` (deprecated), `GET /api/micro-cred/health`, `POST /api/identity/auth/login`, `POST /api/identity/auth/refresh`, dan `GET /api/identity/health`. Detail di [auth-gateway.md](auth-gateway.md).
 
 Detail batas upload dan timeout ada di [nginx-routing.md](nginx-routing.md).
 
@@ -22,6 +23,10 @@ Detail batas upload dan timeout ada di [nginx-routing.md](nginx-routing.md).
 | nginx | 80 | - | `127.0.0.1:8080` |
 | auth-verifier | 8100 | `127.0.0.1:8100` | - (hanya dipanggil NGINX) |
 | microcred-api | 8000 | `127.0.0.1:8000` | lewat `/api/micro-cred` |
+| identity-api | 8002 | `127.0.0.1:8002` | lewat `/api/identity` |
+| identity-db | 5432 | - | - (hanya dari identity-api) |
+| matkul-db | 5432 | - | - (hanya dari matkul) |
+| alurkerja-connector | - | - | - (hanya keluar: ke AlurKerja dan matkul) |
 | judul-api | 8001 | `127.0.0.1:8001` | lewat `/api/judul-recommender` |
 | matkul | 3000 | `127.0.0.1:3000` | lewat `/api/matkul-recommender` (hanya API) |
 | pocketbase | 8090 | `127.0.0.1:8090` (admin UI) | - |

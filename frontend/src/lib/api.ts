@@ -3,6 +3,11 @@
 export const ACCESS_TOKEN_KEY = 'sg_access_token'
 export const REFRESH_TOKEN_KEY = 'sg_refresh_token'
 
+const REFRESH_PATH = '/api/identity/auth/refresh'
+// Layanan yang masih memakai sistem akun lama (belum dipindah ke identity).
+const LEGACY_PREFIXES = ['/api/micro-cred/']
+const LEGACY_MESSAGE = 'Fitur ini belum tersedia untuk akun Anda karena sedang dipindahkan ke sistem akun yang baru.'
+
 export class ApiError extends Error {
   status: number
 
@@ -17,6 +22,10 @@ export const tokenStore = {
   get(): string | null {
     if (typeof window === 'undefined') return null
     return window.localStorage.getItem(ACCESS_TOKEN_KEY)
+  },
+  getRefresh(): string | null {
+    if (typeof window === 'undefined') return null
+    return window.localStorage.getItem(REFRESH_TOKEN_KEY)
   },
   set(accessToken: string, refreshToken?: string | null) {
     window.localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
@@ -50,17 +59,57 @@ function messageFromBody(body: unknown, status: number): string {
 type ApiOptions = Omit<RequestInit, 'body'> & {
   json?: unknown
   body?: BodyInit | null
-  /** Kirim header Authorization (default true). Matikan untuk login dan register. */
+  /** Kirim header Authorization (default true). Matikan untuk login. */
   auth?: boolean
+  /** Kembalikan isi respons sukses sebagai Blob (untuk mengunduh berkas yang butuh token). */
+  blob?: boolean
 }
 
-export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
-  const { json, auth = true, headers, body, ...init } = options
-  const requestHeaders = new Headers(headers)
-  if (auth) {
-    const token = tokenStore.get()
-    if (token) requestHeaders.set('Authorization', `Bearer ${token}`)
+type RefreshResult = 'ok' | 'ditolak' | 'jaringan'
+
+/**
+ * Perbarui access token memakai refresh token (sekali pakai).
+ * Refresh token berotasi, jadi dua permintaan bersamaan tidak boleh memakainya dua kali: bila terjadi,
+ * server menganggapnya dicuri dan mencabut seluruh sesi. Karena itu satu proses per tab (`inflight`)
+ * dan satu proses lintas tab (Web Locks), dengan pemeriksaan ulang setelah mendapat kunci.
+ */
+let inflight: Promise<RefreshResult> | null = null
+
+async function refreshSekali(tokenGagal: string): Promise<RefreshResult> {
+  const jalankan = async (): Promise<RefreshResult> => {
+    const sekarang = tokenStore.get()
+    if (sekarang && sekarang !== tokenGagal) return 'ok' // tab atau permintaan lain sudah memperbarui
+    const refresh = tokenStore.getRefresh()
+    if (!refresh) return 'ditolak'
+    let response: Response
+    try {
+      response = await fetch(REFRESH_PATH, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refresh }),
+      })
+    } catch {
+      return 'jaringan'
+    }
+    if (!response.ok) return response.status >= 500 ? 'jaringan' : 'ditolak'
+    const data = (await response.json()) as { access_token: string; refresh_token?: string | null }
+    tokenStore.set(data.access_token, data.refresh_token)
+    return 'ok'
   }
+
+  if (!inflight) {
+    const locks = typeof navigator !== 'undefined' ? (navigator as Navigator & { locks?: LockManager }).locks : undefined
+    inflight = (locks ? locks.request('sg-token-refresh', jalankan) : jalankan()).finally(() => {
+      inflight = null
+    })
+  }
+  return inflight
+}
+
+async function kirim(path: string, options: ApiOptions, token: string | null): Promise<{ response: Response; data: unknown }> {
+  const { json, auth = true, headers, body, blob = false, ...init } = options
+  const requestHeaders = new Headers(headers)
+  if (auth && token) requestHeaders.set('Authorization', `Bearer ${token}`)
 
   let requestBody: BodyInit | null | undefined = body
   if (json !== undefined) {
@@ -75,6 +124,8 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
     throw new ApiError('Tidak dapat terhubung ke server. Periksa koneksi Anda.', 0)
   }
 
+  if (blob && response.ok) return { response, data: await response.blob() }
+
   const text = await response.text()
   let data: unknown = null
   if (text) {
@@ -84,11 +135,39 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
       data = text
     }
   }
+  return { response, data }
+}
+
+function keluarkanSesi() {
+  tokenStore.clear()
+  if (typeof window !== 'undefined' && window.location.pathname !== '/login') window.location.assign('/login')
+}
+
+export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
+  const auth = options.auth ?? true
+  let tokenDipakai = auth ? tokenStore.get() : null
+  let { response, data } = await kirim(path, options, tokenDipakai)
+  let sesiBerakhir = false
+
+  // Access token identity hanya berlaku 15 menit: coba perbarui diam-diam sekali, lalu ulangi.
+  if (response.status === 401 && auth && tokenDipakai && path !== REFRESH_PATH) {
+    const hasil = await refreshSekali(tokenDipakai)
+    if (hasil === 'jaringan') throw new ApiError('Tidak dapat memperbarui sesi. Periksa koneksi Anda.', 0)
+    if (hasil === 'ok') {
+      tokenDipakai = tokenStore.get()
+      ;({ response, data } = await kirim(path, options, tokenDipakai))
+    } else {
+      sesiBerakhir = true
+    }
+  }
 
   if (!response.ok) {
     if (response.status === 401 && auth) {
-      tokenStore.clear()
-      if (typeof window !== 'undefined' && window.location.pathname !== '/login') window.location.assign('/login')
+      // Layanan lama menolak token identity: sesi masih sah, jangan keluarkan pengguna.
+      if (!sesiBerakhir && LEGACY_PREFIXES.some((prefix) => path.startsWith(prefix))) {
+        throw new ApiError(LEGACY_MESSAGE, 401)
+      }
+      keluarkanSesi()
     }
     throw new ApiError(messageFromBody(data, response.status), response.status)
   }

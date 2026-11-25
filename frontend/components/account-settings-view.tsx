@@ -109,8 +109,8 @@ export function AccountSettingsView({ email: initialEmail }: AccountSettingsView
             </div>
             <form className="account-settings-form" onSubmit={handlePasswordChange}>
               <PasswordField id="current-password" name="currentPassword" label={t('Kata sandi saat ini')} autoComplete="current-password" />
-              <PasswordField id="new-password" name="newPassword" label={t('Kata sandi baru')} autoComplete="new-password" minLength={8} hint={t('Gunakan minimal 8 karakter.')} onValueChange={handlePasswordEdit} />
-              <PasswordField id="confirm-password" name="confirmPassword" label={t('Ulangi kata sandi baru')} autoComplete="new-password" minLength={8} invalid={passwordMismatch} error={passwordMismatch ? feedback : undefined} onValueChange={handlePasswordEdit} />
+              <PasswordField id="new-password" name="newPassword" label={t('Kata sandi baru')} autoComplete="new-password" minLength={10} hint={t('Gunakan minimal 10 karakter.')} onValueChange={handlePasswordEdit} />
+              <PasswordField id="confirm-password" name="confirmPassword" label={t('Ulangi kata sandi baru')} autoComplete="new-password" minLength={10} invalid={passwordMismatch} error={passwordMismatch ? feedback : undefined} onValueChange={handlePasswordEdit} />
               <button className="primary account-settings-submit" type="submit" disabled={submitting}>{submitting ? 'Menyimpan...' : t('Simpan kata sandi')}</button>
               {feedback && !passwordMismatch && <p className="account-settings-feedback" role="status" aria-live="polite">{feedback}</p>}
             </form>

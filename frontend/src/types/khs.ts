@@ -70,8 +70,30 @@ export interface SemesterRecommendation {
   jenis: 'ulang' | 'baru'
 }
 
+/** Panduan akademik aktif milik prodi mahasiswa (GET /api/identity/akademik/konteks). */
+export interface GuideInfo {
+  panduanId: string
+  version: number
+  title: string
+  effectiveFrom: string | null
+  program: string
+  faculty: string | null
+  advisorName: string | null
+}
+
+/** Dasar rekomendasi: versi panduan prodi yang dipakai server saat menyusun hasil. */
+export interface RecommendationGuideRef {
+  id: string
+  versi: number
+  judul: string
+  prodi: { id: string; kode: string; nama: string }
+}
+
 /** Hasil POST /api/matkul-recommender/rekomendasi. */
 export interface CourseRecommendationResult {
+  panduan?: RecommendationGuideRef | null
+  pembimbing_akademik?: { id: string; nama_lengkap: string; email: string | null } | null
+  peringatan?: string[]
   semester_target: number
   ringkasan: string
   evaluasi_nilai: GradeEvaluation[]

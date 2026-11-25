@@ -1,18 +1,23 @@
+# Port host sengaja dipindah dari bawaan: 8100 dipakai AlurKerja lokal, 3000 dipakai `next dev` frontend,
+# dan 8000-8002 termasuk rentang yang dicadangkan Windows. Port di dalam jaringan compose tidak berubah.
 # Hanya untuk debugging dan admin UI PocketBase (dimuat otomatis oleh Docker Compose).
 # Mode gateway saja: docker compose -f docker-compose.yml up -d
 services:
   microcred-api:
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:18000:8000"
+  identity-api:
+    ports:
+      - "127.0.0.1:18002:8002"
   judul-api:
     ports:
-      - "127.0.0.1:8001:8001"
+      - "127.0.0.1:18001:8001"
   matkul:
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:13000:3000"
   auth-verifier:
     ports:
-      - "127.0.0.1:8100:8100"
+      - "127.0.0.1:18100:8100"
   pocketbase:
     ports:
       - "127.0.0.1:8090:8090"

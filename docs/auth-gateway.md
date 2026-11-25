@@ -1,5 +1,13 @@
 # Autentikasi Terpusat di Gateway
 
+> **Pembaruan 2026-11-25:** sumber akun yang baru adalah layanan `identity`
+> (`/api/identity/auth/login`, `/auth/refresh`, dst.; lihat [identity/](identity/README.md)).
+> Login dan register Micro-cred di bawah ini **deprecated**. Token Micro-cred lama tetap diterima
+> verifier selama masa transisi (role `student`, `advisor`, `admin`), asalkan `JWT_SECRET` kedua
+> layanan sama. Role baru: `superadmin`, `dekan`, `kajur`, `kaprodi`, `dosen_pa`, `mahasiswa`.
+> Rute tulis `/api/identity/{fakultas,jurusan,prodi,orang,akun}` dan `/api/identity/audit`
+> hanya untuk `superadmin` (ditegakkan verifier dan layanan).
+
 Micro-cred menerbitkan token JWT. NGINX (lewat `auth_request`) memverifikasinya untuk semua layanan dengan aturan **default tolak**. Micro-cred tetap memverifikasi token sendiri (dua lapis), sehingga header `Authorization` diteruskan apa adanya.
 
 ## Alur
@@ -77,7 +85,7 @@ powershell -File gateway\auth\smoke-test.ps1
 
 ## Keterbatasan
 
-- Token stateless: tetap berlaku sampai kedaluwarsa walau akun diubah, dinonaktifkan, atau rolenya berubah. `src/api/deps.py` juga tidak memeriksa database.
+- Token Micro-cred (lama) stateless: tetap berlaku sampai kedaluwarsa walau akun diubah atau dinonaktifkan. Token identity diperiksa versinya (`tv`) oleh verifier ke layanan identity sehingga penangguhan akun berlaku dalam hitungan detik (lihat [identity/05](identity/05-alur-auth-dan-token.md)).
 - Secret simetris (HS256) dibagi ke verifier. Verifier menerima seluruh `.env` Micro-cred lewat `env_file` (termasuk kredensial lain seperti database dan API key). Saran: pakai kunci asimetris (verifier hanya memegang kunci publik) atau Docker secrets yang hanya berisi `JWT_SECRET`.
 - Verifier menolak start bila `JWT_SECRET` kosong atau masih nilai bawaan Micro-cred (`replace-with-secure-secret`). Micro-cred sendiri tetap memakai nilai bawaan itu bila `.env` tidak mengisinya, jadi pastikan `.env` berisi secret sungguhan.
 - Tidak ada endpoint refresh: pengguna login ulang saat token kedaluwarsa.

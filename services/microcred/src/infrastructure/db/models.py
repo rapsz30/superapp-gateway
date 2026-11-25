@@ -67,7 +67,13 @@ class UserStatus(str, enum.Enum):
 
 
 class UserRole(str, enum.Enum):
-    """User role enum matching auth.Role."""
+    """User role enum matching auth.Role.
+
+    DEPRECATED (2026-11-25): sumber akun dan peran sekarang layanan `identity`
+    (services/identity). Peran lama student/advisor/admin dipetakan ke
+    mahasiswa/dosen_pa/superadmin. Jangan menambah akun baru di sini; kode ini dibiarkan
+    agar akun dan data lama tetap berfungsi selama masa transisi.
+    """
 
     STUDENT = "student"
     ADVISOR = "advisor"
@@ -75,7 +81,13 @@ class UserRole(str, enum.Enum):
 
 
 class UserModel(Base):
-    """SQLAlchemy model for users table."""
+    """SQLAlchemy model for users table.
+
+    DEPRECATED (2026-11-25): tidak dipakai lagi sebagai sumber akun. Akun, fakultas,
+    program studi, dan peran dikelola layanan `identity` (lihat docs/identity/).
+    Kolom `faculty` dan `study_program` (teks bebas) digantikan relasi fakultas, jurusan,
+    dan prodi di identity. Tidak dihapus agar data lama tetap utuh.
+    """
 
     __tablename__ = "users"
 
