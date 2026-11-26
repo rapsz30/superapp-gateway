@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Modal } from 'antd'
 import { adminService, type Panduan } from '@/src/services/admin-service'
-import { Badge, Field, Kartu, Kosong, Notice, SelectProdi, konfirmasi, tanggal, useAksi, useLoad } from './ui'
+import { Badge, Field, Kartu, Kosong, Notice, SelectProdi, tanggal, useAksi, useKonfirmasi, useLoad } from './ui'
 
 const TONE = { aktif: 'hijau', draf: 'kuning', diarsipkan: 'abu' } as const
 
@@ -19,6 +19,7 @@ export function TabPanduan({ initialProdiId }: { initialProdiId?: string } = {})
   const [inputKey, setInputKey] = useState(0)
   const [unggahBuka, setUnggahBuka] = useState(false)
   const { sibuk, galat, ok, jalankan, setGalat, setOk } = useAksi()
+  const konfirmasi = useKonfirmasi()
 
   async function unggah(e: React.FormEvent) {
     e.preventDefault()

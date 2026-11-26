@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Pengajuan judul tugas akhir: mahasiswa mengajukan dari web, pembimbing TA memutuskan (Tasklist atau web),
+  revisi dikembalikan ke mahasiswa. Dijalankan layanan identity; tidak ada External Task.
+  Variabel awal: pembimbing, initiator, nim_mahasiswa, id_pengajuan, prodi, topik, judul, tema, ringkasan_judul,
+  jumlah_revisi. Keluaran tinjauan: keputusan (setuju | revisi), catatan_dosen.
+  Lihat docs/identity/14-pengajuan-judul-ta.md.
+-->
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="Definitions_PengajuanJudul"
+                  targetNamespace="http://studentgateway.example/bpmn"
+                  exporter="StudentGateway"
+                  exporterVersion="0.1">
+
+  <bpmn:collaboration id="Collaboration_PengajuanJudul">
+    <bpmn:participant id="Participant_Judul" name="Pengajuan Judul Tugas Akhir" processRef="pengajuan-judul-superapp" />
+  </bpmn:collaboration>
+
+  <bpmn:process id="pengajuan-judul-superapp" name="Pengajuan Judul Tugas Akhir" isExecutable="true" camunda:historyTimeToLive="180">
+    <bpmn:laneSet id="LaneSet_Judul">
+      <bpmn:lane id="Lane_Pembimbing" name="Pembimbing tugas akhir">
+        <bpmn:flowNodeRef>Start_Ajukan</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_TinjauJudul</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>GW_Judul</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_JudulDisetujui</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Mahasiswa" name="Mahasiswa (lewat web)">
+        <bpmn:flowNodeRef>Task_PerbaikiJudul</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+
+    <bpmn:startEvent id="Start_Ajukan" name="Ajukan judul">
+      <bpmn:outgoing>Flow_Ajukan</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:userTask id="Task_TinjauJudul" name="Tinjau judul tugas akhir - NIM ${execution.getVariable('nim_mahasiswa')}" camunda:assignee="${execution.getVariable('pembimbing')}">
+      <bpmn:documentation>Pembimbing TA membaca ringkasan_judul lalu mengisi keputusan (setuju atau revisi) dan catatan_dosen (wajib bila revisi).</bpmn:documentation>
+      <bpmn:incoming>Flow_Ajukan</bpmn:incoming>
+      <bpmn:incoming>Flow_Ulang</bpmn:incoming>
+      <bpmn:outgoing>Flow_Putus</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:exclusiveGateway id="GW_Judul" name="Keputusan?" default="Flow_Revisi">
+      <bpmn:incoming>Flow_Putus</bpmn:incoming>
+      <bpmn:outgoing>Flow_Setuju</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Revisi</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:userTask id="Task_PerbaikiJudul" name="Perbaiki judul (di web)" camunda:assignee="${initiator}">
+      <bpmn:documentation>Mahasiswa memperbaiki judul di web; aplikasi menyelesaikan tugas ini dengan judul, tema, dan ringkasan_judul yang baru.</bpmn:documentation>
+      <bpmn:incoming>Flow_Revisi</bpmn:incoming>
+      <bpmn:outgoing>Flow_Ulang</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:endEvent id="End_JudulDisetujui" name="Judul disetujui">
+      <bpmn:incoming>Flow_Setuju</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:sequenceFlow id="Flow_Ajukan" sourceRef="Start_Ajukan" targetRef="Task_TinjauJudul" />
+    <bpmn:sequenceFlow id="Flow_Putus" sourceRef="Task_TinjauJudul" targetRef="GW_Judul" />
+    <bpmn:sequenceFlow id="Flow_Setuju" name="setuju" sourceRef="GW_Judul" targetRef="End_JudulDisetujui">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${keputusan == 'setuju'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Revisi" name="revisi" sourceRef="GW_Judul" targetRef="Task_PerbaikiJudul" />
+    <bpmn:sequenceFlow id="Flow_Ulang" sourceRef="Task_PerbaikiJudul" targetRef="Task_TinjauJudul" />
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="Diagram_Judul">
+    <bpmndi:BPMNPlane id="Plane_Judul" bpmnElement="Collaboration_PengajuanJudul">
+      <bpmndi:BPMNShape id="Participant_Judul_di" bpmnElement="Participant_Judul" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="760" height="340" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Mahasiswa_di" bpmnElement="Lane_Mahasiswa" isHorizontal="true">
+        <dc:Bounds x="190" y="260" width="730" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Pembimbing_di" bpmnElement="Lane_Pembimbing" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="730" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Start_Ajukan_di" bpmnElement="Start_Ajukan">
+        <dc:Bounds x="262" y="152" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_TinjauJudul_di" bpmnElement="Task_TinjauJudul">
+        <dc:Bounds x="370" y="130" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="GW_Judul_di" bpmnElement="GW_Judul" isMarkerVisible="true">
+        <dc:Bounds x="605" y="145" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_PerbaikiJudul_di" bpmnElement="Task_PerbaikiJudul">
+        <dc:Bounds x="560" y="300" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_JudulDisetujui_di" bpmnElement="End_JudulDisetujui">
+        <dc:Bounds x="812" y="152" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Ajukan_di" bpmnElement="Flow_Ajukan">
+        <di:waypoint x="298" y="170" />
+        <di:waypoint x="370" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Putus_di" bpmnElement="Flow_Putus">
+        <di:waypoint x="510" y="170" />
+        <di:waypoint x="605" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Setuju_di" bpmnElement="Flow_Setuju">
+        <di:waypoint x="655" y="170" />
+        <di:waypoint x="812" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Revisi_di" bpmnElement="Flow_Revisi">
+        <di:waypoint x="630" y="195" />
+        <di:waypoint x="630" y="300" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Ulang_di" bpmnElement="Flow_Ulang">
+        <di:waypoint x="560" y="340" />
+        <di:waypoint x="440" y="340" />
+        <di:waypoint x="440" y="210" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

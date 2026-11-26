@@ -78,11 +78,22 @@ export async function completeTask(c: Config, id: string, variables: Record<stri
   );
 }
 
-/** Fail: { workerId, errorMessage, errorDetails, retries, retryTimeout }. retries 0 membuat incident yang terlihat di Camunda. */
-export async function failTask(c: Config, id: string, errorMessage: string, _variables: Record<string, unknown> = {}) {
+/**
+ * Lapor gagal: { workerId, errorMessage, errorDetails, retries, retryTimeout }. `retries` adalah sisa percobaan:
+ * di atas 0 tugas diambil lagi setelah `retryTimeout`; 0 membuat insiden yang terlihat di Camunda.
+ * `errorMessage` menjadi pesan insiden yang dibaca mahasiswa, sehingga alamat layanan internal dibuang
+ * (lengkapnya tetap ada di `errorDetails`).
+ */
+export async function failTask(c: Config, id: string, errorMessage: string, retries = 0) {
   return postJson(
-    `${c.externalTaskBaseUrl}/external-task/${encodeURIComponent(id)}/fail`,
-    { workerId: c.workerId, errorMessage: errorMessage.slice(0, 500), errorDetails: errorMessage, retries: 0, retryTimeout: 0 },
+    `${c.externalTaskBaseUrl}/external-task/${encodeURIComponent(id)}/failure`,
+    {
+      workerId: c.workerId,
+      errorMessage: errorMessage.replace(/\b(GET|POST|PUT|DELETE) https?:\/\/\S+ -> /g, "").slice(0, 500),
+      errorDetails: errorMessage,
+      retries,
+      retryTimeout: retries > 0 ? c.retryMs : 0,
+    },
     await authHeaders(c)
   );
 }

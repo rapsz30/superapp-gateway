@@ -362,6 +362,9 @@ body, button, input, textarea, select { font-family:'Roboto',sans-serif; }body {
 .home-view .card-link:hover { background:#e7efff; color:#234fbf; box-shadow:0 3px 9px rgba(17,44,111,.12); }
 .sidebar .nav-item:not(.active), .mobile-nav-item { transition:background-color .15s ease, color .15s ease; }
 .sidebar .nav-item:not(.active):hover, .mobile-nav-item:hover { background:#e7efff; color:#234fbf; }
+.matkul-shell-bottom { display:grid; gap:4px; margin-top:auto; }
+.matkul-shell-bottom .logout { margin-top:0; }
+.matkul-profile-name { max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--navy); font-size:13px; font-weight:600; }
 
 .micro-page .section-heading { margin-top:24px; }
 .course-page .upload-zone { min-height:220px; }
@@ -384,8 +387,461 @@ body, button, input, textarea, select { font-family:'Roboto',sans-serif; }body {
 }
 
 /* Progres pengajuan ke pembimbing akademik */
-.submit-steps { list-style: none; margin: 0.75rem 0; padding: 0; display: grid; gap: 0.35rem; }
-.submit-steps li[data-state='selesai'] { color: var(--success, #15803d); }
-.submit-steps li[data-state='aktif'] { font-weight: 600; }
-.submit-steps li[data-state='menunggu'] { opacity: 0.6; }
-.submit-steps li[data-state='galat'] { color: var(--destructive, #b91c1c); }
+.submit-steps { position:relative; list-style:none; margin:24px 0 0; padding:0; display:grid; gap:0; }
+.submit-steps li { position:relative; display:grid; grid-template-columns:28px 1fr; gap:12px; min-height:52px; color:#7a89a5; }
+.submit-steps li:not(:last-child)::before { content:''; position:absolute; top:24px; bottom:0; left:13px; width:1px; background:#dce4f2; }
+.submit-step-marker { position:relative; z-index:1; display:grid; place-items:center; width:27px; height:27px; border:1px solid #d3ddec; border-radius:50%; background:#fff; color:#8a98b2; font-size:14px; font-weight:700; }
+.submit-steps li > div { min-width:0; padding:3px 0 18px; }
+.submit-steps b { display:block; color:var(--navy); font-size:13px; line-height:1.35; }
+.submit-steps small { display:block; margin-top:3px; color:#71809e; font-size:12px; line-height:1.45; }
+.submit-steps li[data-state='selesai'] .submit-step-marker { border-color:#9bd8b3; background:#eaf8ef; color:#15803d; }
+.submit-steps li[data-state='selesai'] b { color:#15803d; }
+.submit-steps li[data-state='aktif'] .submit-step-marker { border-color:#2858e8; background:#2858e8; color:#fff; box-shadow:0 0 0 4px #eaf0ff; }
+.submit-steps li[data-state='aktif'] b { color:var(--navy); }
+.submit-steps li[data-state='menunggu'] { opacity:1; }
+.submit-steps li[data-state='galat'] .submit-step-marker { border-color:#efb2ad; background:#fff1ef; color:#b42318; }
+.submit-steps li[data-state='galat'] b { color:#b42318; }
+
+.submit-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.submit-heading h2 { margin:0; }
+.course-page > .submit-card { margin-bottom:24px; }
+.submit-advisor { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:4px 12px; margin-top:22px; padding:15px 16px; border:1px solid #e1e8f3; border-radius:12px; background:#f7f9fc; }
+.submit-advisor span, .submit-note > span { color:#6b7b99; font-size:12px; }
+.submit-advisor b { color:var(--navy); font-size:13px; }
+.submit-advisor small { color:#71809e; font-size:12px; }
+.submit-note { margin-top:10px; padding:12px 16px; border-left:3px solid #b8c9f5; border-radius:0 10px 10px 0; background:#f7f9ff; }
+.submit-note p { margin:4px 0 0; color:#43567d; font-size:12px; line-height:1.45; }
+.submit-card details.info-callout { display:block; }
+.submit-card details summary { cursor:pointer; }
+.submit-card > .upload-actions { justify-content:flex-end; margin-top:4px; padding-top:16px; border-top:1px solid #edf0f6; }
+.status-badge { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:999px; border:1px solid currentColor; font-size:13px; font-weight:600; line-height:1.3; }
+.status-badge svg { width:15px; height:15px; flex:0 0 15px; }
+.status-badge[data-tone='info'] { color:#1d4ed8; background:#eef4ff; }
+.status-badge[data-tone='warning'] { color:#92560a; background:#fff6e0; }
+.status-badge[data-tone='success'] { color:#15703a; background:#e9f8ee; }
+.status-badge[data-tone='danger'] { color:#b42318; background:#fef0ee; }
+.status-badge[data-tone='neutral'] { color:#52617a; background:#f1f3f8; }
+
+@media (max-width:700px) {
+  .submit-advisor { grid-template-columns:1fr; gap:4px; }
+  .submit-advisor small { margin-top:2px; }
+  .submit-card > .upload-actions { flex-wrap:wrap; }
+  .submit-card > .upload-actions button { flex:1; justify-content:center; }
+}
+
+/* Dasbor Mata Kuliah */
+.course-dashboard .course-heading { align-items:center; }
+.course-dashboard .course-heading .primary { flex-shrink:0; }
+.course-dashboard .course-heading svg, .dashboard-empty svg { width:17px; height:17px; }
+.course-dashboard .workflow-card h2 { margin-bottom:14px; }
+.dashboard-empty { text-align:center; }
+.dashboard-loading { display:flex; align-items:center; gap:10px; margin:0 !important; }
+.dashboard-loading svg { width:20px; height:20px; }
+.dashboard-subheading { margin:6px 0 14px; }
+.dashboard-subheading h2 { margin:0; font-size:20px; }
+.dashboard-subheading p { margin:4px 0 0; color:var(--muted); font-size:13px; }
+.stat-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
+.stat-card { display:flex; flex-direction:column; gap:4px; padding:18px; border:1px solid var(--border); border-radius:16px; background:#fff; }
+.stat-card span { color:var(--navy-soft); font-size:13px; }
+.stat-card b { color:var(--navy); font-size:30px; line-height:1.2; font-variant-numeric:tabular-nums; }
+.stat-card small { color:var(--muted); font-size:12px; }
+.chart-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:0 18px; }
+.gpa-trend { display:flex; align-items:flex-end; gap:14px; margin:0; padding:0; list-style:none; overflow-x:auto; }
+.gpa-trend li { display:flex; flex:1; min-width:44px; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; }
+.gpa-trend i { display:block; width:100%; max-width:52px; border-radius:6px 6px 0 0; background:var(--blue); }
+.gpa-trend span, .gpa-trend small { color:var(--navy-soft); font-size:12px; }
+.grade-distribution { display:flex; flex-wrap:wrap; gap:12px; margin:0; padding:0; list-style:none; }
+.grade-distribution li { display:flex; align-items:center; gap:6px; color:var(--navy-soft); }
+.grade-list { margin:0; padding:0; list-style:none; }
+.grade-list li { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px solid #edf0f6; }
+.grade-list li:first-child { border-top:0; }
+.grade-list b { display:block; font-size:14px; }
+.grade-list small { display:block; margin-top:2px; color:var(--muted); font-size:12px; }
+.grade-chip { display:inline-flex; justify-content:center; min-width:38px; padding:3px 8px; border-radius:8px; background:#eef4ff; color:#1d4ed8; font-size:13px; font-weight:600; }
+.grade-chip[data-status='bersyarat'] { background:#fff6e0; color:#92560a; }
+.grade-chip[data-status='tidak_lulus'] { background:#fef0ee; color:#b42318; }
+.semester-grades { border-top:1px solid #edf0f6; }
+.semester-grades summary { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 14px; padding:12px 0; cursor:pointer; }
+.semester-grades summary small { color:var(--muted); font-size:12px; }
+@media (min-width:901px) {
+  .semester-grades .grade-list { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; }
+  .semester-grades .grade-list li,
+  .semester-grades .grade-list li:first-child { min-width:0; min-height:64px; padding:10px 12px; border:1px solid #edf0f6; border-radius:10px; background:#fbfcff; }
+  .semester-grades .grade-list li > div { min-width:0; }
+  .semester-grades .grade-list b { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+}
+@media (min-width:1200px) {
+  .semester-grades .grade-list { grid-template-columns:repeat(4, minmax(0, 1fr)); }
+}
+.dashboard-section { margin-bottom:18px; }
+.dashboard-section-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; }
+.dashboard-section-actions { display:flex; align-items:center; gap:10px; }
+.dashboard-warning { display:flex; gap:8px; align-items:center; margin:0; padding:14px 24px; border-top:1px solid #edf0f6; color:#92560a; font-size:13px; }
+.dashboard-warning svg { width:16px; height:16px; flex:0 0 16px; }
+.history-list { margin:0; padding:0; list-style:none; }
+.history-list li { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:12px 0; border-top:1px solid #edf0f6; }
+.history-list li:first-child { border-top:0; }
+.history-list li > div { flex:1 1 220px; min-width:0; }
+.history-list b { display:block; font-size:14px; }
+.history-list small { display:block; margin-top:2px; color:var(--muted); font-size:12px; }
+@media (max-width:700px) { .stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.course-dashboard .course-heading .primary { margin-top:14px; } }
+
+.judul-page { max-width:1100px; }
+.judul-dashboard { --judul-ink:#14294d; --judul-blue:#244fcb; --judul-line:#e3e9f3; max-width:1320px; padding-top:42px; }
+.judul-dashboard .judul-heading { align-items:center; margin-bottom:26px; }
+.judul-dashboard .judul-heading .eyebrow { margin-bottom:10px; color:#7183a4; letter-spacing:.14em; }
+.judul-dashboard .judul-heading h1 { margin:0 0 8px; color:var(--judul-ink); font-size:clamp(30px,3vw,38px); font-weight:700; letter-spacing:-.055em; }
+.judul-dashboard .judul-heading p:not(.eyebrow) { color:#667896; font-size:15px; line-height:1.55; }
+.judul-start-button { min-height:50px; padding:0 19px; border-radius:11px; box-shadow:0 8px 18px rgba(36,79,203,.18); white-space:nowrap; }
+.judul-start-button svg { width:17px; height:17px; }
+.judul-start-button svg:last-child { width:15px; margin-left:2px; }
+.judul-advisor-strip { display:flex; align-items:center; gap:14px; min-height:76px; margin-bottom:18px; padding:13px 18px; border:1px solid var(--judul-line); border-radius:14px; background:#fafbfe; }
+.judul-advisor-icon { display:grid; place-items:center; width:42px; height:42px; flex:0 0 42px; border-radius:12px; background:#eaf0ff; color:var(--judul-blue); }
+.judul-advisor-icon svg { width:19px; height:19px; }
+.judul-advisor-copy { display:grid; gap:4px; min-width:170px; }
+.judul-advisor-copy small { color:#7a89a4; font-size:11px; }
+.judul-advisor-copy strong { color:var(--judul-ink); font-size:14px; }
+.judul-advisor-strip > p { margin:0 0 0 auto; max-width:430px; color:#71809a; font-size:12px; line-height:1.5; text-align:right; }
+.judul-idea-banner { position:relative; display:flex; align-items:center; gap:18px; min-height:170px; margin-bottom:22px; padding:26px 30px; overflow:hidden; isolation:isolate; border:1px solid #d8e3ff; border-radius:18px; background:linear-gradient(112deg,#f0f5ff 0%,#f7f9ff 62%,#eaf0ff 100%); }
+.judul-idea-banner::before { position:absolute; top:-135px; right:60px; z-index:-1; width:300px; height:300px; border:1px solid rgba(57,96,190,.11); border-radius:50%; content:""; }
+.judul-idea-mark { display:grid; place-items:center; width:54px; height:54px; flex:0 0 54px; border:1px solid #d5e0ff; border-radius:16px; background:#fff; color:var(--judul-blue); box-shadow:0 6px 18px rgba(38,77,171,.08); }
+.judul-idea-mark svg { width:24px; height:24px; }
+.judul-idea-copy { position:relative; z-index:1; max-width:650px; }
+.judul-idea-copy > span { color:#5874bb; font-size:10px; font-weight:700; letter-spacing:.14em; }
+.judul-idea-copy h2 { margin:7px 0 6px; color:var(--judul-ink); font-size:21px; letter-spacing:-.04em; }
+.judul-idea-copy p { margin:0; color:#667896; font-size:13px; line-height:1.55; }
+.judul-idea-link { position:relative; z-index:1; display:inline-flex; align-items:center; gap:9px; min-height:43px; margin-left:auto; padding:0 15px; border:1px solid #cfdbf9; border-radius:10px; background:#fff; color:#2349b5; font-size:12px; font-weight:700; white-space:nowrap; transition:background .18s ease, transform .18s ease; }
+.judul-idea-link:hover { transform:translateY(-1px); background:#f9fbff; }
+.judul-idea-link svg { width:15px; height:15px; }
+.judul-idea-orbit { position:absolute; top:-65px; right:82px; z-index:-1; width:230px; height:230px; border:1px solid rgba(57,96,190,.12); border-radius:50%; }
+.judul-idea-orbit::before, .judul-idea-orbit::after { position:absolute; inset:22px; border:1px solid rgba(57,96,190,.1); border-radius:50%; content:""; }
+.judul-idea-orbit::after { inset:46px; }
+.judul-idea-orbit i { position:absolute; width:7px; height:7px; border-radius:50%; background:#92aaf0; }
+.judul-idea-orbit i:nth-child(1) { top:31px; right:38px; }.judul-idea-orbit i:nth-child(2) { bottom:42px; left:34px; }.judul-idea-orbit i:nth-child(3) { top:102px; right:-4px; }
+.judul-library-grid { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(300px,.9fr); gap:18px; align-items:start; }
+.judul-library-card { min-width:0; padding:20px 22px 12px; border:1px solid var(--judul-line); border-radius:16px; background:#fff; box-shadow:0 5px 18px rgba(33,52,91,.035); }
+.judul-library-title { display:flex; align-items:center; gap:12px; }
+.judul-library-icon { display:grid; place-items:center; width:39px; height:39px; flex:0 0 39px; border-radius:12px; background:#edf2ff; color:#3159c9; }
+.judul-library-icon.archive { background:#eff4f1; color:#527d69; }
+.judul-library-icon svg { width:18px; height:18px; }
+.judul-dashboard .judul-section-heading { align-items:center; margin:0 0 12px; }
+.judul-dashboard .judul-section-heading h2 { margin:0 0 4px; color:var(--judul-ink); font-size:16px; letter-spacing:-.025em; }
+.judul-dashboard .judul-section-heading p { color:#7a89a1; font-size:11px; line-height:1.45; }
+.judul-count { display:grid; place-items:center; min-width:27px; height:27px; padding:0 7px; border-radius:8px; background:#f1f4fa; color:#71809a; font-size:11px; font-weight:700; }
+.judul-dashboard .judul-history-item { min-height:66px; gap:12px; padding:11px 0; border-color:#edf0f5; }
+.judul-history-copy { min-width:0; }
+.judul-dashboard .judul-history-item b { display:block; overflow:hidden; color:#243858; font-size:12px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
+.judul-dashboard .judul-history-item small { display:flex; flex-wrap:wrap; gap:5px; margin-top:5px; color:#8390a6; font-size:10px; }
+.judul-dashboard .judul-history-item small span { color:#b0bac9; }
+.judul-open-button { display:grid; place-items:center; width:32px; height:32px; flex:0 0 32px; border:1px solid #e2e8f3; border-radius:9px; background:#fff; color:#637ba9; transition:all .18s ease; }
+.judul-open-button:hover { border-color:#b8c9f3; background:#f3f6ff; color:#244fcb; }
+.judul-open-button svg { width:15px; height:15px; }
+.judul-pagination { display:flex; align-items:center; justify-content:flex-end; gap:5px; margin:10px 0 2px; padding-top:11px; border-top:1px solid #edf0f5; }
+.judul-pagination button { display:grid; place-items:center; min-width:29px; height:29px; padding:0 7px; border:1px solid transparent; border-radius:8px; background:transparent; color:#637493; font-size:11px; font-weight:600; }
+.judul-pagination button:hover:not(:disabled) { border-color:#dbe4f4; background:#f7f9fd; color:#244fcb; }
+.judul-pagination button[aria-current="page"] { border-color:#d9e3ff; background:#edf2ff; color:#244fcb; }
+.judul-pagination button:disabled { opacity:.42; cursor:default; }
+.judul-pagination .judul-page-arrow { border-color:#e5eaf2; background:#fff; }
+.judul-pagination svg { width:14px; height:14px; }
+.judul-page-numbers { display:flex; gap:3px; }
+.judul-pagination > span { margin-left:7px; color:#8995a8; font-size:10px; white-space:nowrap; }
+.judul-list-empty { padding:18px 0 14px; color:#8995aa; font-size:12px; line-height:1.55; }
+.judul-dashboard .judul-submission-card { padding:23px 25px; border:1px solid var(--judul-line); border-radius:16px; box-shadow:0 5px 18px rgba(33,52,91,.035); }
+.judul-section-kicker { display:flex; align-items:center; gap:7px; margin-bottom:16px; color:#7183a4; font-size:10px; font-weight:700; letter-spacing:.13em; }
+.judul-section-kicker svg { width:15px; height:15px; color:#3159c9; }
+.judul-dashboard .judul-submission-head h2 { color:var(--judul-ink); }
+.judul-submission-footer { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:18px; padding-top:14px; border-top:1px solid #edf0f6; }
+.judul-submission-footer > p { margin:0; color:#7a89a1; font-size:11px; }
+.judul-dashboard .judul-action-row { margin:0; padding:0; border:0; }
+.judul-dashboard .judul-advisor-strip + .judul-submission-card { margin-bottom:22px; }
+@media (max-width:900px) { .judul-library-grid { grid-template-columns:1fr; }.judul-archive-card { order:2; } }
+@media (max-width:700px) {
+  .judul-dashboard { padding-top:26px; }
+  .judul-dashboard .judul-heading { display:flex; flex-direction:column; align-items:stretch; gap:18px; margin-bottom:20px; }
+  .judul-dashboard .judul-heading h1 { font-size:30px; }
+  .judul-start-button { width:100%; }
+  .judul-advisor-strip { align-items:flex-start; flex-wrap:wrap; gap:10px 12px; padding:13px; }
+  .judul-advisor-copy { min-width:0; flex:1; }
+  .judul-advisor-strip > p { flex-basis:100%; max-width:none; margin-left:54px; text-align:left; }
+  .judul-idea-banner { align-items:flex-start; flex-wrap:wrap; gap:13px; padding:20px 17px; }
+  .judul-idea-mark { width:44px; height:44px; flex-basis:44px; border-radius:13px; }
+  .judul-idea-copy { flex:1; min-width:0; }
+  .judul-idea-copy h2 { font-size:18px; }
+  .judul-idea-copy p { font-size:12px; }
+  .judul-idea-link { margin:0 0 0 57px; }
+  .judul-idea-orbit { right:-95px; }
+  .judul-library-card { padding:17px 16px 10px; }
+  .judul-dashboard .judul-section-heading { gap:10px; }
+  .judul-dashboard .judul-history-item { align-items:flex-start; }
+  .judul-dashboard .judul-history-item b { white-space:normal; }
+  .judul-pagination { justify-content:center; gap:3px; }
+  .judul-pagination > span { margin-left:3px; }
+  .judul-submission-footer { align-items:flex-start; flex-direction:column; }
+}
+.judul-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:24px; }
+.judul-heading h1 { margin:4px 0 8px; color:var(--navy); font-size:30px; letter-spacing:-.05em; }
+.judul-heading p:not(.eyebrow) { margin:0; color:var(--navy-soft); font-size:14px; }
+.judul-advisor-card { display:grid; gap:5px; margin-bottom:18px; padding:18px 20px; border:1px solid #dce5f4; border-radius:14px; background:#f5f8ff; }
+.judul-advisor-card span, .judul-advisor-card small { color:#687997; font-size:12px; }
+.judul-advisor-card strong { color:var(--navy); font-size:16px; }
+.judul-submission-card { margin-bottom:18px; }
+.judul-submission-head { display:flex; justify-content:space-between; gap:16px; }
+.judul-submission-head h2 { margin:12px 0 10px; font-size:20px; line-height:1.35; }
+.judul-submission-head > small { color:#71809e; font-size:12px; white-space:nowrap; }
+.judul-status, .judul-theme-tag { display:inline-flex; align-items:center; width:max-content; padding:5px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+.judul-status.info { color:#1d4ed8; background:#eaf0ff; }.judul-status.warning { color:#92560a; background:#fff4d9; }.judul-status.success { color:#15703a; background:#e9f8ee; }.judul-status.neutral { color:#52617a; background:#f1f3f8; }
+.judul-theme-tag { color:#2454d5; background:#e9efff; }
+.judul-note { margin:18px 0; padding:13px 15px; border-left:3px solid #e0a32a; border-radius:0 10px 10px 0; background:#fff9e9; }
+.judul-note b { color:#81520a; font-size:12px; }.judul-note p { margin:4px 0 0; color:#664e20; font-size:13px; line-height:1.5; }
+.judul-submission-meta, .judul-muted { color:#71809e; font-size:12px; }
+.judul-action-row { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; padding-top:16px; border-top:1px solid #edf0f6; }
+.judul-empty-card { display:flex; align-items:center; gap:18px; }
+.judul-empty-icon { display:grid; place-items:center; width:48px; height:48px; flex:0 0 48px; border-radius:14px; background:#eaf0ff; color:var(--blue); }.judul-empty-icon svg { width:22px; }
+.judul-empty-card h2 { margin:0 0 6px; font-size:18px; }.judul-empty-card p { margin:0 0 14px; color:var(--navy-soft); font-size:13px; }
+.judul-section-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:16px; }.judul-section-heading h2 { margin:0 0 5px; font-size:19px; }.judul-section-heading p { margin:0; color:#71809e; font-size:13px; }
+.judul-history-list { display:grid; gap:0; }.judul-history-item { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 0; border-top:1px solid #edf0f6; }.judul-history-item:first-child { border-top:0; }.judul-history-item b { display:block; color:var(--navy); font-size:13px; }.judul-history-item small { display:block; margin-top:4px; color:#71809e; font-size:12px; }
+.judul-interest-form { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px; padding:14px 16px; border:1px solid #cbd9f4; border-radius:14px; background:#fff; }.judul-interest-form > svg { width:20px; color:var(--blue); }.judul-interest-form textarea { width:100%; min-height:70px; resize:vertical; border:0; outline:0; color:var(--navy); font:inherit; line-height:1.5; }.judul-interest-form textarea::placeholder { color:#8190aa; }
+.judul-info { display:flex; align-items:center; gap:7px; margin:14px 0; color:#16714e; font-size:13px; }.judul-info svg { width:16px; }.judul-recommendations { margin-top:26px; }.judul-result-grid { display:grid; gap:14px; }.judul-result-card { display:grid; grid-template-columns:34px 1fr; gap:14px; padding:20px; border:1px solid #dce4f3; border-radius:15px; background:#fff; }.judul-result-number { display:grid; place-items:center; width:30px; height:30px; border-radius:50%; background:var(--blue); color:#fff; font-weight:700; }.judul-result-body h3 { margin:10px 0 10px; color:var(--navy); font-size:17px; line-height:1.4; }.judul-result-body > p { margin:0 0 14px; color:#43567d; font-size:13px; line-height:1.6; }.judul-result-card-head { display:flex; flex-direction:column; align-items:flex-start; }.judul-result-body details { margin-top:16px; padding-top:14px; border-top:1px solid #edf0f6; color:#52617a; font-size:13px; }.judul-result-body summary { cursor:pointer; font-weight:700; }.judul-methodology { white-space:pre-line; line-height:1.55; }.judul-reference { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:8px; padding:10px 12px; border-radius:9px; background:#f5f7fb; color:var(--navy); text-decoration:none; }.judul-reference svg { width:14px; color:var(--blue); }.judul-own-button { margin-top:18px; }
+.judul-form-backdrop { position:fixed; inset:0; z-index:40; display:grid; place-items:center; padding:20px; overflow:auto; background:rgba(16,31,61,.42); backdrop-filter:blur(3px); }.judul-form-modal { position:relative; width:min(100%, 720px); max-height:calc(100dvh - 40px); overflow:auto; padding:30px; border:1px solid #dce5f5; border-radius:18px; background:#fff; box-shadow:0 24px 80px rgba(17,34,72,.24); }.judul-form-close { position:absolute; top:16px; right:16px; display:grid; place-items:center; width:32px; height:32px; border:0; border-radius:50%; background:#f1f4f9; color:#637394; cursor:pointer; }.judul-form-close svg { width:17px; }.judul-form-modal h2 { margin:4px 0 8px; color:var(--navy); font-size:23px; }.judul-form-description { margin:0 0 22px; color:#657594; font-size:13px; }.judul-form { display:grid; gap:15px; }.judul-form label { display:grid; gap:7px; color:var(--navy); font-size:13px; font-weight:700; }.judul-form label > span { color:#7a89a5; font-weight:400; }.judul-form input, .judul-form select, .judul-form textarea { width:100%; box-sizing:border-box; border:1px solid #cbd7eb; border-radius:9px; padding:11px 12px; outline:none; color:var(--navy); background:#fff; font:inherit; font-size:13px; }.judul-form textarea { resize:vertical; line-height:1.5; }.judul-form input:focus, .judul-form select:focus, .judul-form textarea:focus { border-color:var(--blue); box-shadow:0 0 0 3px #e8efff; }.judul-form-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:8px; padding-top:16px; border-top:1px solid #edf0f6; }.judul-form-actions button { display:inline-flex; align-items:center; gap:7px; }.judul-form-actions svg { width:15px; }
+.judul-loading-backdrop { position:fixed; inset:0; z-index:50; display:grid; place-items:center; padding:20px; background:rgba(16,31,61,.42); backdrop-filter:blur(3px); }.judul-loading-modal { width:min(100%, 390px); padding:30px; border-radius:18px; background:#fff; box-shadow:0 24px 80px rgba(17,34,72,.24); text-align:center; }.judul-loading-modal > svg { width:32px; height:32px; color:var(--blue); }.judul-loading-modal h2 { margin:16px 0 8px; color:var(--navy); font-size:20px; }.judul-loading-modal p { margin:0; color:#657594; font-size:13px; line-height:1.55; }
+.judul-alert { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:18px; padding:14px 16px; border:1px solid #f0c5c0; border-radius:11px; background:#fff5f3; }.judul-alert p { margin:0; color:#a52b25; font-size:13px; }
+@media (max-width:700px) { .judul-heading { display:block; }.judul-heading .primary { margin-top:18px; width:100%; }.judul-interest-form { grid-template-columns:1fr; }.judul-interest-form > svg { display:none; }.judul-interest-form .primary { width:100%; }.judul-submission-head { display:block; }.judul-action-row { flex-direction:column; }.judul-action-row button { width:100%; }.judul-empty-card { align-items:flex-start; }.judul-section-heading { display:block; }.judul-section-heading .outline-button { margin-top:14px; }.judul-form-modal { padding:24px 18px; }.judul-form-actions { flex-direction:column-reverse; }.judul-form-actions button { justify-content:center; width:100%; }.judul-alert { align-items:flex-start; flex-direction:column; } }
+
+.recommendation-loading-backdrop { position:fixed; inset:0; z-index:50; display:grid; place-items:center; padding:24px; background:rgba(16,31,61,.42); backdrop-filter:blur(3px); }
+.recommendation-loading-modal { width:min(100%, 430px); padding:32px; border:1px solid #dce5f5; border-radius:20px; background:#fff; box-shadow:0 24px 80px rgba(17,34,72,.24); text-align:center; }
+.recommendation-loading-icon { display:grid; place-items:center; width:58px; height:58px; margin:0 auto 18px; border-radius:18px; background:#eaf0ff; color:var(--blue); }
+.recommendation-loading-icon svg { width:28px; height:28px; }
+.recommendation-loading-modal h2 { margin:0 0 9px; color:var(--navy); font-size:20px; letter-spacing:-.035em; }
+.recommendation-loading-modal p { margin:0 auto; max-width:320px; color:#536482; font-size:13px; line-height:1.55; }
+.recommendation-loading-progress { height:6px; margin:22px 0 13px; overflow:hidden; border-radius:999px; background:#e8edf7; }
+.recommendation-loading-progress i { display:block; width:42%; height:100%; border-radius:inherit; background:var(--blue); animation:recommendation-loading 1.4s ease-in-out infinite; }
+.recommendation-loading-modal small { color:#7a89a5; font-size:12px; line-height:1.45; }
+@keyframes recommendation-loading { 0% { transform:translateX(-120%); } 50% { transform:translateX(100%); } 100% { transform:translateX(270%); } }
+/* Brainstorm judul: percakapan di kiri, kandidat di kanan. */
+.thesis-chat-page .judul-own-button { display:block; margin:18px auto 0; }
+/* Kotak ide: jarak dalam sama di kiri, kanan, dan bawah. */
+.thesis-chat-page .chat-composer textarea { padding:20px 20px 8px; }
+.thesis-chat-page .chat-composer-footer { padding:8px 20px 20px; }
+.thesis-chat-page .chat-composer .form-error { margin:0 20px; }
+.thesis-chat-page .chat-composer { display:grid; grid-template-columns:minmax(0,1fr) 190px; grid-template-areas:"input action" "error error"; align-items:center; gap:12px; width:min(100%, 960px); margin:0 auto; padding:14px; border-color:#d9e2f2; border-radius:16px; background:#f8faff; }
+.thesis-chat-page .chat-composer textarea { grid-area:input; min-height:96px; padding:14px 16px; border:1px solid #e0e7f2; border-radius:11px; background:#fff; line-height:1.55; }
+.thesis-chat-page .chat-composer-footer { grid-area:action; align-self:center; padding:0; }
+.thesis-chat-page .chat-composer .chat-send { width:100%; min-width:0; min-height:48px; border-radius:11px; }
+.thesis-chat-page .chat-composer .form-error { grid-area:error; margin:0; }
+.thesis-chat-page .thesis-chat-alt { margin-top:38px; }
+@media (max-width:700px) {
+  .thesis-chat-page .chat-composer { grid-template-columns:minmax(0,1fr); grid-template-areas:"input" "action" "error"; gap:10px; padding:12px; }
+  .thesis-chat-page .chat-composer textarea { min-height:104px; padding:14px; }
+  .thesis-chat-page .chat-composer-footer { width:100%; }
+  .thesis-chat-page .chat-composer .chat-send { width:100%; }
+  .thesis-chat-page .thesis-chat-alt { margin-top:30px; }
+}
+.app-content .page-content.brainstorm { width:100%; max-width:1200px; margin:0 auto; padding:0; }
+.brainstorm-banner { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:16px; padding:13px 16px; border:1px solid #f0dcae; border-radius:12px; background:#fff9e9; color:#664e20; font-size:13px; }
+.brainstorm-banner p { margin:0; }
+.brainstorm-grid { display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:20px; align-items:stretch; height:calc(100dvh - 164px); min-height:480px; }
+.brainstorm-chat, .brainstorm-aside { border:1px solid #dce5f4; border-radius:16px; background:#fff; }
+.brainstorm-chat { display:flex; flex-direction:column; min-width:0; min-height:0; }
+.brainstorm-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:14px 18px; border-bottom:1px solid #edf0f6; }
+.brainstorm-head h1 { margin:0 0 4px; color:var(--navy); font-size:17px; line-height:1.35; }
+.brainstorm-head p { margin:0; color:var(--navy-soft); font-size:12px; }
+.brainstorm-head .outline-button { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+.brainstorm-head svg, .brainstorm-aside svg, .brainstorm-tools svg { width:15px; height:15px; }
+.brainstorm-messages { flex:1; min-height:0; display:flex; flex-direction:column; gap:12px; overflow-y:auto; scrollbar-gutter:stable both-edges; padding:18px 8px; }
+.brainstorm-messages > div > .chat-bubble, .brainstorm-messages > .chat-bubble { flex-shrink:0; }
+.teks-ai { white-space:normal; }
+.teks-ai p { margin:0 0 8px; color:inherit; font-size:inherit; line-height:inherit; }
+.teks-ai ol, .teks-ai ul { margin:0 0 8px; padding-left:22px; }
+.teks-ai ol { list-style:decimal; } .teks-ai ul { list-style:disc; }
+.teks-ai li { margin-bottom:4px; font-size:inherit; line-height:inherit; }
+.teks-ai > :last-child { margin-bottom:0; }
+.teks-ai code { padding:1px 4px; border-radius:4px; background:#e4ebf8; font-size:.92em; }
+.chat-bubble.mengetik { display:flex; align-items:center; gap:5px; }
+.chat-bubble.mengetik span { width:7px; height:7px; border-radius:50%; background:#7d93bd; animation:ketik 1.1s infinite ease-in-out; }
+.chat-bubble.mengetik span:nth-child(2) { animation-delay:.18s; } .chat-bubble.mengetik span:nth-child(3) { animation-delay:.36s; }
+.chat-bubble.mengetik em { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+@keyframes ketik { 0%, 60%, 100% { transform:translateY(0); opacity:.45; } 30% { transform:translateY(-4px); opacity:1; } }
+.rangka-bubble, .kandidat.rangka i { display:block; border-radius:12px; background:linear-gradient(90deg,#eef2f9 25%,#f8faff 50%,#eef2f9 75%); background-size:200% 100%; animation:rangka 1.4s linear infinite; }
+.rangka-bubble { align-self:flex-start; flex-shrink:0; width:60%; height:58px; margin:0 10px; } .rangka-bubble.kanan { align-self:flex-end; width:42%; height:40px; }
+.kandidat.rangka i { height:12px; margin:8px 0; border-radius:6px; } .kandidat.rangka i:first-child { width:35%; } .kandidat.rangka i:last-child { width:70%; }
+@keyframes rangka { to { background-position:-200% 0; } }
+@media (prefers-reduced-motion:reduce) { .chat-bubble.mengetik span, .rangka-bubble, .kandidat.rangka i { animation:none; } }
+.kandidat-kosong { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; flex:1; color:#71809e; font-size:12px; text-align:center; }
+.kandidat-kosong b { color:var(--navy); font-size:13px; }
+.chat-bubble { position:relative; margin:0 10px; max-width:78%; padding:11px 14px; border-radius:14px; font-size:14px; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; }
+.chat-bubble.mahasiswa { align-self:flex-end; background:var(--blue); color:#fff; border-bottom-right-radius:4px; }
+.chat-bubble.asisten { align-self:flex-start; background:#f3f6fc; color:var(--navy); border-bottom-left-radius:4px; }
+.chat-bubble.menunggu { display:flex; align-items:center; gap:8px; color:var(--navy-soft); }
+.chat-usulan { align-self:flex-start; flex-shrink:0; margin:0 10px; max-width:78%; padding:13px 15px; border:1px dashed #9db6ee; border-radius:12px; background:#f8faff; }
+.chat-usulan small { color:#5a6d93; font-size:11px; font-weight:700; text-transform:uppercase; }
+.chat-usulan h3 { margin:6px 0 8px; color:var(--navy); font-size:14px; line-height:1.4; }
+.chat-usulan p { margin:8px 0 10px; color:var(--navy-soft); font-size:13px; line-height:1.5; }
+.brainstorm-intro { margin:auto; max-width:420px; color:var(--navy-soft); font-size:13px; text-align:center; }
+.brainstorm-foot { padding:12px 18px 16px; border-top:1px solid #edf0f6; }
+.chat-chips { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+.chat-chips button { padding:7px 12px; border:1px solid #cbd9f4; border-radius:999px; background:#fff; color:#2454d5; font-size:12px; cursor:pointer; }
+.chat-chips button:disabled { opacity:.5; cursor:default; }
+.brainstorm-input { display:flex; align-items:flex-end; gap:10px; }
+.brainstorm-input textarea { box-sizing:border-box; overflow-y:auto; flex:1; min-width:0; resize:none; padding:11px 13px; border:1px solid #cbd9f4; border-radius:12px; font:inherit; font-size:14px; }
+.brainstorm-tools { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-top:10px; color:#71809e; font-size:12px; }
+.brainstorm-tools button, .kandidat-aksi button { display:inline-flex; align-items:center; gap:6px; }
+.brainstorm-aside { display:flex; flex-direction:column; min-height:0; overflow-y:auto; padding:14px; }
+.brainstorm-aside > .kandidat { flex-shrink:0; }
+.brainstorm-aside-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:6px; }
+.brainstorm-aside-head h2 { margin:0; color:var(--navy); font-size:15px; }
+.brainstorm-aside > p { margin:0 0 12px; color:#71809e; font-size:12px; line-height:1.5; }
+.kandidat { margin-top:10px; padding:12px; border:1px solid #e2e8f4; border-radius:12px; }
+.kandidat.aktif { border-color:var(--blue); box-shadow:0 0 0 2px #dbe6ff; }
+.kandidat h3 { margin:8px 0; color:var(--navy); font-size:13px; line-height:1.45; }
+.kandidat-label { display:flex; flex-wrap:wrap; gap:6px; }
+.kandidat-label .versi { color:#6b3fc4; background:#f1ebff; }
+.kandidat-aksi { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+.kandidat-aksi button { padding:6px 10px; font-size:12px; min-height:0; }
+.kandidat-aksi .tersimpan { border-color:#e0a32a; color:#92560a; background:#fff7e3; }
+.kandidat-aksi .tersimpan svg { fill:currentColor; }
+.kandidat-detail { display:none; margin-top:10px; padding-top:10px; border-top:1px solid #edf0f6; color:var(--navy-soft); font-size:12px; line-height:1.55; }
+.kandidat-detail.terbuka { display:block; }
+.kandidat-detail p { margin:0 0 8px; white-space:pre-line; }
+.kandidat-detail a { display:block; margin-top:4px; color:#2454d5; overflow-wrap:anywhere; }
+.kandidat-buka { margin-top:6px; padding:0; border:0; background:none; color:#2454d5; font-size:12px; cursor:pointer; }
+.brainstorm-banner + .brainstorm-grid { height:calc(100dvh - 240px); }
+.brainstorm-aside-head button { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+.brainstorm button:disabled, .kandidat-aksi button:disabled { opacity:.5; cursor:not-allowed; }
+@media (max-width:1000px) { .brainstorm-grid, .brainstorm-banner + .brainstorm-grid { grid-template-columns:minmax(0,1fr); height:auto; } .brainstorm-aside { overflow:visible; } .brainstorm-chat { height:72dvh; min-height:460px; } .kandidat-kosong { padding:18px 0; } }
+@media (min-width:1001px) {
+  .brainstorm-grid, .brainstorm-banner + .brainstorm-grid { height:auto; min-height:0; align-items:start; }
+  .brainstorm-chat { height:auto; min-height:390px; max-height:clamp(460px,70dvh,680px); }
+  .brainstorm-aside { align-self:start; height:auto; max-height:clamp(460px,70dvh,680px); overflow-y:auto; }
+  .brainstorm-aside .kandidat-kosong { flex:0 0 auto; min-height:118px; padding:16px 0; }
+}
+.brainstorm-chat, .brainstorm-aside { border-color:#e2e8f2; border-radius:18px; box-shadow:0 10px 30px rgba(26,48,89,.055); }
+.brainstorm-head { align-items:center; padding:17px 20px; background:#fff; }
+.brainstorm-head h1 { font-size:18px; letter-spacing:-.035em; }
+.brainstorm-head p { margin-top:2px; font-size:12px; }
+.brainstorm-head .outline-button { min-height:38px; border-radius:10px; }
+.brainstorm-messages { gap:14px; padding:22px 18px; }
+.chat-bubble { max-width:min(82%,680px); padding:13px 16px; border-radius:15px; font-size:13px; line-height:1.6; }
+.chat-bubble.mahasiswa { border-bottom-right-radius:5px; box-shadow:0 4px 12px rgba(40,88,232,.12); }
+.chat-bubble.asisten { border:1px solid #e8edf6; border-bottom-left-radius:5px; background:#f7f9fd; }
+.brainstorm-foot { padding:14px 18px 16px; background:#fcfdff; }
+.chat-chips { gap:7px; }
+.chat-chips button { min-height:34px; padding:7px 11px; background:#fff; font-size:11px; }
+.brainstorm-input textarea { min-height:44px; padding:11px 14px; border-color:#d9e2f2; border-radius:11px; background:#fff; }
+.brainstorm-input .primary { min-height:44px; border-radius:11px; }
+.brainstorm-aside { padding:18px; background:#fff; }
+.brainstorm-aside-head { margin-bottom:8px; }
+.brainstorm-aside-head h2 { font-size:15px; letter-spacing:-.02em; }
+.kandidat-kosong { margin-top:8px; padding:20px 12px; border:1px dashed #dbe3f0; border-radius:13px; background:#fafbfe; }
+.brainstorm-aside > p { line-height:1.55; }
+@media (max-width:700px) { .chat-bubble, .chat-usulan { max-width:94%; } .brainstorm-input { flex-direction:column; align-items:stretch; } }
+@media print { body:has(.brainstorm) * { visibility:hidden; } .brainstorm .brainstorm-aside, .brainstorm .brainstorm-aside * { visibility:visible; } .brainstorm .brainstorm-aside { position:absolute; top:0; left:0; width:100%; max-height:none; overflow:visible; border:0; } .brainstorm .kandidat-detail { display:block; } .brainstorm .kandidat-aksi, .brainstorm .kandidat-buka, .brainstorm .brainstorm-aside-head button { display:none; } .brainstorm .kandidat { break-inside:avoid; } }
+/* Brainstorm workspace: keep the conversation dominant and reveal candidates only when available. */
+.app-content .page-content.brainstorm { max-width:none; height:100%; min-height:0; }
+.brainstorm-grid, .brainstorm-banner + .brainstorm-grid { grid-template-columns:minmax(0,1fr); gap:0; height:min(calc(100dvh - 190px),860px); min-height:480px; align-items:stretch; }
+.brainstorm-grid.has-candidates, .brainstorm-banner + .brainstorm-grid.has-candidates { grid-template-columns:minmax(0,1fr) 360px; }
+.brainstorm-chat { height:100%; min-height:0; max-height:none; border:0; border-radius:0; box-shadow:none; }
+.brainstorm-head { min-height:62px; align-items:center; padding:12px 20px; border-bottom:1px solid #e8edf5; }
+.brainstorm-head h1 { margin:0; color:#172744; font-size:16px; font-weight:700; letter-spacing:-.025em; }
+.brainstorm-head p { margin-top:3px; color:#7a89a4; font-size:11px; }
+.brainstorm-head-actions { display:flex; align-items:center; gap:8px; }
+.brainstorm-head-actions .outline-button { min-height:36px; padding:8px 13px; border-radius:9px; font-size:11px; }
+.candidate-panel-toggle { display:inline-flex; align-items:center; gap:7px; min-height:34px; padding:0 12px; border:1px solid #dce5f5; border-radius:9px; background:#f5f8ff; color:#3159c9; font-size:11px; font-weight:700; }
+.candidate-panel-toggle svg { width:14px; height:14px; }
+.candidate-panel-toggle:hover, .candidate-panel-toggle.active { border-color:#c4d3f5; background:#edf3ff; }
+.brainstorm-messages { width:100%; max-width:none; align-self:stretch; padding:28px clamp(22px,7vw,112px) 20px; }
+.chat-bubble { max-width:min(82%,920px); font-size:13px; }
+.brainstorm-intro { margin:auto; }
+.chat-candidate-link { display:inline-flex; align-items:center; align-self:flex-start; gap:4px; margin:0 10px; padding:8px 11px; border:0; border-radius:8px; background:#eaf0ff; color:#244fcb; font-size:11px; font-weight:700; }
+.chat-candidate-link svg { width:14px; height:14px; }
+.brainstorm-foot { width:100%; max-width:none; align-self:stretch; padding:12px clamp(22px,7vw,112px) 16px; border-top:1px solid #edf0f6; background:#fff; }
+.brainstorm-input { align-items:center; }
+.brainstorm-input textarea { min-height:42px; }
+.brainstorm-input .primary { min-height:42px; }
+.brainstorm-send-actions { display:flex; flex:0 0 auto; align-items:center; gap:8px; }
+.brainstorm-send-actions > button { display:inline-flex; min-height:42px; align-items:center; justify-content:center; gap:7px; white-space:nowrap; }
+.brainstorm-send-actions > .candidate-generate-button { padding:10px 13px; border-color:#cfdbf3; color:#3159c9; }
+.brainstorm-grid.has-candidates .brainstorm-chat { border-right:1px solid #e8edf5; }
+.brainstorm-aside { height:100%; max-height:none; align-self:stretch; overflow-y:auto; padding:16px 14px; border:0; border-radius:0; background:#fff; box-shadow:none; }
+.brainstorm-aside-head { align-items:flex-start; margin-bottom:12px; }
+.brainstorm-aside-head h2 { margin:0; color:#172744; font-size:15px; font-weight:700; }
+.brainstorm-aside-head p { margin:4px 0 0; color:#8190a9; font-size:10px; line-height:1.4; }
+.candidate-panel-close { display:grid; place-items:center; width:26px; height:26px; border-radius:7px; background:transparent; color:#7a89a4; }
+.candidate-panel-close:hover { background:#f1f4f9; color:#243858; }
+.candidate-panel-close svg { width:14px; height:14px; }
+.brainstorm-aside .kandidat { margin-top:8px; padding:11px; border-color:#dfe6f1; border-radius:11px; background:#fff; }
+.brainstorm-aside .kandidat h3 { margin:5px 0 7px; font-size:12px; line-height:1.4; }
+.kandidat-overline { width:100%; color:#8794a9; font-size:8px; font-weight:700; letter-spacing:.08em; }
+.brainstorm-aside .judul-theme-tag { padding:4px 7px; font-size:9px; }
+.brainstorm-aside .kandidat-aksi { justify-content:flex-end; margin-top:8px; }
+.brainstorm-aside .kandidat-aksi button { padding:5px 8px; font-size:10px; }
+.brainstorm-aside .kandidat-buka { margin-top:2px; font-size:10px; }
+.brainstorm-aside-footer { display:flex; justify-content:flex-end; margin-top:12px; padding-top:10px; border-top:1px solid #edf0f6; }
+.brainstorm-aside-footer .outline-button { display:inline-flex; align-items:center; gap:6px; padding:7px 10px; font-size:10px; }
+.brainstorm-aside-footer svg { width:13px; height:13px; }
+@media (max-width:1000px) {
+  .brainstorm-grid, .brainstorm-banner + .brainstorm-grid { height:min(calc(100dvh - 190px),860px); min-height:480px; }
+  .brainstorm-grid.has-candidates, .brainstorm-banner + .brainstorm-grid.has-candidates { height:auto; grid-template-columns:minmax(0,1fr); }
+  .brainstorm-grid.has-candidates .brainstorm-chat { height:65dvh; min-height:430px; border-right:0; border-bottom:1px solid #e8edf5; }
+  .brainstorm-grid.has-candidates .brainstorm-aside { height:auto; max-height:420px; overflow-y:auto; border-left:0; }
+  .brainstorm-aside-footer { padding-bottom:4px; }
+}
+@media (max-width:700px) {
+  .brainstorm-grid, .brainstorm-banner + .brainstorm-grid { height:calc(100dvh - 165px); min-height:440px; }
+  .brainstorm-grid.has-candidates, .brainstorm-banner + .brainstorm-grid.has-candidates { height:auto; }
+  .brainstorm-head { padding:10px 12px; }
+  .brainstorm-head-actions { gap:5px; }
+  .brainstorm-head-actions .outline-button { padding:7px 9px; font-size:10px; }
+  .candidate-panel-toggle { gap:4px; padding:0 8px; font-size:10px; }
+  .brainstorm-messages { padding:18px 8px 14px; }
+  .chat-bubble { max-width:90%; padding:11px 13px; }
+  .brainstorm-foot { padding:10px 12px 12px; }
+  .brainstorm-send-actions { display:grid; width:100%; grid-template-columns:1fr 1fr; }
+  .brainstorm-send-actions > button { width:100%; padding-inline:8px; font-size:11px; }
+  .brainstorm-grid.has-candidates .brainstorm-chat { height:65dvh; min-height:400px; }
+  .brainstorm-grid.has-candidates .brainstorm-aside { padding:14px 12px; }
+}
+.judul-application-page { width:min(100%,1040px); max-width:1040px; padding-top:34px; padding-bottom:64px; }
+.judul-application-back { display:inline-flex; align-items:center; gap:8px; margin:0 0 24px; padding:8px 0; background:transparent; color:#617493; font-size:13px; font-weight:600; }
+.judul-application-back:hover { color:#244fcb; }
+.judul-application-back svg { width:16px; height:16px; }
+.judul-application-heading { margin-bottom:24px; }
+.judul-application-heading .eyebrow { margin-bottom:8px; color:#6f82a3; letter-spacing:.13em; }
+.judul-application-heading h1 { margin:0 0 8px; color:#172744; font-size:30px; letter-spacing:-.045em; }
+.judul-application-heading > p:last-child { margin:0; color:#6d7e9b; font-size:14px; }
+.judul-application-layout { display:grid; gap:18px; }
+.judul-advisor-picker, .judul-application-details { padding:22px; border:1px solid #e0e7f2; border-radius:16px; background:#fff; box-shadow:0 8px 24px rgba(26,48,89,.04); }
+.judul-application-section-head { display:flex; align-items:flex-start; gap:12px; margin-bottom:17px; }
+.judul-application-section-head > span { display:grid; place-items:center; width:28px; height:28px; flex:0 0 28px; border-radius:9px; background:#edf2ff; color:#3159c9; font-size:10px; font-weight:700; }
+.judul-application-section-head h2 { margin:0 0 4px; color:#172744; font-size:16px; letter-spacing:-.025em; }
+.judul-application-section-head p { margin:0; color:#7d8ba3; font-size:11px; line-height:1.45; }
+.judul-advisor-options { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px; }
+.judul-advisor-option { display:flex; align-items:center; gap:11px; min-width:0; padding:12px; border:1px solid #e0e7f2; border-radius:12px; background:#fff; text-align:left; transition:border-color .16s,background .16s,box-shadow .16s; }
+.judul-advisor-option:hover { border-color:#b8c9f1; background:#f9fbff; }
+.judul-advisor-option.selected { border-color:#6f91e8; background:#f3f6ff; box-shadow:0 0 0 2px rgba(49,89,201,.08); }
+.judul-advisor-avatar { display:grid; place-items:center; width:38px; height:38px; flex:0 0 38px; border-radius:50%; background:#e9efff; color:#3159c9; font-size:14px; font-weight:700; }
+.judul-advisor-option-copy { display:grid; flex:1; gap:4px; min-width:0; }
+.judul-advisor-option-copy strong, .judul-current-advisor strong { overflow:hidden; color:#213653; font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
+.judul-advisor-option-copy small, .judul-current-advisor small { color:#7d8ba3; font-size:10px; }
+.judul-advisor-radio { display:grid; place-items:center; width:18px; height:18px; flex:0 0 18px; border:1px solid #c7d2e4; border-radius:50%; background:#fff; }
+.judul-advisor-option.selected .judul-advisor-radio { border:5px solid #3159c9; }
+.judul-current-advisor { display:flex; align-items:center; gap:11px; padding:12px; border:1px solid #e0e7f2; border-radius:12px; background:#f8faff; }
+.judul-current-advisor > div { display:grid; flex:1; gap:4px; }
+.judul-current-advisor > svg { width:17px; height:17px; color:#2e8a5b; }
+.judul-advisor-loading, .judul-advisor-empty { display:flex; align-items:center; gap:9px; min-height:60px; color:#71809e; font-size:12px; }
+.judul-advisor-loading svg { width:16px; height:16px; color:#3159c9; }
+.judul-application-details .judul-application-section-head { margin-bottom:20px; }
+.judul-form.application-form { grid-template-columns:repeat(2,minmax(0,1fr)); gap:15px 16px; }
+.judul-form.application-form label:first-child, .judul-form.application-form label:nth-child(3), .judul-form.application-form label:nth-child(4), .judul-form.application-form label:nth-child(6) { grid-column:1/-1; }
+.judul-application-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; padding-top:16px; border-top:1px solid #edf0f6; }
+.judul-application-actions button { display:inline-flex; align-items:center; gap:7px; }
+.judul-application-actions svg { width:15px; height:15px; }
+@media (max-width:700px) {
+  .judul-application-page { padding-top:22px; }
+  .judul-application-heading h1 { font-size:25px; }
+  .judul-advisor-picker, .judul-application-details { padding:17px 14px; }
+  .judul-advisor-options { grid-template-columns:1fr; }
+  .judul-form.application-form { grid-template-columns:minmax(0,1fr); }
+  .judul-form.application-form label { grid-column:1/-1; }
+  .judul-application-actions { flex-direction:column-reverse; }
+  .judul-application-actions button { justify-content:center; width:100%; }
+}

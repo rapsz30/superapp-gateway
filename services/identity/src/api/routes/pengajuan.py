@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from src.api.deps import DB, Hal, Pengguna, Saya
 from src.api.errors import dilarang, galat, tidak_ditemukan
+from src.api.routes.judul import batalkan_judul_terbuka
 from src.api.schemas import KeputusanIn
 from src.core.config import get_settings
 from src.db import get_sessionmaker
@@ -72,7 +73,7 @@ def _email_dpa(db: Session, dpa: Orang) -> str | None:
 def _langkah(p: Pengajuan) -> list[dict[str, str]]:
     """Garis waktu tiga langkah untuk tampilan. `keadaan`: selesai, aktif, menunggu, atau galat."""
     indeks = {"ekstraksi": 0, "periksa": 0, "rekomendasi": 1, "tinjau": 2, "revisi": 2, "selesai": 3}[p.tahap]
-    dasar = [("ekstraksi", "KHS dibaca"), ("rekomendasi", "Rekomendasi disusun"), ("tinjau", "Ditinjau pembimbing akademik")]
+    dasar = [("ekstraksi", "KHS dikirim"), ("rekomendasi", "Rencana studi disiapkan"), ("tinjau", "Ditinjau pembimbing akademik")]
     hasil = []
     for i, (kunci, label) in enumerate(dasar):
         if p.status == "disetujui" or i < indeks:
@@ -404,6 +405,42 @@ def daftar(
     return {"data": [_keluaran(db, p, rinci=False) for p in rows], "total": total}
 
 
+# Harus didaftarkan sebelum "/pengajuan/{pid}" agar tidak terbaca sebagai id.
+@router.get("/pengajuan/ringkasan-saya")
+def ringkasan_saya(saya: Saya, db: DB) -> dict:
+    """Ringkasan nilai dari KHS terbaru milik pengguna sendiri, untuk dasbor mahasiswa.
+
+    Pengajuan yang dibatalkan dan KHS yang NIM-nya bukan milik pengguna tidak dihitung. Daftar nilai hanya
+    diberikan kepada pemiliknya.
+    """
+    rows = db.scalars(
+        select(Pengajuan)
+        .where(Pengajuan.mahasiswa_id == saya.orang_id, Pengajuan.status != "dibatalkan")
+        .order_by(Pengajuan.diajukan_pada.desc())
+        .limit(MAKS_SINKRON_PER_DAFTAR)
+    ).all()
+    for p in rows:
+        if _sinkron(db, p):
+            db.commit()
+        d = p.data_proses or {}
+        if p.status == "dibatalkan" or not d.get("khs_ref") or d.get("nim_cocok") is False:
+            continue
+        try:
+            ringkasan = matkul.dapatkan_matkul().ringkasan_khs(str(d["khs_ref"]))
+        except MatkulGalat as exc:
+            log.error("Ringkasan nilai pengajuan %s gagal: %s", p.id, exc)
+            raise galat(502, "Ringkasan nilai belum dapat dimuat. Coba lagi beberapa saat lagi.") from None
+        return {
+            "ringkasan": ringkasan,
+            "sumber": {
+                "pengajuan_id": str(p.id),
+                "semester_target": p.semester_target,
+                "diajukan_pada": p.diajukan_pada.isoformat(),
+            },
+        }
+    return {"ringkasan": None, "sumber": None}
+
+
 @router.get("/pengajuan/{pid}")
 def ambil(pid: uuid.UUID, saya: Saya, db: DB) -> dict:
     p = _muat(db, saya, pid)
@@ -484,23 +521,46 @@ def batalkan(pid: uuid.UUID, saya: Saya, db: DB) -> dict:
 
 @router.post("/pengajuan/{pid}/keputusan")
 def putuskan(pid: uuid.UUID, body: KeputusanIn, saya: Saya, db: DB, background: BackgroundTasks) -> dict:
-    """Keputusan DPA. Hanya mode lokal; pada mode AlurKerja keputusan diambil di Tasklist."""
+    """Keputusan DPA dari layar aplikasi.
+
+    Mode AlurKerja: identity menyelesaikan tugas `Task_Tinjau` dengan variabel `keputusan` dan `catatan_dosen`
+    (sama dengan keluaran form di Tasklist). Hak memutuskan diperiksa di sini, bukan di AlurKerja.
+    Mode lokal: langkah berikutnya dijalankan di latar belakang.
+    """
     p = _muat(db, saya, pid)
-    if p.mode == "alurkerja":
-        raise galat(409, "Keputusan untuk pengajuan ini diambil di Tasklist AlurKerja.")
     if p.dpa_id != saya.orang_id and not saya.superadmin:
         raise dilarang("Hanya pembimbing akademik yang ditugaskan yang dapat memutuskan.")
+    if _sinkron(db, p):
+        db.commit()
     if p.status != "diajukan" or p.tahap != "tinjau":
         raise galat(409, "Pengajuan ini tidak sedang menunggu keputusan pembimbing akademik.")
     catatan = (body.catatan or "").strip() or None
+    if body.keputusan == "revisi" and not catatan:
+        raise galat(400, "Catatan wajib diisi untuk meminta revisi.")
+
+    if p.mode == "alurkerja":
+        klien = alurkerja.dapatkan_klien()
+        try:
+            if klien is None or not p.alurkerja_instance_id:
+                raise AlurKerjaGalat("AlurKerja tidak dikonfigurasi.")
+            # catatan_dosen selalu dikirim, supaya catatan revisi sebelumnya tidak tertinggal di proses.
+            ada = klien.selesaikan_tugas(
+                p.alurkerja_instance_id, "Task_Tinjau", {"keputusan": body.keputusan, "catatan_dosen": catatan or ""}
+            )
+        except AlurKerjaGalat as exc:
+            log.error("Gagal menyelesaikan Task_Tinjau %s: %s", p.id, exc)
+            raise galat(502, "Keputusan belum dapat diteruskan ke AlurKerja. Coba lagi beberapa saat lagi.") from None
+        if not ada:
+            raise galat(409, "Tugas tinjauan sudah tidak terbuka di AlurKerja. Muat ulang halaman.")
+
     if body.keputusan == "revisi":
-        if not catatan:
-            raise galat(400, "Catatan wajib diisi untuk meminta revisi.")
         p.catatan_dpa = catatan
         p.tahap = "revisi"
+        p.pesan_galat = None
         audit.catat(db, saya.orang_id, "pengajuan.minta_revisi", "pengajuan", p.id, None, {"catatan": catatan})
         db.commit()
-        background.add_task(_jalankan_lokal, p.id, "revisi", catatan)
+        if p.mode == "lokal":
+            background.add_task(_jalankan_lokal, p.id, "revisi", catatan)
     else:
         _tutup(db, p, "disetujui", catatan, saya.orang_id)
         db.commit()
@@ -534,6 +594,7 @@ def alihkan_pengajuan_terbuka(db: Session, pelaku_id: uuid.UUID | None, mahasisw
 
 def batalkan_pengajuan_terbuka(db: Session, pelaku_id: uuid.UUID | None, mahasiswa_id: uuid.UUID, alasan: str) -> None:
     """Dipakai saat mahasiswa lulus, keluar, atau pindah prodi: pengajuan yang berjalan tidak relevan lagi."""
+    batalkan_judul_terbuka(db, pelaku_id, mahasiswa_id, alasan)
     p = db.scalar(select(Pengajuan).where(Pengajuan.mahasiswa_id == mahasiswa_id, Pengajuan.status == "diajukan"))
     if p is None:
         return

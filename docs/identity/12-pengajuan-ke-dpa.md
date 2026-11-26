@@ -17,7 +17,7 @@ sequenceDiagram
     participant K as Matkul
     participant A as AlurKerja
     participant W as Worker
-    participant D as DPA (Tasklist)
+    participant D as DPA (/dosen)
     M->>I: POST /pengajuan (PDF KHS + semester)
     I->>K: upload berkas KHS (token layanan)
     I->>A: mulai proses + selesaikan "Unggah KHS"
@@ -32,8 +32,9 @@ sequenceDiagram
     end
     A->>W: tugas rekomendasi
     W->>K: recommend
-    A-->>D: tugas tinjau (Tasklist)
-    D->>A: setuju atau revisi + catatan
+    A-->>D: tugas tinjau
+    D->>I: POST /pengajuan/{id}/keputusan
+    I->>A: selesaikan "Tinjau" (setuju atau revisi + catatan)
     opt revisi
         A->>W: tugas revisi
         W->>K: revise (catatan dosen)
@@ -49,7 +50,7 @@ sequenceDiagram
 |---|---|---|
 | Aktif bila | `ALURKERJA_URL`, `ALURKERJA_USERNAME`, `ALURKERJA_PASSWORD` terisi | ketiganya kosong |
 | Langkah AI | worker `alurkerja-connector` | identity memanggil matkul sendiri, di latar belakang, dengan urutan yang sama |
-| Keputusan DPA | Tasklist AlurKerja | `POST /pengajuan/{id}/keputusan` |
+| Keputusan DPA | `POST /pengajuan/{id}/keputusan` menyelesaikan `Task_Tinjau` (Tasklist juga bisa) | `POST /pengajuan/{id}/keputusan` |
 | Keadaan | dibaca dari Camunda saat pengajuan dibuka atau didaftar | langsung dari database |
 | Kegunaan | produksi | pengembangan dan uji tanpa AlurKerja |
 
@@ -61,10 +62,11 @@ Mode tercatat per pengajuan.
 |---|---|---|
 | POST | `/pengajuan` | mahasiswa; `multipart`: `berkas` (PDF KHS, maks. 15 MB), `semester_target` (1–14) |
 | GET | `/pengajuan?status=&mahasiswa_id=&dpa_id=&prodi_id=` | mahasiswa (miliknya), DPA (bimbingannya), kaprodi/kajur/dekan (cakupan prodi), superadmin |
+| GET | `/pengajuan/ringkasan-saya` | hanya pemilik: ringkasan nilai dari KHS terbaru (pengajuan batal dan KHS dengan NIM tidak cocok diabaikan). Daftar nilai diambil dari matkul `POST /api/matkul/ringkasan-khs`, tanpa nama dan NIM. Dipakai dasbor Mata Kuliah (`frontend/components/course-dashboard.tsx`) |
 | GET | `/pengajuan/{id}` | sama; memuat `langkah`, `hasil_bacaan`, `rencana` |
 | POST | `/pengajuan/{id}/periksa` | pengaju; hanya saat `tahap = periksa` |
 | POST | `/pengajuan/{id}/batalkan` | pengaju (atau superadmin); menghentikan proses di AlurKerja |
-| POST | `/pengajuan/{id}/keputusan` | DPA yang ditugaskan; **hanya mode lokal**; `setuju` atau `revisi` (catatan wajib) |
+| POST | `/pengajuan/{id}/keputusan` | DPA yang ditugaskan (atau superadmin), saat `tahap = tinjau`; kedua mode; `setuju` atau `revisi` (catatan wajib) |
 
 **Status** (akhir): `diajukan` (masih berjalan), `disetujui`, `dibatalkan`. **Tahap** (posisi proses): `ekstraksi`, `periksa` (menunggu mahasiswa), `rekomendasi`, `tinjau` (menunggu DPA), `revisi`, `selesai`. Satu mahasiswa hanya boleh punya satu pengajuan `diajukan` (indeks unik parsial). Revisi bukan status akhir: siklus revisi → tinjau berulang di dalam proses yang sama. Opsi "tolak" tidak ada karena BPMN aslinya memang hanya `setuju` atau `revisi`.
 
@@ -97,8 +99,8 @@ Nama mahasiswa **tidak dikirim** ke AlurKerja (hanya NIM). Rencana yang disalin 
 
 ## Yang diuji
 
-- **Otomatis (identity, 30 tes pengajuan):** seluruh alur di kedua mode, siklus revisi, langkah periksa, KHS orang lain, insiden, dihentikan dari luar, kegagalan di tiap langkah, pemindahan DPA, hak akses, audit. Camunda dan matkul ditiru.
+- **Otomatis (identity, 33 tes pengajuan):** seluruh alur di kedua mode, siklus revisi, langkah periksa, KHS orang lain, insiden, dihentikan dari luar, kegagalan di tiap langkah, pemindahan DPA, hak akses, audit. Camunda dan matkul ditiru.
 - **Menyeluruh dengan komponen sungguhan:** worker `alurkerja-connector` sungguhan, matkul sungguhan (Next.js + Postgres sendiri, OpenAI ditiru), identity, verifier, NGINX, dan frontend di browser; yang ditiru hanya Camunda (server HTTP tiruan yang menjalankan urutan BPMN) dan LLM. Hasil: dari unggah KHS sampai disetujui, termasuk periksa dan satu siklus revisi.
-- **Belum:** AlurKerja/Camunda sungguhan. Lihat [13](13-proses-alurkerja-penuh.md), bagian "Yang belum terbukti".
+- **AlurKerja lokal sungguhan:** satu alur lengkap termasuk periksa dan revisi lulus (26 Nov 2026). Yang belum: lihat [13](13-proses-alurkerja-penuh.md), bagian "Yang belum terbukti".
 
-Antarmuka DPA di superapp tidak ada: pada mode AlurKerja DPA bekerja di Tasklist, pada mode lokal lewat API.
+Antarmuka DPA ada di `/dosen`; lihat [13](13-proses-alurkerja-penuh.md), bagian "Antarmuka dosen".

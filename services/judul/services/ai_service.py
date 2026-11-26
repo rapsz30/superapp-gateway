@@ -4,9 +4,14 @@ import json
 from typing import Dict, Any
 import time
 
+from groq import APIConnectionError, BadRequestError
+
 from config.settings import settings
-from services.prompt_service import prompt_service
+from services.prompt_service import TEMA_BAWAAN, prompt_service
 from services.reference_service import reference_service
+
+
+MAKS_PERCOBAAN = 3
 
 
 class AIService:
@@ -17,7 +22,10 @@ class AIService:
         self.client = settings.get_groq_client()
         self.model = settings.GROQ_MODEL
 
-    def get_recommendations(self, interests: str) -> Dict[str, Any]:
+    def get_recommendations(
+        self, interests: str, prodi: str = "", mata_kuliah: list | None = None, tema: list | None = None,
+        diskusi: str = "",
+    ) -> Dict[str, Any]:
         # Validasi input
         if not interests or not interests.strip():
             raise ValueError("Interests tidak boleh kosong.")
@@ -26,16 +34,19 @@ class AIService:
         print("STEP 1: Generate Recommendation with AI... ")
 
         # Generate prompt
-        prompt = prompt_service.create_recommendation_prompt(interests)
+        prompt = prompt_service.create_recommendation_prompt(interests, prodi, mata_kuliah, tema, diskusi)
 
-        # Call AI
-        response_content = self._call_groq_api(prompt)
-
-        # Parse JSON response
-        recommendations = json.loads(response_content)
-
-        # Validate structure
-        self._validate_response(recommendations)
+        # Model sesekali menghasilkan JSON yang ditolak atau tidak lengkap; ulangi sebelum menyerah.
+        for percobaan in range(1, MAKS_PERCOBAAN + 1):
+            try:
+                recommendations = json.loads(self._call_groq_api(prompt))
+                self._validate_response(recommendations)
+                break
+            except (APIConnectionError, BadRequestError, ValueError, TypeError) as e:
+                print(f"Percobaan {percobaan} gagal: {type(e).__name__}")
+                if percobaan == MAKS_PERCOBAAN:
+                    raise RuntimeError("AI tidak menghasilkan rekomendasi yang sah.") from e
+        self._rapikan(recommendations, tema or TEMA_BAWAAN)
 
         print("STEP 2: AI generated recommendations successfully.")
         print(
@@ -62,6 +73,9 @@ class AIService:
                 model=self.model,
                 response_format={"type": "json_object"},
                 temperature=0.4,
+                # Penalaran singkat dan ruang keluaran cukup, agar JSON tidak terpotong.
+                max_completion_tokens=4000,
+                extra_body={"reasoning_effort": "low"},
             )
             return chat_completion.choices[0].message.content
 
@@ -84,6 +98,15 @@ class AIService:
             if "keywords" not in rec:
                 print(
                     f"Warning: Rekomendasi #{i+1} tidak memiliki 'keywords', akan gunakan fallback.")
+
+    def _rapikan(self, response: Dict[str, Any], daftar_tema: list) -> None:
+        """Samakan bentuk keluaran AI: tema harus dari daftar, metodologi berupa teks."""
+        baku = {str(t).strip().casefold(): t for t in daftar_tema}
+        for rec in response["rekomendasi"]:
+            rec["tema"] = baku.get(str(rec.get("tema", "")).strip().casefold(), "Lainnya")
+            if isinstance(rec.get("metodologi"), list):
+                rec["metodologi"] = "\n".join(str(x) for x in rec["metodologi"])
+            rec["judul"] = str(rec.get("judul", "")).strip()[:300]
 
     def _add_real_references(
         self,

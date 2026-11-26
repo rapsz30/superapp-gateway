@@ -33,6 +33,25 @@ ALTER TABLE matkul_khs ADD COLUMN IF NOT EXISTS pengajuan_id TEXT;
 ALTER TABLE matkul_khs ADD COLUMN IF NOT EXISTS panduan_versi INT;
 ALTER TABLE matkul_khs ADD COLUMN IF NOT EXISTS panduan_teks TEXT;
 ALTER TABLE matkul_khs ADD COLUMN IF NOT EXISTS maks_sks INT;
+-- Hasil bacaan KHS per isi berkas, dipakai bersama oleh pratinjau dan proses pengajuan (disimpan sementara).
+CREATE TABLE IF NOT EXISTS matkul_bacaan (
+  sidik      TEXT PRIMARY KEY,
+  data       JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- Rencana pratinjau yang dilihat mahasiswa; dipakai proses pengajuan untuk berkas yang sama (disimpan sementara).
+CREATE TABLE IF NOT EXISTS matkul_pratinjau (
+  sidik           TEXT NOT NULL,
+  pemilik         TEXT NOT NULL,
+  panduan_id      TEXT NOT NULL,
+  semester_target INT NOT NULL,
+  data            JSONB NOT NULL,
+  perubahan       JSONB NOT NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (sidik, pemilik, panduan_id, semester_target)
+);
+ALTER TABLE matkul_khs ADD COLUMN IF NOT EXISTS pemilik TEXT;
+ALTER TABLE matkul_khs ADD COLUMN IF NOT EXISTS panduan_id TEXT;
 CREATE TABLE IF NOT EXISTS matkul_rencana (
   ref             TEXT PRIMARY KEY,
   khs_ref         TEXT NOT NULL REFERENCES matkul_khs(ref),

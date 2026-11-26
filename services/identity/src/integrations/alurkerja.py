@@ -1,8 +1,8 @@
 """Klien AlurKerja (Camunda 7) lewat REST `/engine-rest` dengan Basic Auth.
 
 Proses: `perencanaan-studi-superapp` (alurkerja/perencanaan-studi-superapp.bpmn). Langkah AI dikerjakan worker
-(alurkerja-connector/); identity hanya memulai proses, menyelesaikan tugas mahasiswa, membaca keadaan, membatalkan,
-dan mengganti penerima tugas dosen. Keputusan dosen diambil di Tasklist AlurKerja.
+(alurkerja-connector/); identity memulai proses, menyelesaikan tugas mahasiswa dan tugas tinjauan dosen (dari
+layar aplikasi), membaca keadaan, membatalkan, dan mengganti penerima tugas dosen.
 """
 
 from __future__ import annotations
@@ -74,6 +74,13 @@ class AlurKerjaKlien:
         except httpx.HTTPError as exc:
             raise AlurKerjaGalat(f"AlurKerja tidak dapat dihubungi: {type(exc).__name__}") from exc
 
+    def pengguna_ada(self, email: str) -> bool:
+        """Apakah email ini sudah menjadi pengguna di engine (syarat tugasnya tampil di Tasklist)."""
+        r = self._kirim("GET", "/user", params={"id": email})
+        if r.status_code != 200:
+            raise AlurKerjaGalat(f"AlurKerja menolak membaca pengguna (HTTP {r.status_code}).")
+        return bool(r.json())
+
     # ------------------------------------------------------------------ memulai
     def mulai(self, *, business_key: str, variabel: dict[str, Any]) -> str:
         """Mulai proses dari awal. Mengembalikan id instans."""
@@ -100,7 +107,7 @@ class AlurKerjaKlien:
         return r.json()
 
     def selesaikan_tugas(self, instance_id: str, task_key: str, variabel: dict[str, Any] | None = None) -> bool:
-        """Selesaikan tugas milik mahasiswa (Task_Unggah, Task_Periksa) atas namanya.
+        """Selesaikan tugas manusia (Task_Unggah, Task_Periksa, Task_Tinjau) atas nama pemiliknya.
 
         False bila tugas tidak (lagi) ada, misalnya sudah diselesaikan permintaan sebelumnya.
         """
@@ -116,16 +123,18 @@ class AlurKerjaKlien:
             raise AlurKerjaGalat(f"AlurKerja menolak menyelesaikan tugas (HTTP {r.status_code}).")
         return True
 
-    def ganti_penerima(self, instance_id: str, email: str, task_key: str = "Task_Tinjau") -> int:
+    def ganti_penerima(
+        self, instance_id: str, email: str, task_key: str = "Task_Tinjau", variabel: str = "dosen_pa"
+    ) -> int:
         """Ganti dosen untuk proses ini: variabel `dosen_pa` (dipakai tugas tinjauan berikutnya, mis. setelah
         revisi) dan tugas tinjauan yang sedang terbuka. Mengembalikan jumlah tugas terbuka yang dipindah."""
         v = self._kirim(
             "PUT",
-            f"/process-instance/{instance_id}/variables/dosen_pa",
+            f"/process-instance/{instance_id}/variables/{variabel}",
             json=_bertipe(email.strip().lower()),
         )
         if v.status_code not in (200, 204):
-            raise AlurKerjaGalat(f"Variabel dosen_pa gagal diganti (HTTP {v.status_code}).")
+            raise AlurKerjaGalat(f"Variabel {variabel} gagal diganti (HTTP {v.status_code}).")
         dipindah = 0
         for tugas in self._tugas(instance_id, task_key):
             a = self._kirim("POST", f"/task/{tugas['id']}/assignee", json={"userId": email.strip().lower()})
@@ -183,7 +192,7 @@ def json_atau_nilai(nilai: Any) -> Any:
     return nilai
 
 
-def dapatkan_klien() -> AlurKerjaKlien | None:
+def dapatkan_klien(process_key: str = "") -> AlurKerjaKlien | None:
     """Klien AlurKerja bila dikonfigurasi lengkap; None berarti mode lokal."""
     s = get_settings()
     if not (s.alurkerja_url and s.alurkerja_username and s.alurkerja_password):
@@ -192,7 +201,7 @@ def dapatkan_klien() -> AlurKerjaKlien | None:
         s.alurkerja_url,
         s.alurkerja_username,
         s.alurkerja_password,
-        s.alurkerja_process_key,
+        process_key or s.alurkerja_process_key,
         s.alurkerja_tenant_id,
         ca_bundle=s.alurkerja_ca_bundle,
     )

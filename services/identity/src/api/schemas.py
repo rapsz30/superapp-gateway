@@ -188,6 +188,19 @@ class AkunStatusIn(Dasar):
     status: Literal["aktif", "ditangguhkan", "nonaktif"]
 
 
+class DosenProdiIn(Dasar):
+    nama_lengkap: Nama
+    nidn: _NOMOR | None = None
+    email_kontak: EmailStr | None = None
+    email: EmailStr
+    sandi: str = Field(min_length=10, max_length=200)
+
+    @field_validator("email")
+    @classmethod
+    def _email_huruf_kecil(cls, v: str) -> str:
+        return v.strip().lower()
+
+
 # ---------- Penugasan, keanggotaan, bimbingan ----------
 class PenugasanIn(Dasar):
     orang_id: uuid.UUID

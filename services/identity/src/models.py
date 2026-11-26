@@ -350,3 +350,74 @@ class Pengajuan(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     diputuskan_pada: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class PembimbingTA(Base):
+    """Dosen pembimbing tugas akhir, ditunjuk kaprodi (terpisah dari dosen PA)."""
+
+    __tablename__ = "pembimbing_ta"
+    __table_args__ = (
+        CheckConstraint("dosen_id <> mahasiswa_id", name="ck_pembimbing_ta_diri"),
+        Index("uq_pembimbing_ta_aktif", "mahasiswa_id", unique=True, postgresql_where=text("selesai IS NULL")),
+    )
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    dosen_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("orang.id", ondelete="RESTRICT"), nullable=False, index=True)
+    mahasiswa_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("orang.id", ondelete="RESTRICT"), nullable=False)
+    mulai: Mapped[date] = mapped_column(Date, nullable=False)
+    selesai: Mapped[date | None] = mapped_column(Date)
+    dibuat: Mapped[datetime] = _dibuat()
+
+
+class PengajuanJudul(Base):
+    """Judul tugas akhir yang diajukan mahasiswa ke pembimbing TA."""
+
+    __tablename__ = "pengajuan_judul"
+    __table_args__ = (
+        CheckConstraint("status IN ('diajukan','disetujui','dibatalkan')", name="ck_judul_status"),
+        CheckConstraint("tahap IN ('tinjau','perbaikan','selesai')", name="ck_judul_tahap"),
+        CheckConstraint("mode IN ('alurkerja','lokal')", name="ck_judul_mode"),
+        Index("uq_judul_terbuka", "mahasiswa_id", unique=True, postgresql_where=text("status = 'diajukan'")),
+    )
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    mahasiswa_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("orang.id", ondelete="RESTRICT"), nullable=False, index=True)
+    pembimbing_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("orang.id", ondelete="RESTRICT"), nullable=False, index=True)
+    prodi_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("prodi.id", ondelete="RESTRICT"), nullable=False)
+    topik: Mapped[str] = mapped_column(String(300), nullable=False, server_default="")
+    judul: Mapped[str] = mapped_column(String(300), nullable=False)
+    # Salah satu tema baku (src/domain/tema.py), untuk rekap per prodi.
+    tema: Mapped[str] = mapped_column(String(80), nullable=False)
+    deskripsi: Mapped[str] = mapped_column(Text, nullable=False)
+    metodologi: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    keywords: Mapped[list] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    referensi: Mapped[list] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="diajukan")
+    # tinjau (menunggu pembimbing), perbaikan (menunggu mahasiswa), selesai.
+    tahap: Mapped[str] = mapped_column(String(16), nullable=False, server_default="tinjau")
+    catatan: Mapped[str | None] = mapped_column(Text)
+    jumlah_revisi: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    mode: Mapped[str] = mapped_column(String(16), nullable=False)
+    alurkerja_instance_id: Mapped[str | None] = mapped_column(String(64))
+    diajukan_pada: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    diputuskan_pada: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class RekomendasiJudul(Base):
+    __tablename__ = "rekomendasi_judul"
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    mahasiswa_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("orang.id", ondelete="RESTRICT"), nullable=False)
+    topik: Mapped[str] = mapped_column(String(300), nullable=False)
+    hasil: Mapped[list] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    dibuat: Mapped[datetime] = _dibuat()
+
+
+class ObrolanJudul(Base):
+    """Brainstorm judul milik satu mahasiswa: percakapan dan kandidat. Tidak berarti ada judul yang dipilih."""
+
+    __tablename__ = "obrolan_judul"
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    mahasiswa_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("orang.id", ondelete="RESTRICT"), nullable=False)
+    topik: Mapped[str] = mapped_column(String(300), nullable=False)
+    pesan: Mapped[list] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    kandidat: Mapped[list] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    dibuat: Mapped[datetime] = _dibuat()
+    diubah: Mapped[datetime] = _dibuat()

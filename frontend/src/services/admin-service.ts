@@ -56,6 +56,11 @@ export interface Penugasan {
   mulai: string
   selesai: string | null
 }
+export interface DosenProdiResult {
+  orang: Orang
+  akun: Akun
+  penugasan: Penugasan
+}
 export interface Keanggotaan {
   id: string
   orang_id: string
@@ -170,6 +175,8 @@ export const adminService = {
     return apiFetch<ImporLaporan>(`${BASE}/orang/impor`, { method: 'POST', body: form })
   },
   buatAkun: (body: { orang_id: string; email: string; sandi?: string | null }) => post<Akun>('/akun', body),
+  buatDosenProdi: (prodiId: string, body: { nama_lengkap: string; nidn?: string | null; email_kontak?: string | null; email: string; sandi: string }) =>
+    post<DosenProdiResult>(`/prodi/${prodiId}/dosen`, body),
   aturUlangSandi: (id: string) => post<Akun>(`/akun/${id}/atur-ulang-sandi`),
   ubahStatusAkun: (id: string, status: 'aktif' | 'ditangguhkan' | 'nonaktif') => patch<Akun>(`/akun/${id}/status`, { status }),
 

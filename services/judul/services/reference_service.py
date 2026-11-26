@@ -15,7 +15,7 @@ class ReferenceService:
         # Inisialisasi service
         self.session = requests.Session()
         # Default timeout untuk request
-        self.timeout = 10
+        self.timeout = 5
 
     def search_papers(
         self,
@@ -56,13 +56,8 @@ class ReferenceService:
                 print(f"⚠️ No papers passed citation filter. Lowering threshold to 0...")
                 filtered_papers = raw_papers
 
-            # Sort
-            sorted_papers = sorted(
-                filtered_papers,
-                key=lambda x: x.get('citationCount', 0),
-                reverse=True
-            )
-            print(f"🔄 After sort: {len(sorted_papers)} papers")
+            # Urutan dari API sudah menurut relevansi; mengurutkan ulang menurut sitasi menaikkan paper yang melenceng.
+            sorted_papers = filtered_papers
 
             # Take top
             top_papers = sorted_papers[:limit]
@@ -130,7 +125,7 @@ class ReferenceService:
             if settings.SEMANTIC_SCHOLAR_API_KEY:
                 time.sleep(1)  # Tunggu 1 detik sebelum request with API Key
             else:
-                time.sleep(3)  # Tunggu 3 detik sebelum request without API Key
+                time.sleep(1)  # Jeda singkat tanpa API Key
 
             response = self.session.get(
                 url,
@@ -141,7 +136,6 @@ class ReferenceService:
             # Check status
             if response.status_code == 429:
                 print("Rate Limited!")
-                time.sleep(5)  # Delay sebelum retry
                 return []
 
             response.raise_for_status()

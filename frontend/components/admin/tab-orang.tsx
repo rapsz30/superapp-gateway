@@ -3,7 +3,7 @@
 import { Fragment, useState } from 'react'
 import { Modal } from 'antd'
 import { adminService, type Akun, type ImporLaporan, type Orang } from '@/src/services/admin-service'
-import { Badge, Field, Kartu, Kosong, Notice, Pager, SandiSementara, SelectProdi, konfirmasi, lupakanOrang, namaUnit, tanggal, useAksi, useLoad, useStruktur } from './ui'
+import { Badge, Field, Kartu, Kosong, Notice, Pager, SandiSementara, SelectProdi, lupakanOrang, namaUnit, tanggal, useAksi, useKonfirmasi, useLoad, useStruktur } from './ui'
 
 const PERAN = ['mahasiswa', 'dosen_pa', 'kaprodi', 'kajur', 'dekan', 'superadmin']
 const UKURAN = 20
@@ -196,6 +196,7 @@ function FormImpor({ onSelesai }: { onSelesai: () => void }) {
 }
 
 function DetailOrang({ orang, onUbah, onRahasia }: { orang: Orang; onUbah: () => void; onRahasia: (r: { email: string; sandi: string }) => void }) {
+  const konfirmasi = useKonfirmasi()
   const { isSuper, unit } = useStruktur()
   const { sibuk, galat, ok, jalankan, setGalat, setOk } = useAksi()
   const [email, setEmail] = useState(orang.email_kontak ?? '')

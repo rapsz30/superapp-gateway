@@ -118,7 +118,11 @@
 .admin-quick-link { display: block; height: 100%; }
 .admin-quick-link .ant-card { height: 100%; border-color: #edf0f5; }
 .admin-quick-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: #eaf0ff; color: #2858e8; flex: 0 0 auto; }
-.admin-audit-item { padding-inline: 0 !important; }
+.admin-audit-item { padding: 10px 0; border-bottom: 1px solid #edf1f6; }
+.admin-audit-item:last-child { border-bottom: 0; }
+.admin-audit-item-title { margin-bottom: 4px; }
+.admin-alert-action { color: #2858e8; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.admin-alert-action:hover { color: #0f3da5; text-decoration: underline; text-underline-offset: 2px; }
 .admin-audit-item code { font-size: 12px; }
 .admin-chart-box { width: 100%; min-height: 240px; }
 .admin-chart-caption { display: block; text-align: center; margin-top: 4px; font-size: 13px; }
@@ -229,3 +233,80 @@
   .prodi-statistics .ant-col:nth-child(n+3) .prodi-metric { border-top: 1px solid #edf0f5; }
   .prodi-workspace .ant-card-body { padding: 0 12px 14px; }
 }
+
+/* Ruang dosen */
+.dosen-nama { max-width: 180px; }
+@media (max-width: 576px) { .dosen-nama { display: none; } }
+
+/* Shared refinement for Admin and Dosen. */
+.admin-layout { font-family: 'Inter', 'Segoe UI', sans-serif; background: #f7f9fc; }
+.admin-layout .ant-layout-sider { border-inline-end: 1px solid #e8edf5; }
+.admin-brand { height: 72px; gap: 10px; justify-content: flex-start; padding: 0 20px; border-bottom: 1px solid #edf1f6; color: #172744; font-size: 15px; letter-spacing: -.02em; }
+.admin-brand-mark { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 34px; border-radius: 11px; background: linear-gradient(135deg, #2858e8, #4c7cf3); color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .02em; box-shadow: 0 5px 12px rgba(40, 88, 232, .2); }
+.admin-brand-name { overflow: hidden; white-space: nowrap; font-weight: 700; }
+.admin-layout .ant-menu { padding: 14px 10px; border-inline-end: 0; background: transparent; }
+.admin-layout .ant-menu-item, .admin-layout .ant-menu-submenu-title { margin: 3px 0; width: 100%; height: 42px; line-height: 42px; color: #667594; font-weight: 600; }
+.admin-layout .ant-menu-item-selected { font-weight: 700; }
+.admin-layout .ant-menu-item-group-title { padding: 14px 12px 6px; color: #9aa5b8; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.admin-layout .ant-menu-item .anticon { font-size: 16px; }
+.admin-layout .admin-header { height: 72px; padding: 0 28px; background: rgba(255, 255, 255, .92) !important; backdrop-filter: blur(12px); border-bottom: 1px solid #e8edf5; }
+.admin-menu-trigger { width: 38px; height: 38px; color: #52617a; }
+.admin-menu-trigger:hover { color: #2858e8 !important; background: #eef3ff !important; }
+.admin-header-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.admin-header-title .ant-typography:first-child { color: #172744; font-size: 15px; }
+.admin-header-title .ant-typography:last-child { font-size: 11px; }
+.admin-account-button { height: 42px; padding-inline: 8px !important; border-radius: 10px; }
+.admin-account-button:hover { background: #f4f7fc !important; }
+.admin-account-name { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #34415a; font-size: 13px; font-weight: 600; }
+.admin-content { padding: 28px 32px 44px; background: #f7f9fc; }
+.admin-content-heading { max-width: 1440px; margin: 0 auto 22px; }
+.admin-content-heading .ant-breadcrumb { margin-bottom: 9px; color: #8793a8; font-size: 12px; }
+.admin-page-title.ant-typography { margin: 0; color: #172744; font-size: clamp(24px, 2.2vw, 30px); font-weight: 700; letter-spacing: -.035em; }
+.admin-dashboard, .prodi-detail, .admin-content > .adm-page { max-width: 1440px; margin-inline: auto; }
+.admin-layout .ant-card { border-color: #e4eaf2; box-shadow: 0 2px 8px rgba(23, 39, 68, .025); }
+.admin-layout .ant-card-head { border-bottom-color: #edf1f6; }
+.admin-layout .ant-card-head-title { color: #243451; font-weight: 700; }
+.admin-layout .ant-card-hoverable:hover { border-color: #c8d7fa; box-shadow: 0 12px 28px rgba(36, 72, 150, .1); transform: translateY(-1px); }
+.admin-layout .ant-card, .admin-layout .ant-btn, .admin-layout .ant-input, .admin-layout .ant-input-number, .admin-layout .ant-select-selector, .admin-layout .ant-picker { transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+.admin-layout .ant-table-wrapper { border: 1px solid #e4eaf2; border-radius: 12px; overflow: hidden; background: #fff; }
+.admin-layout .ant-table-thead > tr > th { padding-block: 13px; font-size: 12px; letter-spacing: .01em; }
+.admin-layout .ant-table-tbody > tr > td { padding-block: 13px; color: #34415a; }
+.admin-layout .ant-alert { border-radius: 11px; }
+.admin-layout .ant-statistic-title { font-size: 12px; }
+.admin-layout .ant-statistic-content { font-weight: 700; letter-spacing: -.025em; }
+.admin-kpi-card { min-height: 116px; }
+.admin-kpi-card .ant-statistic-prefix { margin-inline-end: 9px; color: #2858e8; font-size: 18px; }
+.admin-panel-card { min-height: 100%; }
+.admin-chart-box { padding-top: 4px; }
+.adm-page { padding-top: 0; background: transparent; }
+.adm-top { margin-bottom: 22px; }
+.adm-top h1 { color: #172744; font-size: 24px; letter-spacing: -.03em; }
+.adm-card { border-color: #e4eaf2; border-radius: 16px; box-shadow: 0 2px 8px rgba(23, 39, 68, .025); }
+.adm-btn { min-height: 38px; border-radius: 9px; font-weight: 600; }
+.adm-field input, .adm-field select { min-height: 40px; border-radius: 9px; }
+.adm-table th { background: #f7f9fc; padding-block: 12px; font-size: 12px; }
+.adm-table td { padding-block: 12px; }
+.admin-loading { min-height: 100dvh; background: #f7f9fc; }
+
+@media (max-width: 900px) {
+  .admin-content { padding: 24px 20px 36px; }
+  .admin-layout .admin-header { padding-inline: 20px; }
+}
+
+@media (max-width: 576px) {
+  .admin-brand { padding-inline: 16px; }
+  .admin-layout .admin-header { height: 64px; padding-inline: 14px; }
+  .admin-header-title .ant-typography:last-child { display: none; }
+  .admin-account-name { display: none; }
+  .admin-account-button .ant-tag { display: none; }
+  .admin-content { padding: 20px 14px 30px; }
+  .admin-content-heading { margin-bottom: 16px; }
+  .admin-page-title.ant-typography { font-size: 24px; }
+  .admin-dashboard-lead { font-size: 13px; line-height: 1.55; }
+}
+
+/* Analitik kaprodi: kisi 12 kolom mengikuti susunan dashboard AlurKerja */
+.analitik-muat { display:flex; justify-content:center; padding:60px 0; }
+.analitik-kisi { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:16px; }
+.analitik-kisi > .ant-card { min-width:0; }
+@media (max-width:900px) { .analitik-kisi > .ant-card { grid-column:1 / -1 !important; } }

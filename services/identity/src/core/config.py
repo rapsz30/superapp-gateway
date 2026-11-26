@@ -41,6 +41,28 @@ class Settings(BaseSettings):
     alurkerja_initiator: str = ""
     alurkerja_tenant_id: str = ""
     alurkerja_ca_bundle: str = ""
+    # Dashboard kaprodi di web: cerminan satu dashboard Analytics. Aktif bila slug, client id, client secret,
+    # dan id dashboard terisi. Auth Token dibuat di Studio > Integration > Auth Token.
+    alurkerja_auth_token_slug: str = ""
+    alurkerja_client_id: str = ""
+    alurkerja_client_secret: str = ""
+    # Satu dashboard per tab halaman Analitik. Id kosong = tab itu belum aktif.
+    alurkerja_dashboard_ringkasan: str = ""
+    alurkerja_dashboard_matkul: str = ""
+    alurkerja_dashboard_judul: str = ""
+    alurkerja_report_tenant: str = "1"
+    alurkerja_workspace: str = "studentgateway"
+    alurkerja_env: str = "LIVE"
+    # Pengajuan judul tugas akhir: layanan rekomendasi judul dan proses AlurKerja-nya.
+    judul_url: str = "http://judul-api:8001"
+    alurkerja_process_key_judul: str = "pengajuan-judul-superapp"
+    # Sinkron akun dosen ke AlurKerja. Aktif bila klien layanan Keycloak (peran realm platform_owner) dan
+    # id workspace terisi.
+    alurkerja_admin_client_id: str = ""
+    alurkerja_admin_client_secret: str = ""
+    alurkerja_workspace_id: str = ""
+    alurkerja_keycloak_realm: str = "alurkerja"
+    alurkerja_sinkron_detik: int = 60
     # Biaya bcrypt. Jangan diturunkan di produksi; nilai kecil hanya untuk uji otomatis.
     bcrypt_rounds: int = 12
 

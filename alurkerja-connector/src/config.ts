@@ -13,6 +13,9 @@ export type Config = {
   workerId: string;
   lockMs: number;
   pollMs: number;
+  /** Berapa kali satu tugas dicoba sebelum menjadi insiden, dan jeda antar percobaan. */
+  maxAttempts: number;
+  retryMs: number;
   /** Alamat layanan matkul (jaringan internal), tempat endpoint /api/matkul/*. */
   gatewayUrl: string;
   /** Token layanan matkul (MATKUL_SERVICE_TOKEN). */
@@ -36,6 +39,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     workerId: env.WORKER_ID || "superapp-worker-1",
     lockMs: Number(env.WORKER_LOCK_MS) || 120000,
     pollMs: Number(env.WORKER_POLL_MS) || 3000,
+    maxAttempts: Math.max(1, Math.floor(Number(env.WORKER_MAX_ATTEMPTS) || 3)),
+    retryMs: Number(env.WORKER_RETRY_MS) || 30000,
     gatewayUrl: trimSlash(env.GATEWAY_URL ?? ""),
     gatewayToken: env.GATEWAY_TOKEN ?? "",
     llmProvider: env.LLM_PROVIDER ?? "openai",

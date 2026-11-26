@@ -50,6 +50,8 @@ export interface KhsProcessResult {
   student: KhsStudent
   courses: KhsCourse[]
   warning?: string
+  /** Sidik berkas KHS di server, dikirim lagi saat meminta rekomendasi. */
+  fingerprint?: string
 }
 
 export interface GradeEvaluation {

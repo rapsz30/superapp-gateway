@@ -51,6 +51,7 @@ export const handlers: Record<string, Handler> = {
       total_sks: r.total_sks,
       alasan: r.alasan,
       peringatan: r.peringatan,
+      ringkasan_dosen: r.ringkasan_dosen ?? "",
       ada_peringatan: r.peringatan.length > 0,
       jumlah_revisi: 0,
     };
@@ -64,6 +65,7 @@ export const handlers: Record<string, Handler> = {
       total_sks: r.total_sks,
       alasan: r.alasan,
       peringatan: r.peringatan,
+      ringkasan_dosen: r.ringkasan_dosen ?? "",
       ada_peringatan: r.peringatan.length > 0,
       jumlah_revisi: (Number(vars.jumlah_revisi) || 0) + 1,
     };
@@ -84,8 +86,10 @@ export async function processTask(c: Config, task: ExternalTask, gw: Gateway = g
     return true;
   } catch (e: any) {
     log("gagal", task, Date.now() - started, e?.message);
+    // retries null = belum pernah gagal. Sambungan putus dan jawaban LLM yang rusak biasanya hilang saat diulang.
+    const sisa = Math.max(0, (task.retries ?? c.maxAttempts) - 1);
     try {
-      await failTask(c, task.id, String(e?.message ?? e).slice(0, 500));
+      await failTask(c, task.id, String(e?.message ?? e), sisa);
     } catch (e2: any) {
       console.error(`[worker] fail() juga gagal untuk ${task.id}: ${e2?.message}`);
     }

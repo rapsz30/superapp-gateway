@@ -47,7 +47,7 @@ export function ProdiDetail({ prodiId }: { prodiId: string }) {
         </div>
       </div>
     </Card>
-    {!isSuper && <Alert type="info" showIcon message="Akses mengikuti cakupan peran Anda. Server tetap memeriksa izin pada setiap tindakan." />}
+    {!isSuper && <Alert type="info" showIcon title="Akses mengikuti cakupan peran Anda. Server tetap memeriksa izin pada setiap tindakan." />}
     <Row gutter={[0, 0]} className="prodi-statistics">
       <Col xs={12} md={6}><div className="prodi-metric"><Statistic title="Mahasiswa aktif" value={stats?.mahasiswa ?? 0} prefix={<TeamOutlined />} /></div></Col>
       <Col xs={12} md={6}><div className="prodi-metric"><Statistic title="Dosen PA" value={stats?.dosenPa ?? 0} prefix={<UserSwitchOutlined />} /></div></Col>

@@ -30,7 +30,8 @@ class Settings:
         """ Membuat 
         """
         try:
-            return Groq(api_key=Settings.GROQ_API_KEY)
+            # Batas waktu agar seluruh permintaan selesai sebelum batas 60 detik gateway.
+            return Groq(api_key=Settings.GROQ_API_KEY, timeout=35.0, max_retries=1)
         except Exception as e:
             print(f"Konfigurasi Groq Error : {e}")
             raise

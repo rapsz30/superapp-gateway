@@ -10,6 +10,7 @@ export type KonteksAkademik = {
     kode: string;
     nama: string;
     jenjang: string;
+    maks_sks_semester?: number | null;
     jurusan: { id: string; kode: string; nama: string } | null;
     fakultas: { id: string; kode: string; nama: string } | null;
   };

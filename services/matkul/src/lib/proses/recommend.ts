@@ -159,7 +159,8 @@ ${JSON.stringify(opts.rencanaSebelumnya ?? null, null, 2)}
 ATURAN REVISI (PRIORITAS TERTINGGI, mengalahkan aturan lain bila bertentangan):
 - Ini revisi atas rencana sebelumnya berdasarkan catatan dosen PA: "${catatanDosen}".
 - Mata kuliah ulang/perbaikan otomatis dimasukkan sistem ke rencana (${repeatRows.length} mata kuliah, total ${repeatSks} SKS) dan SUDAH dihitung dalam total SKS rencana. Jangan memasukkannya lagi ke "rekomendasi_semester_depan".
-- Susun ulang "rekomendasi_semester_depan" (hanya mata kuliah BARU) agar TOTAL SKS rencana akhir (SKS mata kuliah ulang di atas + SKS mata kuliah baru yang kamu pilih) memenuhi catatan dosen. Jika catatan membatasi SKS, kurangi mata kuliah baru (utamakan yang wajib/prasyarat) sampai batas terpenuhi; boleh mengosongkan daftar bila perlu.
+- Susun ulang "rekomendasi_semester_depan" (hanya mata kuliah BARU) agar TOTAL SKS rencana akhir (SKS mata kuliah ulang di atas + SKS mata kuliah baru yang kamu pilih) memenuhi catatan dosen. Pertahankan mata kuliah baru dari rencana sebelumnya kecuali catatan memintanya diubah.
+- Jika catatan membatasi SKS: kurangi seperlunya saja (utamakan mempertahankan yang wajib/prasyarat) sehingga total sedekat mungkin dengan batas tanpa melebihinya. Jangan memangkas lebih banyak dari yang perlu.
 - Tulis di "ringkasan" bagaimana catatan dosen diterapkan.`
     : "";
 
@@ -286,9 +287,24 @@ ATURAN:
   const batasCatatan = catatanDosen ? catatanDosen.match(/maks(?:imal|imum)?\.?\s*(\d{1,2})\s*sks/i) : null;
   const dariCatatan = batasCatatan ? Number(batasCatatan[1]) : undefined;
   const batasPanduan = opts.maksSksPanduan && opts.maksSksPanduan > 0 ? opts.maksSksPanduan : MAKS_SKS_SEMESTER;
+  // Catatan yang HANYA membatasi SKS tidak diserahkan ke LLM (sering memangkas jauh di bawah batas):
+  // rencana sebelumnya diisi ulang sampai batas, ditambah usulan LLM bila masih ada ruang.
+  const hanyaBatas = dariCatatan !== undefined && hanyaBatasSks(catatanDosen ?? "");
+  const kandidat = hanyaBatas
+    ? gabungKandidat(mataKuliahBaru(opts.rencanaSebelumnya), newRekom).filter((x) => {
+        const k = x.kode.toUpperCase();
+        return !passedKodes.has(k) && !repeatKodes.has(k);
+      })
+    : newRekom;
   const batas = terapkanBatasSks(repeatRekom, newRekom, dariCatatan, batasPanduan);
-  const baru = batas.baru;
-  if (batas.dipangkas) {
+  const baru = hanyaBatas ? isiSampaiBatas(repeatRekom, kandidat, batas.max) : batas.baru;
+  if (hanyaBatas) {
+    const total = [...repeatRekom, ...baru].reduce((a, r) => a + (r.sks ?? 0), 0);
+    // Ringkasan LLM bisa menyebut jumlah yang berbeda dari daftar akhir, jadi diganti.
+    ringkasan =
+      `Rencana disesuaikan dengan catatan pembimbing akademik (maksimal ${batas.max} SKS): ` +
+      `${total} SKS dari ${repeatRekom.length + baru.length} mata kuliah, termasuk ${repeatRekom.length} mata kuliah ulang/perbaikan.`;
+  } else if (batas.dipangkas) {
     ringkasan +=
       dariCatatan !== undefined && dariCatatan < batasPanduan
         ? ` Rencana disesuaikan agar total tidak melebihi ${batas.max} SKS sesuai catatan pembimbing akademik.`
@@ -325,4 +341,45 @@ export function terapkanBatasSks<T extends { sks: number | null }>(
     dipangkas = true;
   }
   return { baru: hasil, max, dipangkas };
+}
+
+const POLA_BATAS = /maks(?:imal|imum)?\.?\s*\d{1,2}\s*sks/i;
+// Kata pengisi yang tidak menambah permintaan apa pun di luar batas SKS.
+const KATA_PENGISI = new Set(
+  ("tolong mohon harap ya saja aja cukup ambil diambil mengambil sks beban studi total jumlah rencana semester per " +
+    "ini depan untuk anda kamu dibatasi batasi batas jadi jadikan menjadi").split(" ")
+);
+
+/** True bila catatan dosen tidak meminta apa pun selain batas SKS, misalnya "Maksimal 18 SKS saja ya." */
+export function hanyaBatasSks(catatan: string): boolean {
+  if (!POLA_BATAS.test(catatan)) return false;
+  const sisa = catatan.replace(POLA_BATAS, " ").toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+  return sisa.every((kata) => KATA_PENGISI.has(kata));
+}
+
+/** Mata kuliah baru pada rencana yang sedang direvisi. */
+export function mataKuliahBaru(rencana: unknown): RekomItem[] {
+  const daftar = (rencana as Partial<RecommendResult> | null | undefined)?.rekomendasi_semester_depan;
+  return Array.isArray(daftar) ? daftar.filter((x) => x?.jenis === "baru" && x.kode) : [];
+}
+
+/** Gabungan dua daftar tanpa kode ganda; daftar pertama didahulukan. */
+export function gabungKandidat<T extends { kode: string }>(utama: T[], tambahan: T[]): T[] {
+  const ada = new Set<string>();
+  return [...utama, ...tambahan].filter((x) => {
+    const k = x.kode.toUpperCase();
+    if (ada.has(k)) return false;
+    ada.add(k);
+    return true;
+  });
+}
+
+/** Ambil kandidat sesuai urutan selama masih muat; yang tidak muat dilewati agar sisa ruang bisa dipakai. */
+export function isiSampaiBatas<T extends { sks: number | null }>(ulang: T[], kandidat: T[], max: number): T[] {
+  let total = ulang.reduce((a, r) => a + (r.sks ?? 0), 0);
+  return kandidat.filter((r) => {
+    if (total + (r.sks ?? 0) > max) return false;
+    total += r.sks ?? 0;
+    return true;
+  });
 }

@@ -49,13 +49,13 @@ export const khsService = {
   async processDocument(file: File, fallback: Partial<KhsStudent> = {}): Promise<KhsProcessResult> {
     const form = new FormData()
     form.append('file', file)
-    const response = await apiFetch<{ ok?: boolean; preview?: KhsPreview; warning?: string; error?: string }>(
+    const response = await apiFetch<{ ok?: boolean; preview?: KhsPreview; warning?: string; error?: string; sidik?: string }>(
       '/api/matkul-recommender/khs/upload',
       { method: 'POST', body: form },
     )
     if (!response.ok || !response.preview) throw new ApiError(response.error || 'KHS tidak dapat diproses.', 422)
     const { student, courses } = mapPreview(response.preview, fallback)
-    return { student, courses, warning: response.warning }
+    return { student, courses, warning: response.warning, fingerprint: response.sidik }
   },
 
   /**
@@ -88,10 +88,11 @@ export const khsService = {
   },
 
   /** Rekomendasi mata kuliah semester berikutnya (memakai LLM). Panduan prodi dipilih server dari akun. */
-  async recommend(student: KhsStudent, courses: KhsCourse[]): Promise<CourseRecommendationResult> {
+  async recommend(student: KhsStudent, courses: KhsCourse[], fingerprint?: string): Promise<CourseRecommendationResult> {
     return apiFetch<CourseRecommendationResult>('/api/matkul-recommender/rekomendasi', {
       method: 'POST',
       json: {
+        sidik: fingerprint,
         khs: {
           mahasiswa: { nama: student.name, nim: student.nim, fakultas: student.faculty, prodi: student.program },
           nilai: courses.map((course) => ({

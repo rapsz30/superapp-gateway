@@ -145,6 +145,14 @@ def orang_terlihat(db: Session, cak: Cakupan, hari: date):
         himpunan.append(
             select(Penugasan.orang_id).where(or_(*unit_cond), penugasan_aktif(hari))
         )
+    if cak.kaprodi_ids:
+        # Kaprodi perlu dapat memilih Dosen PA yang sudah ditugaskan di Prodi lain
+        # ketika menambah penugasan dari detail Prodi miliknya sendiri.
+        himpunan.append(
+            select(Penugasan.orang_id).where(
+                Penugasan.peran == "dosen_pa", penugasan_aktif(hari)
+            )
+        )
     if cak.dosen_pa:
         himpunan.append(
             select(Bimbingan.mahasiswa_id).where(

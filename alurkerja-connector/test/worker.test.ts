@@ -42,7 +42,7 @@ async function startMock(queue: any[]) {
         return json(200, { access_token: "abc", expires_in: 300 });
       }
       if (u === "/external-task/fetchAndLock") return json(200, queue.splice(0));
-      if (u.endsWith("/complete") || u.endsWith("/fail")) return json(200, {});
+      if (u.endsWith("/complete") || u.endsWith("/failure")) return json(200, {});
       if (u === "/api/matkul/extract-khs")
         return json(200, { khs_ref: "khs_1", ipk: 3.1, sks_lulus: 96, mk_lulus: ["IF101"], mk_ulang: ["IF210"], keyakinan: 0.94, prodi: "Informatika - Program Sarjana" });
       if (u === "/api/matkul/recommend")
@@ -123,13 +123,35 @@ test("topik tak dikenal atau variabel hilang berujung fail, bukan crash", async 
   const m = await startMock([task("x", "topik-aneh", {}), task("y", "rekomendasi-matkul", {})]);
   try {
     assert.equal(await pollOnce(cfgFor(m.base)), 2);
-    const fails = m.calls.filter((c) => c.url.endsWith("/fail"));
+    const fails = m.calls.filter((c) => c.url.endsWith("/failure"));
     assert.equal(fails.length, 2);
     assert.equal(fails[0].body.workerId, "superapp-worker-1");
-    assert.equal(fails[0].body.retries, 0);
+    assert.equal(fails[0].body.retries, 2); // percobaan pertama dari 3
+    assert.equal(fails[0].body.retryTimeout, 30000);
     assert.match(fails[0].body.errorMessage, /topic tidak dikenal/);
     assert.match(fails[1].body.errorMessage, /khs_ref/);
     assert.equal(m.calls.filter((c) => c.url.endsWith("/complete")).length, 0);
+  } finally {
+    m.close();
+  }
+});
+
+test("percobaan terakhir menjadi insiden, dan pesannya tanpa alamat layanan internal", async () => {
+  const m = await startMock([
+    { ...task("u", "topik-aneh", {}), retries: 2 },
+    { ...task("v", "topik-aneh", {}), retries: 1 },
+  ]);
+  try {
+    await pollOnce(cfgFor(m.base));
+    const [u, v] = m.calls.filter((c) => c.url.endsWith("/failure"));
+    assert.deepEqual([u.body.retries, u.body.retryTimeout], [1, 30000]);
+    assert.deepEqual([v.body.retries, v.body.retryTimeout], [0, 0]);
+
+    const { failTask } = await import("../src/externalTask.js");
+    await failTask(cfgFor(m.base), "w", "POST http://matkul:3000/api/matkul/extract-khs -> 500 bad XRef entry", 0);
+    const w = m.calls.find((c) => c.url === "/external-task/w/failure")!;
+    assert.equal(w.body.errorMessage, "500 bad XRef entry");
+    assert.match(w.body.errorDetails, /matkul:3000/);
   } finally {
     m.close();
   }
@@ -197,7 +219,7 @@ test("tanpa id_pengajuan langkah ekstraksi gagal dengan pesan jelas (bukan meman
   const m = await startMock([task("a", "ekstraksi-khs", { khs_file_id: "f", semester_target: 5 })]);
   try {
     assert.equal(await pollOnce(cfgFor(m.base)), 1);
-    const gagal = m.calls.find((c) => c.url === "/external-task/a/fail")!;
+    const gagal = m.calls.find((c) => c.url === "/external-task/a/failure")!;
     assert.match(gagal.body.errorMessage, /id_pengajuan/);
     assert.equal(m.calls.some((c) => c.url === "/api/matkul/extract-khs"), false);
   } finally {

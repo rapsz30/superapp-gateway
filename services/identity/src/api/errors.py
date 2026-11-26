@@ -28,6 +28,8 @@ PESAN_BATASAN = {
     "uq_bimbingan_aktif": "Mahasiswa ini sudah memiliki dosen PA aktif.",
     "uq_keanggotaan_aktif": "Orang ini sudah terdaftar aktif di sebuah prodi.",
     "uq_pengajuan_terbuka": "Anda masih memiliki pengajuan yang menunggu keputusan. Batalkan atau tunggu keputusannya.",
+    "uq_pembimbing_ta_aktif": "Mahasiswa ini sudah memiliki pembimbing tugas akhir aktif.",
+    "uq_judul_terbuka": "Anda masih memiliki pengajuan judul yang berjalan.",
     "uq_panduan_aktif": "Prodi ini sudah memiliki panduan aktif.",
     "uq_panduan_versi": "Versi panduan bentrok. Ulangi permintaan.",
     "uq_akun_email_lower": "Email sudah dipakai akun lain.",

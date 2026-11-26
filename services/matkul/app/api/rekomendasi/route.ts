@@ -4,6 +4,9 @@ import type { NilaiUII } from "@/src/lib/uii-grade";
 import { getMutu, getStatusLulus } from "@/src/lib/uii-grade";
 import { IdentityError, ambilKonteks } from "@/src/lib/identity";
 import { nimBerbeda, peringatanKonteks, type KonteksAkademik } from "@/src/lib/konteks";
+import { terapkanBatasSks } from "@/src/lib/proses/recommend";
+import { ambilBacaan } from "@/src/lib/proses/bacaan-db";
+import { bandingkanNilai, simpanPratinjau } from "@/src/lib/proses/pratinjau";
 
 
 export const runtime = "nodejs";
@@ -76,7 +79,7 @@ const safeJson = (raw: string) => {
 
 export async function POST(req: Request) {
   try {
-    const { khs, panduan_text } = (await req.json()) as { khs?: KhsPreview; panduan_text?: string };
+    const { khs, panduan_text, sidik } = (await req.json()) as { khs?: KhsPreview; panduan_text?: string; sidik?: string };
     if (!khs) {
       return NextResponse.json({ error: "khs wajib dikirim" }, { status: 400 });
     }
@@ -118,6 +121,14 @@ export async function POST(req: Request) {
         { error: "Teks panduan kosong. Pastikan panduan akademik prodi sudah diunggah dan berisi teks." },
         { status: 400 }
       );
+    }
+
+    // Bila berkasnya sudah dibaca server, identitas dan IPK diambil dari bacaan itu, bukan dari browser.
+    // Hanya daftar nilai yang boleh diubah di wizard (perubahannya dicatat untuk pembimbing).
+    const bacaan = sidik ? await ambilBacaan(sidik).catch(() => null) : null;
+    if (bacaan) {
+      khs.mahasiswa = { ...bacaan.mahasiswa } as KhsPreview["mahasiswa"];
+      khs.ringkasan = { ipk: bacaan.mahasiswa.ipk };
     }
 
     const evaluatedRows = (khs.nilai ?? []).map((r) => {
@@ -264,7 +275,30 @@ ATURAN:
         return k && !passedKodes.has(k) && !repeatKodes.has(k);
       });
 
-    const rekomendasiSemesterDepan = [...repeatRekom, ...newRekom];
+    // Batas beban studi yang sama dengan proses pengajuan resmi: mata kuliah ulang tetap, yang baru dipangkas.
+    const batas = terapkanBatasSks(repeatRekom, newRekom, undefined, konteks?.prodi.maks_sks_semester || undefined);
+    const rekomendasiSemesterDepan = [...repeatRekom, ...batas.baru];
+    const sksRencana = rekomendasiSemesterDepan.reduce((a, r) => a + (r.sks ?? 0), 0);
+    // Ringkasan dihitung sistem: ringkasan LLM menyebut SKS riwayat KHS, mudah dikira beban semester depan.
+    const ringkasan =
+      `Rencana semester ${semesterTarget}: ${sksRencana} SKS dari ${rekomendasiSemesterDepan.length} mata kuliah ` +
+      `(batas ${batas.max} SKS per semester)` +
+      (repeatRekom.length ? `, termasuk ${repeatRekom.length} mata kuliah ulang/perbaikan.` : ".");
+
+    // Simpan rencana ini agar pengajuan memakainya apa adanya. Gagal menyimpan tidak menggagalkan pratinjau;
+    // proses pengajuan lalu menyusun rencananya sendiri.
+    const pemilik = konteks?.mahasiswa?.nim?.trim();
+    if (konteks && pemilik && sidik && bacaan) {
+      try {
+        await simpanPratinjau(
+          { sidik, pemilik, panduanId: konteks.panduan.id },
+          { semester_target: semesterTarget, ringkasan, evaluasi_nilai: autoEval, rekomendasi_semester_depan: rekomendasiSemesterDepan },
+          bandingkanNilai(bacaan.nilai, khs.nilai ?? []),
+        );
+      } catch (e) {
+        console.warn("PRATINJAU_SIMPAN:", e instanceof Error ? e.message : String(e));
+      }
+    }
 
     return NextResponse.json({
       // Jejak dasar rekomendasi: versi panduan yang dipakai dicatat agar pengajuan ke
@@ -280,7 +314,7 @@ ATURAN:
       pembimbing_akademik: konteks?.pembimbing_akademik ?? null,
       peringatan,
       semester_target: semesterTarget,
-      ringkasan: String(parsed?.ringkasan ?? "").trim(),
+      ringkasan,
       evaluasi_nilai: autoEval,
       rekomendasi_semester_depan: rekomendasiSemesterDepan,
     });

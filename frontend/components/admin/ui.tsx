@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Alert, Button as AntButton, Card, Empty, Form, Input, Pagination, Select, Tag, Modal } from 'antd'
+import { Alert, App, Button as AntButton, Card, Empty, Form, Input, Pagination, Select, Tag } from 'antd'
 import { adminService, type Orang, type StrukturFakultas } from '@/src/services/admin-service'
 import { errorMessage } from '@/src/lib/api'
 
@@ -133,10 +133,11 @@ export function lupakanOrang(id: string) {
   cacheOrang.delete(id)
 }
 
-/** Konfirmasi non-blocking agar dialog tetap bisa dipakai dari browser automation. */
-export function konfirmasi(content: string, title = 'Konfirmasi tindakan') {
-  return new Promise<boolean>((resolve) => {
-    Modal.confirm({
+/** Konfirmasi berbasis context AntD agar theme dinamis tetap diterapkan. */
+export function useKonfirmasi() {
+  const { modal } = App.useApp()
+  return useCallback((content: string, title = 'Konfirmasi tindakan') => new Promise<boolean>((resolve) => {
+    modal.confirm({
       title,
       content,
       okText: 'Lanjutkan',
@@ -144,12 +145,12 @@ export function konfirmasi(content: string, title = 'Konfirmasi tindakan') {
       onOk: () => resolve(true),
       onCancel: () => resolve(false),
     })
-  })
+  }), [modal])
 }
 
 // ---------- Komponen kecil ----------
 export function Notice({ tone = 'info', children, onClose }: { tone?: 'info' | 'error' | 'ok'; children: ReactNode; onClose?: () => void }) {
-  return <Alert className="adm-notice" type={tone === 'ok' ? 'success' : tone === 'error' ? 'error' : 'info'} message={children} closable={!!onClose} onClose={onClose} />
+  return <Alert className="adm-notice" type={tone === 'ok' ? 'success' : tone === 'error' ? 'error' : 'info'} title={children} closable={onClose ? { onClose } : false} />
 }
 
 export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
@@ -200,7 +201,7 @@ export function useAksi() {
 export function SandiSementara({ email, sandi, onClose }: { email: string; sandi: string; onClose: () => void }) {
   const [tersalin, setTersalin] = useState(false)
   return (
-    <Alert className="adm-secret" type="warning" showIcon message={`Sandi sementara untuk ${email}`} description={<><p>Sandi ini hanya tampil sekali dan tidak dapat dilihat lagi. Berikan kepada pemiliknya; ia wajib menggantinya saat masuk pertama.</p><code>{sandi}</code><div className="adm-row">
+    <Alert className="adm-secret" type="warning" showIcon title={`Sandi sementara untuk ${email}`} description={<><p>Sandi ini hanya tampil sekali dan tidak dapat dilihat lagi. Berikan kepada pemiliknya; ia wajib menggantinya saat masuk pertama.</p><code>{sandi}</code><div className="adm-row">
         <AntButton type="primary"
           onClick={() => {
             void navigator.clipboard?.writeText(sandi).then(() => setTersalin(true)).catch(() => undefined)

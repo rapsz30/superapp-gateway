@@ -138,15 +138,6 @@
       <bpmn:incoming>Flow_12</bpmn:incoming>
     </bpmn:endEvent>
 
-    <bpmn:textAnnotation id="Ann_Laporan">
-      <bpmn:text>Data laporan: ringkasan tanpa nama mahasiswa (prodi, semester_target, total_sks, ada_peringatan, jumlah_revisi, waktu keputusan)</bpmn:text>
-    </bpmn:textAnnotation>
-    <bpmn:association id="Assoc_Laporan" sourceRef="Task_Catat" targetRef="Ann_Laporan" />
-
-    <bpmn:textAnnotation id="Ann_Dashboard">
-      <bpmn:text>Dashboard Kaprodi (Report AlurKerja), per semester: rencana diajukan dan disetujui; rata-rata waktu keputusan dosen PA dan jumlah revisi; mahasiswa dengan peringatan (SKS, IPK, mata kuliah ulang); mata kuliah yang paling banyak diambil dan diulang.</bpmn:text>
-    </bpmn:textAnnotation>
-
     <bpmn:sequenceFlow id="Flow_1" sourceRef="Start_Minta" targetRef="Task_Unggah" />
     <bpmn:sequenceFlow id="Flow_1b" sourceRef="Task_Unggah" targetRef="Task_BacaKhs" />
     <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_BacaKhs" targetRef="GW_Yakin" />
@@ -166,6 +157,14 @@
     <bpmn:sequenceFlow id="Flow_12" sourceRef="Task_Catat" targetRef="End_Disetujui" />
     <bpmn:sequenceFlow id="Flow_13" sourceRef="Boundary_2Hari" targetRef="Task_Pengingat" />
     <bpmn:sequenceFlow id="Flow_14" sourceRef="Task_Pengingat" targetRef="End_Pengingat" />
+    <bpmn:textAnnotation id="Ann_Laporan">
+      <bpmn:text>Data laporan: ringkasan tanpa nama mahasiswa (prodi, semester_target, total_sks, ada_peringatan, jumlah_revisi, waktu keputusan)</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:association id="Assoc_Laporan" sourceRef="Task_Catat" targetRef="Ann_Laporan" />
+
+    <bpmn:textAnnotation id="Ann_Dashboard">
+      <bpmn:text>Dashboard Kaprodi (Report AlurKerja), per semester: rencana diajukan dan disetujui; rata-rata waktu keputusan dosen PA dan jumlah revisi; mahasiswa dengan peringatan (SKS, IPK, mata kuliah ulang); mata kuliah yang paling banyak diambil dan diulang.</bpmn:text>
+    </bpmn:textAnnotation>
   </bpmn:process>
 
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">

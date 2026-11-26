@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { Modal } from 'antd'
 import { adminService, type Orang, type Peran, type UnitTipe } from '@/src/services/admin-service'
-import { Badge, Field, Kartu, Kosong, Notice, OrangPicker, Pager, konfirmasi, namaUnit, tanggal, useAksi, useLoad, useOrang, useStruktur } from './ui'
+import { Badge, Field, Kartu, Kosong, Notice, OrangPicker, Pager, namaUnit, tanggal, useAksi, useKonfirmasi, useLoad, useOrang, useStruktur } from './ui'
 
 const PERAN: Peran[] = ['superadmin', 'dekan', 'kajur', 'kaprodi', 'dosen_pa']
 const UNIT_SAH: Record<Peran, UnitTipe[]> = {
@@ -18,7 +18,7 @@ const KETERANGAN: Record<Peran, string> = {
   dekan: 'Satu dekan aktif per fakultas.',
   kajur: 'Satu kajur aktif per jurusan.',
   kaprodi: 'Satu kaprodi aktif per prodi. Dapat mengelola panduan dan dosen PA di prodinya.',
-  dosen_pa: 'Dosen pembimbing akademik. Pilih prodi (satu prodi) atau jurusan (semua prodi di jurusan itu).',
+  dosen_pa: 'Dosen pembimbing akademik. Dapat ditugaskan di beberapa prodi atau satu jurusan.',
 }
 const UKURAN = 20
 
@@ -28,6 +28,8 @@ export function TabPenugasan({ prodiId }: { prodiId?: string } = {}) {
   const [aktif, setAktif] = useState<'ya' | 'tidak' | 'semua'>('ya')
   const [halaman, setHalaman] = useState(1)
   const [baru, setBaru] = useState(false)
+  const [dosenBaru, setDosenBaru] = useState(false)
+  const konfirmasi = useKonfirmasi()
 
   const daftar = useLoad(
       () => adminService.daftarPenugasan({ unit_id: prodiId, peran: peranFilter || undefined, aktif: aktif === 'semua' ? undefined : aktif === 'ya', halaman, ukuran: UKURAN }),
@@ -46,12 +48,19 @@ export function TabPenugasan({ prodiId }: { prodiId?: string } = {}) {
     <div className="adm-stack">
       <Kartu
         judul="Penugasan jabatan"
-        aksi={<button className="adm-btn" onClick={() => setBaru(!baru)}>{baru ? 'Tutup' : '+ Penugasan'}</button>}
+        aksi={
+          <div className="adm-row">
+            {prodiId && isSuper && <button className="adm-btn adm-ghost" onClick={() => { setDosenBaru(true); setBaru(false) }}>+ Akun dosen</button>}
+            <button className="adm-btn" onClick={() => { setBaru(!baru); setDosenBaru(false) }}>{baru ? 'Tutup' : prodiId ? '+ Dosen PA' : '+ Penugasan'}</button>
+          </div>
+        }
       >
-        {!isSuper && <Notice>Kaprodi hanya dapat menugaskan dosen PA pada prodinya sendiri.</Notice>}
+        {isSuper && prodiId && <Notice>Admin dapat menambahkan Dosen PA ke Prodi ini. Dosen yang sama boleh ditugaskan di Prodi lain tanpa mengakhiri penugasan sebelumnya.</Notice>}
+        {!isSuper && <Notice>Kaprodi hanya dapat menugaskan dosen PA pada prodinya sendiri. Satu dosen PA dapat ditugaskan di beberapa prodi.</Notice>}
         {galat && <Notice tone="error" onClose={() => setGalat('')}>{galat}</Notice>}
         {ok && <Notice tone="ok" onClose={() => setOk('')}>{ok}</Notice>}
-        {baru && <Modal open title="Tambah penugasan" footer={null} width={720} onCancel={() => setBaru(false)}><FormPenugasan pohon={pohon} prodiId={prodiId} onSelesai={() => { setBaru(false); setOk('Penugasan dibuat.'); void daftar.reload() }} /></Modal>}
+        {baru && <Modal open title={prodiId ? 'Tambah Dosen PA ke Prodi' : 'Tambah penugasan'} footer={null} width={720} onCancel={() => setBaru(false)}><FormPenugasan pohon={pohon} prodiId={prodiId} onSelesai={() => { setBaru(false); setOk('Penugasan dibuat.'); void daftar.reload() }} /></Modal>}
+        {dosenBaru && prodiId && <Modal open title="Tambah akun dosen ke Prodi" footer={null} width={720} onCancel={() => setDosenBaru(false)}><FormDosenProdi prodiId={prodiId} onSelesai={() => { setDosenBaru(false); setOk('Akun dosen dan penugasan Prodi berhasil dibuat.'); void daftar.reload() }} /></Modal>}
 
         <div className="adm-filter">
           {!prodiId && <Field label="Peran">
@@ -100,6 +109,41 @@ export function TabPenugasan({ prodiId }: { prodiId?: string } = {}) {
   )
 }
 
+function FormDosenProdi({ prodiId, onSelesai }: { prodiId: string; onSelesai: (hasil: import('@/src/services/admin-service').DosenProdiResult) => void }) {
+  const [nama, setNama] = useState('')
+  const [nidn, setNidn] = useState('')
+  const [emailKontak, setEmailKontak] = useState('')
+  const [email, setEmail] = useState('')
+  const [sandi, setSandi] = useState('')
+  const { sibuk, galat, jalankan } = useAksi()
+
+  async function kirim(e: React.FormEvent) {
+    e.preventDefault()
+    const hasil = await jalankan(() => adminService.buatDosenProdi(prodiId, {
+      nama_lengkap: nama.trim(),
+      nidn: nidn.trim() || null,
+      email_kontak: emailKontak.trim() || null,
+      email: email.trim(),
+      sandi,
+    }))
+    if (hasil) onSelesai(hasil)
+  }
+
+  return (
+    <form className="adm-form adm-boxed" onSubmit={kirim}>
+      <h3>Data akun dosen</h3>
+      <p className="adm-muted">Akun akan langsung diberi peran Dosen PA pada Prodi ini. Sandi diisi langsung oleh admin.</p>
+      {galat && <Notice tone="error">{galat}</Notice>}
+      <Field label="Nama lengkap"><input value={nama} onChange={(e) => setNama(e.target.value)} required maxLength={200} /></Field>
+      <Field label="NIDN"><input value={nidn} onChange={(e) => setNidn(e.target.value)} maxLength={32} /></Field>
+      <Field label="Email akun" hint="Dipakai untuk masuk ke Student Gateway dan, bila digunakan, AlurKerja."><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></Field>
+      <Field label="Email kontak"><input type="email" value={emailKontak} onChange={(e) => setEmailKontak(e.target.value)} /></Field>
+      <Field label="Sandi" hint="Diisi langsung oleh admin dan diberikan kepada dosen secara aman."><input type="password" value={sandi} onChange={(e) => setSandi(e.target.value)} autoComplete="new-password" minLength={10} required /></Field>
+      <button className="adm-btn" disabled={sibuk}>{sibuk ? 'Membuat akun…' : 'Buat akun dan tugaskan'}</button>
+    </form>
+  )
+}
+
 function FormPenugasan({ pohon, prodiId, onSelesai }: { pohon: ReturnType<typeof useStruktur>['pohon']; prodiId?: string; onSelesai: () => void }) {
   const { isSuper } = useStruktur()
   const [orang, setOrang] = useState<Orang | null>(null)
@@ -141,7 +185,7 @@ function FormPenugasan({ pohon, prodiId, onSelesai }: { pohon: ReturnType<typeof
     <form className="adm-form adm-boxed" onSubmit={kirim}>
       <h3>Penugasan baru</h3>
       {galat && <Notice tone="error">{galat}</Notice>}
-      <OrangPicker label="Orang" value={orang} onChange={setOrang} />
+      <OrangPicker label="Dosen PA" peran="dosen_pa" value={orang} onChange={setOrang} />
       {!prodiId && <Field label="Peran" hint={KETERANGAN[peran]}>
         <select value={peran} onChange={(e) => { const p = e.target.value as Peran; setPeran(p); setTipe(UNIT_SAH[p][0]); setUnitId('') }}>
           {peranBoleh.map((p) => <option key={p}>{p}</option>)}

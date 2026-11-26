@@ -10,6 +10,11 @@ const loginArtwork = '/images/student-gateway-login-asset.svg'
 // Harus sama dengan kebijakan layanan identity.
 const MIN_PASSWORD_LENGTH = 10
 
+/** Dosen dan kaprodi yang bukan mahasiswa langsung ke ruang dosen. */
+function halamanAwal(roles: string[]): string {
+  return !roles.includes('mahasiswa') && roles.some((r) => r === 'dosen_pa' || r === 'kaprodi') ? '/dosen' : '/beranda'
+}
+
 export function LoginView() {
   const router = useRouter()
   // 'ganti': akun baru dibuat admin dengan sandi sementara, wajib diganti sebelum memakai layanan.
@@ -48,7 +53,7 @@ export function LoginView() {
       if (mode === 'ganti') {
         await authService.changePassword(password, newPassword)
         setFormNotice(null)
-        router.push('/beranda')
+        router.push(halamanAwal((await authService.me()).roles))
         return
       }
 
@@ -59,7 +64,7 @@ export function LoginView() {
         return
       }
       setFormNotice(null)
-      router.push('/beranda')
+      router.push(halamanAwal(user.roles))
     } catch (error) {
       setFormNotice({ type: 'error', message: errorMessage(error, 'Tidak dapat memproses permintaan. Coba lagi.') })
     } finally {

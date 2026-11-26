@@ -43,6 +43,31 @@ def test_satu_kaprodi_aktif_lalu_pergantian(client, admin, kampus, db):
     assert aktif["total"] == 1
 
 
+def test_admin_membuat_akun_dosen_langsung_di_prodi(client, admin, kampus):
+    r = client.post(
+        f"/prodi/{kampus['prodi1']['id']}/dosen",
+        json={
+            "nama_lengkap": "Dosen Baru",
+            "nidn": "99887766",
+            "email_kontak": "dosen.baru@kampus.ac.id",
+            "email": "dosen.baru@kampus.ac.id",
+            "sandi": "DosenBaru!123",
+        },
+        headers=admin,
+    )
+    assert r.status_code == 201, r.text
+    data = r.json()
+    assert data["orang"]["nama_lengkap"] == "Dosen Baru"
+    assert data["akun"]["email"] == "dosen.baru@kampus.ac.id"
+    assert data["akun"]["sandi_sementara"] is None
+    assert data["penugasan"]["peran"] == "dosen_pa"
+    assert data["penugasan"]["unit_id"] == kampus["prodi1"]["id"]
+
+    profil = client.get("/auth/saya", headers=masuk(client, "dosen.baru@kampus.ac.id", "DosenBaru!123")).json()
+    assert profil["peran"] == ["dosen_pa"]
+    assert profil["unit"][0]["id"] == kampus["prodi1"]["id"]
+
+
 def test_pasangan_peran_unit_tidak_cocok_422(client, admin, kampus, db):
     a = buat_orang_akun(db, "A", "a@kampus.ac.id")
     r = _pen(client, admin, a.id, "kaprodi", "jurusan", kampus["jurusan"]["id"])

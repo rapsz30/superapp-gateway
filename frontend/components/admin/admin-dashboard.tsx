@@ -6,7 +6,6 @@ import {
   Card,
   Col,
   Empty,
-  List,
   Row,
   Space,
   Spin,
@@ -76,13 +75,13 @@ function keSeries(map: Record<string, number>, labels: Record<string, string> = 
     .sort((a, b) => b.total - a.total)
 }
 
-function tipNilai({ active, payload }: { active?: boolean; payload?: { name?: string; value?: number; payload?: { nama?: string } }[] }) {
+function tipNilai({ active, payload }: any) {
   if (!active || !payload?.length) return null
   const item = payload[0]
   return (
     <div className="admin-chart-tooltip">
       <strong>{item.payload?.nama ?? item.name}</strong>
-      <span>{item.value?.toLocaleString('id-ID')}</span>
+      <span>{typeof item.value === 'number' ? item.value.toLocaleString('id-ID') : String(item.value ?? '')}</span>
     </div>
   )
 }
@@ -138,7 +137,7 @@ export function AdminDashboard() {
       </Typography.Paragraph>
 
       {muat.error && (
-        <Alert type="error" showIcon message="Ringkasan gagal dimuat" description={muat.error} style={{ marginBottom: 16 }} />
+        <Alert type="error" showIcon title="Ringkasan gagal dimuat" description={muat.error} style={{ marginBottom: 16 }} />
       )}
 
       <Spin spinning={muat.loading && !data}>
@@ -160,7 +159,7 @@ export function AdminDashboard() {
               {!data ? (
                 <Empty description="Memuat indikator…" />
               ) : (
-                <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                <Space orientation="vertical" size={12} style={{ width: '100%' }}>
                   <HealthItem
                     ok={data.mahasiswa_tanpa_dpa === 0}
                     title={
@@ -411,27 +410,21 @@ export function AdminDashboard() {
                 {audit.length === 0 ? (
                   <Empty description="Belum ada jejak audit." />
                 ) : (
-                  <List
-                    size="small"
-                    dataSource={audit}
-                    renderItem={(item) => (
-                      <List.Item className="admin-audit-item">
-                        <List.Item.Meta
-                          title={
-                            <Space wrap size={6}>
-                              <code>{item.aksi}</code>
-                              <Tag>{item.objek_tipe}</Tag>
-                            </Space>
-                          }
-                          description={
-                            <Typography.Text type="secondary">
-                              {waktu(item.waktu)} · {item.pelaku_id ? namaPelaku(item.pelaku_id) : 'sistem'}
-                            </Typography.Text>
-                          }
-                        />
-                      </List.Item>
-                    )}
-                  />
+                  <div className="admin-audit-list">
+                    {audit.map((item) => (
+                      <div className="admin-audit-item" key={item.id}>
+                        <div className="admin-audit-item-title">
+                          <Space wrap size={6}>
+                            <code>{item.aksi}</code>
+                            <Tag>{item.objek_tipe}</Tag>
+                          </Space>
+                        </div>
+                        <Typography.Text type="secondary">
+                          {waktu(item.waktu)} · {item.pelaku_id ? namaPelaku(item.pelaku_id) : 'sistem'}
+                        </Typography.Text>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </Card>
             </Col>
@@ -466,13 +459,11 @@ function HealthItem({
       type={ok ? 'success' : 'warning'}
       showIcon
       icon={ok ? undefined : <WarningOutlined />}
-      message={title}
+      title={title}
       description={detail}
       action={
         !ok ? (
-          <Link href={href}>
-            <Typography.Link>{action}</Typography.Link>
-          </Link>
+          <Link href={href} className="admin-alert-action">{action}</Link>
         ) : undefined
       }
     />

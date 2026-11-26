@@ -20,6 +20,8 @@ export type RencanaResult = {
   total_sks: number;
   alasan: string;
   peringatan: string[];
+  /** HTML ringkas untuk form dosen di Tasklist. */
+  ringkasan_dosen?: string;
 };
 
 export function gatewayClient(c: Config) {

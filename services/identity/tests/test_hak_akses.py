@@ -82,6 +82,42 @@ def test_cakupan_orang_per_peran(client, dunia):
     assert _nama(client, dunia["h_mhs2"]) == {"Mahasiswa Dua"}
 
 
+def test_kaprodi_dapat_memilih_dosen_pa_dari_prodi_lain(client, dunia, db, kampus, admin):
+    # Dosen yang baru ditugaskan hanya pada prodi2 tetap harus dapat dipilih
+    # dari detail prodi1 untuk skenario penugasan lintas prodi.
+    dosen_lintas = buat_orang_akun(db, "Dosen Lintas Prodi", "lintas@k.ac.id")
+    db.commit()
+    r = client.post(
+        "/penugasan",
+        json={
+            "orang_id": str(dosen_lintas.id),
+            "peran": "dosen_pa",
+            "unit_tipe": "prodi",
+            "unit_id": kampus["prodi2"]["id"],
+        },
+        headers=admin,
+    )
+    assert r.status_code == 201, r.text
+
+    hasil = client.get("/orang", headers=dunia["h_kaprodi"], params={"peran": "dosen_pa", "q": "Lintas", "ukuran": 20})
+    assert hasil.status_code == 200, hasil.text
+    assert {o["nama_lengkap"] for o in hasil.json()["data"]} == {"Dosen Lintas Prodi"}
+
+    # Dari detail prodi1, kaprodi dapat langsung menambahkan dosen yang sudah
+    # punya penugasan aktif di prodi2 tanpa memindahkan atau mengakhiri penugasan lama.
+    tambah = client.post(
+        "/penugasan",
+        json={
+            "orang_id": str(dosen_lintas.id),
+            "peran": "dosen_pa",
+            "unit_tipe": "prodi",
+            "unit_id": kampus["prodi1"]["id"],
+        },
+        headers=dunia["h_kaprodi"],
+    )
+    assert tambah.status_code == 201, tambah.text
+
+
 def test_orang_di_luar_cakupan_404_bukan_403(client, dunia):
     asing_id = str(dunia["orang"]["asing"].id)
     r = client.get(f"/orang/{asing_id}", headers=dunia["h_dekan"])

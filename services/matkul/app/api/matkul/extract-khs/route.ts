@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { createRequire } from "module";
-import { extractKhsFromText } from "@/src/lib/openai";
+import { sidikBerkas } from "@/src/lib/proses/bacaan";
+import { bacaKhs } from "@/src/lib/proses/bacaan-db";
+import { ambilPratinjau } from "@/src/lib/proses/pratinjau";
 import { evaluateRows } from "@/src/lib/proses/recommend";
 import { hitungKeyakinan, nimCocok } from "@/src/lib/proses/keyakinan";
 import { ambilKonteksPengajuan, periksaTokenLayanan } from "@/src/lib/proses/layanan";
@@ -35,30 +36,21 @@ export async function POST(req: Request) {
 
     const konteks = await ambilKonteksPengajuan(id_pengajuan);
 
-    const require = createRequire(import.meta.url);
-    const pdfParse = require("pdf-parse/lib/pdf-parse.js");
-    // Buffer dari pg bisa berupa potongan memori bersama; pdf-parse 1.1.1 (mesin PDF lama) kadang salah baca
-    // ("bad XRef entry"). Salin ke buffer sendiri (Buffer.alloc tidak memakai pool) dan coba sekali lagi bila gagal.
-    const parsePdf = async () => {
-      const own = Buffer.alloc(file.data.length);
-      file.data.copy(own);
-      return String((await pdfParse(own))?.text ?? "").trim();
-    };
-    let text: string;
-    try {
-      text = await parsePdf();
-    } catch {
-      text = await parsePdf();
-    }
-    if (!text) {
+    // Memakai hasil bacaan pratinjau bila berkasnya sama persis; dibaca sekarang bila belum pernah.
+    const khs = await bacaKhs(file.data);
+    if (!khs) {
       return NextResponse.json({ error: "Teks PDF kosong. Jika scan, perlu OCR." }, { status: 400 });
     }
-
-    const khs = await extractKhsFromText(text);
     // KHS milik orang lain: keyakinan dipaksa 0 sehingga proses berhenti di langkah "Periksa" dan tidak
     // pernah sampai ke dosen sebagai rencana orang yang salah.
     const cocok = nimCocok(khs.mahasiswa.nim, konteks.mahasiswa?.nim);
-    const keyakinan = cocok ? hitungKeyakinan(khs) : 0;
+    const pemilik = konteks.mahasiswa?.nim?.trim() || null;
+    // Mahasiswa yang sudah melihat hasil pratinjau berkas ini tidak diminta memeriksa bacaan lagi.
+    const sudahDilihat =
+      cocok && pemilik
+        ? await ambilPratinjau({ sidik: sidikBerkas(file.data), pemilik, panduanId: konteks.panduan.id })
+        : null;
+    const keyakinan = !cocok ? 0 : sudahDilihat ? 1 : hitungKeyakinan(khs);
 
     const rows = evaluateRows(khs);
     const mk_lulus = rows.filter((r) => r.lulus).map((r) => r.kode);
@@ -70,8 +62,8 @@ export async function POST(req: Request) {
 
     const khs_ref = newId("khs");
     await query(
-      "INSERT INTO matkul_khs (ref, file_id, data, keyakinan, pengajuan_id, panduan_versi, panduan_teks, maks_sks) " +
-        "VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+      "INSERT INTO matkul_khs (ref, file_id, data, keyakinan, pengajuan_id, panduan_versi, panduan_teks, maks_sks, pemilik, panduan_id) " +
+        "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
       [
         khs_ref,
         khs_file_id,
@@ -81,6 +73,8 @@ export async function POST(req: Request) {
         konteks.panduan.versi,
         konteks.panduan.teks,
         konteks.prodi.maks_sks_semester,
+        pemilik,
+        konteks.panduan.id,
       ]
     );
 

@@ -8,13 +8,14 @@ from datetime import date
 from fastapi import APIRouter
 from sqlalchemy import and_, func, or_, select
 
-from src.api.deps import DB, Hal, Hari, Pengguna, Saya
+from src.api.deps import DB, Hal, Hari, Pengguna, Saya, Superadmin
 from src.api.errors import dilarang, galat, tidak_ditemukan
 from src.api.schemas import (
     AkhiriIn,
     BimbinganIn,
     BimbinganOut,
     BimbinganPindahIn,
+    DosenProdiIn,
     KeanggotaanIn,
     KeanggotaanOut,
     KeanggotaanPindahIn,
@@ -25,6 +26,7 @@ from src.api.schemas import (
 from src.domain import audit
 from src.api.routes.pengajuan import alihkan_pengajuan_terbuka, batalkan_pengajuan_terbuka
 from src.domain.cakupan import orang_terlihat, penugasan_aktif, prodi_dicakup_pa
+from src.core.security import hash_sandi, validasi_kebijakan_sandi
 from src.models import (
     Akun,
     Bimbingan,
@@ -47,6 +49,47 @@ def _boleh_kelola_penugasan(saya: Pengguna, peran: str, unit_tipe: str, unit_id)
         return True
     # Kaprodi hanya boleh mengatur dosen PA pada prodinya sendiri.
     return peran == "dosen_pa" and unit_tipe == "prodi" and unit_id in saya.cakupan.kaprodi_ids
+
+
+@router.post("/prodi/{prodi_id}/dosen", status_code=201)
+def buat_dosen_prodi(prodi_id: uuid.UUID, body: DosenProdiIn, saya: Superadmin, db: DB, hari: Hari) -> dict:
+    """Buat data dosen, akun login, dan penugasan Dosen PA dalam satu transaksi."""
+    prodi = db.get(Prodi, prodi_id)
+    if prodi is None or not prodi.aktif:
+        raise galat(400, "Prodi tidak ditemukan atau tidak aktif.")
+    sandi = body.sandi
+    pesan = validasi_kebijakan_sandi(sandi, body.email)
+    if pesan:
+        raise galat(400, pesan)
+    orang = Orang(
+        nama_lengkap=body.nama_lengkap,
+        nidn=body.nidn,
+        email_kontak=body.email_kontak,
+    )
+    db.add(orang)
+    db.flush()
+    akun = Akun(orang_id=orang.id, email=body.email, sandi_hash=hash_sandi(sandi), wajib_ganti_sandi=True)
+    db.add(akun)
+    db.flush()
+    penugasan = Penugasan(
+        orang_id=orang.id,
+        peran="dosen_pa",
+        unit_tipe="prodi",
+        unit_id=prodi_id,
+        mulai=hari,
+        dibuat_oleh=saya.orang_id,
+    )
+    db.add(penugasan)
+    db.flush()
+    audit.catat(db, saya.orang_id, "orang.buat", "orang", orang.id, None, audit.ke_dict(orang))
+    audit.catat(db, saya.orang_id, "akun.buat", "akun", akun.id, None, {"orang_id": str(akun.orang_id), "email": akun.email})
+    audit.catat(db, saya.orang_id, "penugasan.buat", "penugasan", penugasan.id, None, audit.ke_dict(penugasan))
+    db.commit()
+    return {
+        "orang": {"id": orang.id, "nama_lengkap": orang.nama_lengkap, "nim": orang.nim, "nidn": orang.nidn, "email_kontak": orang.email_kontak, "peran": ["dosen_pa"], "akun": {"id": akun.id, "email": akun.email, "status": akun.status, "wajib_ganti_sandi": akun.wajib_ganti_sandi}},
+        "akun": {"id": akun.id, "orang_id": akun.orang_id, "email": akun.email, "status": akun.status, "wajib_ganti_sandi": akun.wajib_ganti_sandi, "sandi_sementara": None},
+        "penugasan": {"id": penugasan.id, "orang_id": penugasan.orang_id, "peran": penugasan.peran, "unit_tipe": penugasan.unit_tipe, "unit_id": penugasan.unit_id, "mulai": penugasan.mulai, "selesai": penugasan.selesai},
+    }
 
 
 @router.get("/penugasan")

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Modal } from 'antd'
 import { adminService, type Orang } from '@/src/services/admin-service'
-import { Badge, Field, Kartu, Kosong, Notice, OrangPicker, Pager, SandiSementara, konfirmasi, tanggal, useAksi, useLoad, useOrang } from './ui'
+import { Badge, Field, Kartu, Kosong, Notice, OrangPicker, Pager, SandiSementara, tanggal, useAksi, useKonfirmasi, useLoad, useOrang } from './ui'
 
 const UKURAN = 20
 
@@ -13,6 +13,7 @@ export function TabBimbingan({ prodiId }: { prodiId?: string } = {}) {
   const [halaman, setHalaman] = useState(1)
   const [baru, setBaru] = useState(false)
   const [pindah, setPindah] = useState(false)
+  const konfirmasi = useKonfirmasi()
 
   const daftar = useLoad(
     async () => {
@@ -156,6 +157,7 @@ function FormPindah({ onSelesai }: { onSelesai: (n: number) => void }) {
   const [asal, setAsal] = useState<Orang | null>(null)
   const [tujuan, setTujuan] = useState<Orang | null>(null)
   const { sibuk, galat, jalankan } = useAksi()
+  const konfirmasi = useKonfirmasi()
 
   async function kirim(e: React.FormEvent) {
     e.preventDefault()

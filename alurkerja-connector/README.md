@@ -15,7 +15,7 @@ memanggil endpoint `/api/matkul/*` di layanan matkul, lalu menyelesaikan atau me
   dengan worker StudentGateway yang lama.
 - **Autentikasi:** Basic Auth akun Camunda ke AlurKerja; `Bearer GATEWAY_TOKEN` (= `MATKUL_SERVICE_TOKEN`) ke matkul.
 - Log hanya memuat durasi dan status per tugas, tanpa isi variabel (tidak mencetak data mahasiswa).
-- Tugas yang gagal diberi `retries: 0` sehingga muncul sebagai insiden Camunda; identity menampilkannya sebagai `pesan_galat` pada pengajuan.
+- Tugas yang gagal dicoba ulang (`WORKER_MAX_ATTEMPTS`, bawaan 3; jeda `WORKER_RETRY_MS`, bawaan 30 detik). Percobaan terakhir yang gagal menjadi insiden Camunda; identity menampilkannya sebagai `pesan_galat` pada pengajuan.
 
 ## Menjalankan
 

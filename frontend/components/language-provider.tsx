@@ -12,7 +12,7 @@ type LanguageContextValue = {
 
 const translations: Record<string, string> = {
   'Beranda': 'Home', 'Judul Tugas Akhir': 'Thesis Topics', 'Mata Kuliah': 'Courses', 'Micro-Credential': 'Micro-Credentials',
-  'Rekomendasi': 'Recommendations', 'Menu': 'Menu', 'Keluar': 'Sign out', 'Perluas sidebar': 'Expand sidebar', 'Ciutkan sidebar': 'Collapse sidebar',
+  'Rekomendasi': 'Recommendations', 'Menu': 'Menu', 'Ruang dosen': 'Lecturer area', 'Administrasi': 'Administration','Keluar': 'Sign out', 'Perluas sidebar': 'Expand sidebar', 'Ciutkan sidebar': 'Collapse sidebar',
   'Tutup menu': 'Close menu', 'Buka menu': 'Open menu', 'Buka profil': 'Open profile', 'Selamat datang kembali': 'Welcome back',
   'Halo, Vivi Zalzabilah': 'Hello, Vivi Zalzabilah', 'Rencanakan studi Anda dengan lebih baik': 'Plan your studies with confidence',
   'Jelajahi rekomendasi judul tugas akhir, mata kuliah, dan micro-credential': 'Explore thesis topic, course, and micro-credential recommendations',

@@ -26,9 +26,13 @@ os.environ["BCRYPT_ROUNDS"] = "4"
 INTERNAL_TOKEN = "t" * 40
 os.environ["INTERNAL_TOKEN"] = INTERNAL_TOKEN
 os.environ["MATKUL_SERVICE_TOKEN"] = "m" * 40
-# Uji tidak boleh menyentuh AlurKerja sungguhan, apa pun isi lingkungan pengembang.
-for _k in ("ALURKERJA_URL", "ALURKERJA_USERNAME", "ALURKERJA_PASSWORD"):
-    os.environ.pop(_k, None)
+# Uji tidak boleh menyentuh AlurKerja sungguhan, apa pun isi lingkungan pengembang. Diisi kosong (bukan
+# dihapus) karena variabel lingkungan yang kosong mengalahkan nilai dari berkas .env.
+for _k in ("ALURKERJA_URL", "ALURKERJA_USERNAME", "ALURKERJA_PASSWORD", "ALURKERJA_CA_BUNDLE",
+           "ALURKERJA_AUTH_TOKEN_SLUG", "ALURKERJA_CLIENT_ID", "ALURKERJA_CLIENT_SECRET", "ALURKERJA_DASHBOARD_RINGKASAN",
+           "ALURKERJA_DASHBOARD_MATKUL", "ALURKERJA_DASHBOARD_JUDUL",
+           "ALURKERJA_ADMIN_CLIENT_ID", "ALURKERJA_ADMIN_CLIENT_SECRET", "ALURKERJA_WORKSPACE_ID"):
+    os.environ[_k] = ""
 os.environ["PANDUAN_DIR"] = tempfile.mkdtemp(prefix="identity-panduan-")
 
 from alembic import command  # noqa: E402

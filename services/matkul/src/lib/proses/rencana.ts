@@ -1,4 +1,7 @@
+import { sidikBerkas } from "./bacaan.ts";
 import { newId, query } from "./db.ts";
+import { ambilPratinjau } from "./pratinjau.ts";
+import { ringkasanDosen } from "./ringkasan-dosen.ts";
 import { evaluateRows, recommendCourses, type KhsPreview, type RecommendResult } from "./recommend.ts";
 
 const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -51,15 +54,22 @@ export async function buatRencana(opts: {
   parent?: { ref: string; revisi_ke: number; data: unknown };
   catatan_dosen?: string;
 }) {
-  const [row] = await query<{ data: KhsPreview; panduan_teks: string | null; maks_sks: number | null }>(
-    "SELECT data, panduan_teks, maks_sks FROM matkul_khs WHERE ref = $1",
-    [opts.khs_ref]
-  );
+  const [row] = await query<{
+    data: KhsPreview;
+    panduan_teks: string | null;
+    maks_sks: number | null;
+    file_id: string | null;
+    pemilik: string | null;
+    panduan_id: string | null;
+  }>("SELECT data, panduan_teks, maks_sks, file_id, pemilik, panduan_id FROM matkul_khs WHERE ref = $1", [opts.khs_ref]);
   if (!row) return null;
   // Panduan disimpan bersama KHS saat ekstraksi (versi yang berlaku saat proses dimulai), bukan dibaca ulang.
   if (!row.panduan_teks) throw new Error("KHS ini belum terkait panduan prodi (ekstraksi tanpa id_pengajuan).");
 
-  const result = await recommendCourses({
+  // Pengajuan pertama memakai rencana yang sudah dilihat mahasiswa; revisi selalu disusun baru.
+  const pratinjau = opts.parent ? null : await pratinjauUntuk(row, opts.semester_target);
+
+  const result = pratinjau?.data ?? await recommendCourses({
     khs: row.data,
     panduanText: row.panduan_teks,
     maksSksPanduan: row.maks_sks,
@@ -80,5 +90,21 @@ export async function buatRencana(opts: {
       opts.parent ? opts.parent.revisi_ke + 1 : 0,
     ]
   );
-  return toContract(rencana_ref, result, row.data);
+  const hasil = toContract(rencana_ref, result, row.data);
+  const koreksi = (pratinjau?.perubahan ?? []).map((p) => `Perlu dicek: ${redactIdentity(p, row.data)}`);
+  const lengkap = { ...hasil, peringatan: [...koreksi, ...hasil.peringatan] };
+  const revisi = opts.parent
+    ? { ke: opts.parent.revisi_ke + 1, catatan: redactIdentity(opts.catatan_dosen ?? "", row.data) }
+    : undefined;
+  return { ...lengkap, ringkasan_dosen: ringkasanDosen(lengkap, row.data, revisi) };
+}
+
+async function pratinjauUntuk(
+  row: { file_id: string | null; pemilik: string | null; panduan_id: string | null },
+  semester?: number | null,
+) {
+  if (!row.file_id || !row.pemilik || !row.panduan_id) return null;
+  const [file] = await query<{ data: Buffer }>("SELECT data FROM matkul_file WHERE id = $1", [row.file_id]);
+  if (!file) return null;
+  return ambilPratinjau({ sidik: sidikBerkas(file.data), pemilik: row.pemilik, panduanId: row.panduan_id }, semester);
 }

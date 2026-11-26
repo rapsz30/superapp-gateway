@@ -11,6 +11,15 @@ export interface AuthUser {
   /** Peran aktif, misalnya ["mahasiswa"] atau ["dosen_pa", "kaprodi"]. */
   roles: string[]
   mustChangePassword: boolean
+  /** Unit tempat setiap peran berlaku, misalnya kaprodi pada prodi tertentu. */
+  units: UnitPeran[]
+}
+
+export interface UnitPeran {
+  peran: string
+  tipe: string
+  id?: string
+  nama?: string | null
 }
 
 interface TokenResponse {
@@ -29,6 +38,7 @@ interface ProfilResponse {
   email: string
   wajib_ganti_sandi: boolean
   peran: string[]
+  unit?: UnitPeran[]
   akademik: {
     prodi: { nama: string }
     fakultas: { nama: string } | null
@@ -47,6 +57,7 @@ function mapUser(profil: ProfilResponse): AuthUser {
     study_program: profil.akademik?.prodi.nama ?? null,
     roles: profil.peran,
     mustChangePassword: profil.wajib_ganti_sandi,
+    units: profil.unit ?? [],
   }
 }
 

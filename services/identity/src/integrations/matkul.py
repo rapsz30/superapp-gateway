@@ -53,6 +53,10 @@ class MatkulKlien:
     def rekomendasi(self, khs_ref: str, semester_target: int) -> dict[str, Any]:
         return self._panggil("recommend", json={"khs_ref": khs_ref, "semester_target": semester_target})
 
+    def ringkasan_khs(self, khs_ref: str) -> dict[str, Any]:
+        """Ringkasan nilai (tanpa nama dan NIM) dari KHS yang sudah dibaca."""
+        return self._panggil("ringkasan-khs", json={"khs_ref": khs_ref})
+
     def revisi(self, rencana_ref: str, catatan_dosen: str) -> dict[str, Any]:
         return self._panggil("revise", json={"rencana_ref": rencana_ref, "catatan_dosen": catatan_dosen})
 

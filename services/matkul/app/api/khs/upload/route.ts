@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { createRequire } from "module";
-import { extractKhsFromText } from "@/src/lib/openai";
+import { sidikBerkas } from "@/src/lib/proses/bacaan";
+import { bacaKhs } from "@/src/lib/proses/bacaan-db";
 
 export const runtime = "nodejs";
 
@@ -35,8 +35,6 @@ type KhsPreview = {
     nilai?: string;
     semester?: any;
   }>;
-
-  _debugTextSample?: string;
 };
 
 function asNumber(x: any): number | null {
@@ -45,7 +43,7 @@ function asNumber(x: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function normalizePreview(ai: any, text: string): KhsPreview {
+function normalizePreview(ai: any): KhsPreview {
   const p: KhsPreview = ai && typeof ai === "object" ? ai : {};
 
   // sumber rows bisa "nilai" atau "matkul"
@@ -76,7 +74,6 @@ function normalizePreview(ai: any, text: string): KhsPreview {
       semester: p.mahasiswa?.semester ?? null,
     },
     nilai: rows,
-    _debugTextSample: text.slice(0, 2000),
   };
 }
 
@@ -94,34 +91,15 @@ export async function POST(req: Request) {
 
     const buf = Buffer.from(await file.arrayBuffer());
 
-    const require = createRequire(import.meta.url);
-    const pdfParse = require("pdf-parse/lib/pdf-parse.js");
-    if (typeof pdfParse !== "function") {
-      return NextResponse.json(
-        { ok: false, error: "pdf-parse tidak terbaca sebagai function" },
-        { status: 500 },
-      );
-    }
-
-    const parsed = await pdfParse(buf);
-    const text = String(parsed?.text ?? "").trim();
-    console.log("=== PANJANG TEKS ===", text.length);
-    console.log("=== TEKS MENTAH KHS ===");
-    console.log(text);
-
-    if (!text) {
+    // Hasil bacaan disimpan dan dipakai lagi oleh proses pengajuan, sehingga KHS yang sama dibaca satu kali.
+    const khs = await bacaKhs(buf);
+    if (!khs) {
       return NextResponse.json(
         { ok: false, error: "Teks PDF kosong. Jika scan, perlu OCR." },
         { status: 400 },
       );
     }
-
-    // AI extract -> normalisasi ke format rekomendasi
-    const ai = await extractKhsFromText(text);
-    console.log("=== HASIL EKSTRAKSI AI ===");
-    console.log(JSON.stringify(ai, null, 2));
-    console.log("=== JUMLAH ROW ===", (ai?.nilai ?? []).length);
-    const preview = normalizePreview(ai, text);
+    const preview = normalizePreview(khs);
 
     // minimal validation biar ketahuan kalau AI gagal parse matkul
     if (!preview.nilai || preview.nilai.length === 0) {
@@ -133,7 +111,7 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json({ ok: true, preview });
+    return NextResponse.json({ ok: true, preview, sidik: sidikBerkas(buf) });
   } catch (err: any) {
     console.error("UPLOAD_KHS_ERROR:", err);
     return NextResponse.json(

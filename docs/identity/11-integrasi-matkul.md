@@ -96,7 +96,7 @@ Respons rekomendasi memuat `panduan.id` dan `panduan.versi`. Pengajuan ke pembim
 
 ## Pengajuan ke pembimbing akademik
 
-Sudah dibuat: [12](12-pengajuan-ke-dpa.md) (API) dan [13](13-proses-alurkerja-penuh.md) (proses AlurKerja lengkap). Rute `/api/rekomendasi` di atas tetap ada sebagai **pratinjau** instan di wizard; hasil resmi untuk pembimbing dihitung proses di server dari KHS yang diunggah saat mengajukan.
+Sudah dibuat: [12](12-pengajuan-ke-dpa.md) (API) dan [13](13-proses-alurkerja-penuh.md) (proses AlurKerja lengkap). Rute `/api/rekomendasi` di atas tetap ada sebagai **pratinjau** instan di wizard; hasil resmi untuk pembimbing disusun proses di server dari berkas KHS yang sama (hasil bacaannya dipakai ulang, lihat 13).
 
 ## Frontend (sudah dipindah ke identity)
 

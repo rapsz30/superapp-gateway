@@ -52,6 +52,10 @@ class MatkulPalsu:
         self._cek("rekomendasi", khs_ref, semester_target)
         return self._rencana("rnc_1")
 
+    def ringkasan_khs(self, khs_ref):
+        self._cek("ringkasan", khs_ref)
+        return {"ipk": 3.1, "sks_lulus": 40, "per_semester": []}
+
     def revisi(self, rencana_ref, catatan_dosen):
         self._cek("revisi", rencana_ref, catatan_dosen)
         return self._rencana("rnc_2", catatan_dosen)
@@ -147,7 +151,12 @@ class Camunda:
             p = self.proses[iid]
             for k, v in (body or {}).get("variables", {}).items():
                 p["vars"][k] = v["value"]
-            p["aktif"] = {"Task_Unggah": ["Task_BacaKhs"], "Task_Periksa": ["Task_Rekom"]}.get(kunci, [])
+            if kunci == "Task_Tinjau":
+                setuju = p["vars"].get("keputusan") == "setuju"
+                p["state"] = "COMPLETED" if setuju else "ACTIVE"
+                p["aktif"] = [] if setuju else ["Task_Revisi"]
+            else:
+                p["aktif"] = {"Task_Unggah": ["Task_BacaKhs"], "Task_Periksa": ["Task_Rekom"]}[kunci]
             return httpx.Response(204)
         if m := re.fullmatch(r"/task/(.+)\|(.+)/assignee", path):
             if "assignee" in self.tolak:
@@ -392,10 +401,64 @@ def test_batalkan_menghentikan_proses_dan_gagal_dengan_aman(client, siap, camund
     assert client.post(f"/pengajuan/{pid}/batalkan", headers=siap["h_mhs"]).status_code == 409
 
 
-def test_keputusan_lokal_ditolak_pada_mode_alurkerja(client, siap, camunda):
+def sampai_tinjau(client, d, camunda):
+    pid = ajukan(client, d).json()["id"]
+    camunda.worker_ekstraksi("inst-1")
+    camunda.worker_rekomendasi("inst-1")
+    return pid
+
+
+def putuskan(client, d, pid, who="h_dosen", **isi):
+    return client.post(f"/pengajuan/{pid}/keputusan", json=isi, headers=d[who])
+
+
+def test_dosen_menyetujui_dari_aplikasi_menyelesaikan_tugas_alurkerja(client, siap, camunda):
+    pid = sampai_tinjau(client, siap, camunda)
+    r = putuskan(client, siap, pid, keputusan="setuju", catatan="  Silakan lanjut.  ")
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "disetujui" and r.json()["catatan_dpa"] == "Silakan lanjut."
+    p = camunda.proses["inst-1"]
+    assert p["state"] == "COMPLETED"
+    assert p["vars"]["keputusan"] == "setuju" and p["vars"]["catatan_dosen"] == "Silakan lanjut."
+    assert putuskan(client, siap, pid, keputusan="setuju").status_code == 409
+
+
+def test_dosen_meminta_revisi_dari_aplikasi_lalu_menyetujui(client, siap, camunda):
+    pid = sampai_tinjau(client, siap, camunda)
+    assert putuskan(client, siap, pid, keputusan="revisi").status_code == 400  # catatan wajib
+    assert camunda.proses["inst-1"]["aktif"] == ["Task_Tinjau"]
+
+    r = putuskan(client, siap, pid, keputusan="revisi", catatan="Maksimal 18 SKS.")
+    assert r.status_code == 200 and r.json()["tahap"] == "revisi"
+    assert camunda.proses["inst-1"]["aktif"] == ["Task_Revisi"]
+    assert putuskan(client, siap, pid, keputusan="setuju").status_code == 409  # rencana sedang direvisi
+    assert siap["matkul"].panggilan == [("upload", ("khs.pdf",))]  # revisi dikerjakan worker, bukan identity
+
+    camunda.worker_revisi("inst-1")
+    assert putuskan(client, siap, pid, keputusan="setuju").json()["status"] == "disetujui"
+    assert camunda.proses["inst-1"]["vars"]["catatan_dosen"] == ""  # catatan lama tidak tertinggal
+
+
+def test_keputusan_alurkerja_hanya_oleh_dpa_dan_gagal_dengan_aman(client, siap, camunda):
+    pid = sampai_tinjau(client, siap, camunda)
+    assert putuskan(client, siap, pid, who="h_mhs", keputusan="setuju").status_code == 403
+    assert putuskan(client, siap, pid, who="h_kaprodi", keputusan="setuju").status_code == 403
+
+    camunda.tolak = {"tugas"}
+    r = putuskan(client, siap, pid, keputusan="setuju")
+    assert r.status_code == 502 and "AlurKerja" in r.json()["detail"]
+    camunda.tolak = set()
+    camunda.mati = True
+    assert putuskan(client, siap, pid, keputusan="setuju").status_code == 502
+    camunda.mati = False
+    assert ambil(client, siap, pid)["status"] == "diajukan"
+    assert camunda.proses["inst-1"]["aktif"] == ["Task_Tinjau"]
+
+
+def test_keputusan_alurkerja_ditolak_bila_belum_tahap_tinjau(client, siap, camunda):
     pid = ajukan(client, siap).json()["id"]
-    r = client.post(f"/pengajuan/{pid}/keputusan", json={"keputusan": "setuju"}, headers=siap["h_dosen"])
-    assert r.status_code == 409 and "Tasklist" in r.json()["detail"]
+    assert putuskan(client, siap, pid, keputusan="setuju").status_code == 409
+    assert camunda.proses["inst-1"]["aktif"] == ["Task_BacaKhs"]
 
 
 def test_ganti_dpa_memindahkan_variabel_dan_tugas(client, siap, camunda, db, kampus):
@@ -625,3 +688,36 @@ def test_klien_variabel_bertipe():
     assert v["i"] == {"value": 3, "type": "Integer"} and v["f"] == {"value": 1.5, "type": "Double"}
     assert v["b"] == {"value": False, "type": "Boolean"} and v["s"] == {"value": "teks", "type": "String"}
     assert v["n"] == {"value": None, "type": "Null"}
+
+
+# ====================================================================== ringkasan nilai untuk dasbor
+def _ringkasan(client, d, who="h_mhs"):
+    return client.get("/pengajuan/ringkasan-saya", headers=d[who])
+
+
+def test_ringkasan_hanya_untuk_pemilik(client, siap):
+    assert _ringkasan(client, siap).json() == {"ringkasan": None, "sumber": None}
+    pid = ajukan(client, siap).json()["id"]
+    r = _ringkasan(client, siap)
+    assert r.status_code == 200, r.text
+    assert r.json()["ringkasan"]["ipk"] == 3.1 and r.json()["sumber"]["pengajuan_id"] == pid
+    # Pembimbing akademik tidak memperoleh daftar nilai lewat rute ini.
+    assert _ringkasan(client, siap, "h_dosen").json()["ringkasan"] is None
+
+
+def test_ringkasan_mengabaikan_batal_dan_khs_orang_lain(client, siap):
+    siap["matkul"].nim_cocok = False
+    pid = ajukan(client, siap).json()["id"]
+    assert _ringkasan(client, siap).json()["ringkasan"] is None
+    client.post(f"/pengajuan/{pid}/batalkan", headers=siap["h_mhs"])
+    siap["matkul"].nim_cocok = True
+    pid = ajukan(client, siap).json()["id"]
+    client.post(f"/pengajuan/{pid}/batalkan", headers=siap["h_mhs"])
+    assert _ringkasan(client, siap).json()["ringkasan"] is None
+    assert "ringkasan" not in [n for n, _ in siap["matkul"].panggilan]
+
+
+def test_ringkasan_galat_matkul(client, siap):
+    ajukan(client, siap)
+    siap["matkul"].gagal = {"ringkasan"}
+    assert _ringkasan(client, siap).status_code == 502

@@ -2,8 +2,13 @@
 // Logika langkah proses AlurKerja yang dipindahkan dari StudentGateway (program/) ke matkul.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MAKS_SKS_SEMESTER, evaluateRows, terapkanBatasSks } from "../src/lib/proses/recommend.ts";
+import { MAKS_SKS_SEMESTER, evaluateRows, gabungKandidat, hanyaBatasSks, isiSampaiBatas, mataKuliahBaru, terapkanBatasSks } from "../src/lib/proses/recommend.ts";
 import { hitungKeyakinan, nimCocok } from "../src/lib/proses/keyakinan.ts";
+import { bacaTeksPdf } from "../src/lib/proses/pdf.ts";
+import { bangunRingkasanAkademik } from "../src/lib/proses/ringkasan.ts";
+import { bacaSekali } from "../src/lib/proses/bacaan.ts";
+import { bandingkanNilai } from "../src/lib/proses/pratinjau.ts";
+import { MAKS_KARAKTER, ringkasanDosen } from "../src/lib/proses/ringkasan-dosen.ts";
 import { periksaTokenLayanan } from "../src/lib/proses/layanan.ts";
 import { redactIdentity, toContract } from "../src/lib/proses/rencana.ts";
 
@@ -35,6 +40,41 @@ test("batas SKS mengikuti panduan prodi, bukan 24 yang tertanam", () => {
   assert.deepEqual(prodiKetat.baru, [mk(6), mk(6)]);
   // Catatan dosen tetap tidak boleh melampaui batas prodi.
   assert.equal(terapkanBatasSks([], [mk(30)], 28, 20).max, 20);
+});
+
+// ---------- revisi yang hanya membatasi SKS ----------
+test("catatan yang hanya membatasi SKS dikenali", () => {
+  for (const c of ["Maksimal 18 SKS.", "maks 18 sks saja ya", "Tolong ambil maksimum 21 SKS semester ini."]) {
+    assert.equal(hanyaBatasSks(c), true, c);
+  }
+  for (const c of ["Maksimal 18 SKS, hapus IF303.", "Maksimal 18 SKS dan dahulukan Statistika", "Ganti Jaringan Komputer"]) {
+    assert.equal(hanyaBatasSks(c), false, c);
+  }
+});
+
+test("rencana sebelumnya diisi sampai batas, bukan dipangkas berlebihan", () => {
+  const baru = (kode, sks) => ({ kode, sks, jenis: "baru" });
+  const sebelumnya = {
+    rekomendasi_semester_depan: [{ kode: "IF203", sks: 3, jenis: "ulang" },
+      ...["IF301", "IF302", "IF303", "IF304", "IF305", "IF306"].map((k) => baru(k, 3)), baru("IF307", 2)],
+  };
+  const usulanLlm = [baru("IF301", 3), baru("IF302", 3)];
+  const kandidat = gabungKandidat(mataKuliahBaru(sebelumnya), usulanLlm);
+  assert.equal(kandidat.length, 7);
+  const hasil = isiSampaiBatas([{ sks: 3 }], kandidat, 18);
+  assert.deepEqual(hasil.map((x) => x.kode), ["IF301", "IF302", "IF303", "IF304", "IF305"]);
+  // Sisa ruang diisi mata kuliah yang lebih kecil.
+  assert.deepEqual(isiSampaiBatas([{ sks: 3 }], kandidat, 17).map((x) => x.kode), ["IF301", "IF302", "IF303", "IF304", "IF307"]);
+});
+
+// ---------- baca teks PDF ----------
+test("baca PDF: coba ulang, lalu pakai pembaca cadangan", async () => {
+  let n = 0;
+  const sekaliGagal = async () => { if (++n === 1) throw new Error("bad XRef entry"); return " teks "; };
+  assert.equal(await bacaTeksPdf(Buffer.from("x"), sekaliGagal, async () => "cadangan"), "teks");
+  const rusak = async () => { throw new Error("bad XRef entry"); };
+  assert.equal(await bacaTeksPdf(Buffer.from("x"), rusak, async () => "cadangan"), "cadangan");
+  await assert.rejects(bacaTeksPdf(Buffer.from("x"), rusak, async () => { throw new Error("ENOENT"); }), /bad XRef/);
 });
 
 // ---------- keyakinan dan kecocokan NIM ----------
@@ -126,4 +166,82 @@ test("token layanan: tanpa konfigurasi 503, tanpa atau salah 401, benar lolos", 
 test("token pengguna (JWT) tidak diterima sebagai token layanan", () => {
   process.env.MATKUL_SERVICE_TOKEN = "token-layanan-uji-1234567890";
   assert.equal(periksaTokenLayanan(req("Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abc")).status, 401);
+});
+
+// ---------- ringkasan nilai untuk dasbor ----------
+test("ringkasan akademik mengelompokkan per semester tanpa identitas", () => {
+  const r = bangunRingkasanAkademik({
+    mahasiswa: { nama: "Rahasia", nim: "123" },
+    nilai: [
+      { kode: "IF201", nama: "Struktur Data", sks: 4, nilai: "B", semester: 2 },
+      { kode: "IF101", nama: "Algoritma", sks: 4, nilai: "A", semester: 1 },
+      { kode: "IF203", nama: "Aljabar", sks: 3, nilai: "E", semester: 2 },
+      { kode: "UM101", nama: "Bahasa", sks: 2, nilai: "D", semester: "" },
+    ],
+  });
+  assert.equal(r.sks_total, 13);
+  assert.equal(r.sks_lulus, 10);
+  assert.equal(r.jumlah_mk, 4);
+  assert.deepEqual(r.per_semester.map((s) => s.semester), [1, 2, 0]);
+  assert.equal(r.per_semester[0].ip, 4);
+  assert.deepEqual(r.perhatian.map((m) => [m.kode, m.status]), [["IF203", "tidak_lulus"], ["UM101", "bersyarat"]]);
+  assert.deepEqual(r.distribusi.map((d) => d.nilai), ["A", "B", "D", "E"]);
+  assert.doesNotMatch(JSON.stringify(r), /Rahasia|123/);
+});
+
+// ---------- KHS dibaca satu kali ----------
+const gudangMemori = () => {
+  const isi = new Map();
+  return { isi, ambil: async (s) => isi.get(s) ?? null, simpan: async (s, h) => (isi.has(s) ? isi.get(s) : (isi.set(s, h), h)) };
+};
+
+test("berkas yang sama dibaca sekali; berkas berbeda dibaca baru", async () => {
+  const gudang = gudangMemori();
+  let kali = 0;
+  const baca = async () => ({ nilai: [{ kode: `IF${++kali}` }] });
+  const a = await bacaSekali(Buffer.from("khs-a"), baca, gudang);
+  const lagi = await bacaSekali(Buffer.from("khs-a"), baca, gudang);
+  const b = await bacaSekali(Buffer.from("khs-b"), baca, gudang);
+  assert.deepEqual(lagi, a);
+  assert.notDeepEqual(b, a);
+  assert.equal(kali, 2);
+});
+
+test("hasil kosong tidak disimpan dan galat penyimpanan tidak menggagalkan pembacaan", async () => {
+  const gudang = gudangMemori();
+  await bacaSekali(Buffer.from("x"), async () => ({ nilai: [] }), gudang);
+  assert.equal(gudang.isi.size, 0);
+  const rusak = { ambil: async () => { throw new Error("db"); }, simpan: async () => { throw new Error("db"); } };
+  const h = await bacaSekali(Buffer.from("x"), async () => ({ nilai: [{ kode: "IF1" }] }), rusak);
+  assert.equal(h.nilai[0].kode, "IF1");
+});
+
+// ---------- nilai yang diubah mahasiswa di wizard ----------
+test("nilai tanpa perubahan tidak menghasilkan catatan", () => {
+  const asli = [{ kode: "IF101", nama: "Algoritma", sks: 4, nilai: "A" }, { kode: "X", nama: "Y", sks: null, nilai: "T" }];
+  assert.deepEqual(bandingkanNilai(asli, [{ kode: "X", nama: "Y", sks: 0, nilai: "" }, { kode: "if101", nama: "Algoritma", sks: 4, nilai: "a" }]), []);
+});
+
+test("nilai diubah, ditambah, dan dihapus dicatat", () => {
+  const c = bandingkanNilai(
+    [{ kode: "IF203", nama: "Aljabar", sks: 3, nilai: "E" }, { kode: "UM101", nama: "Bahasa", sks: 2, nilai: "B" }],
+    [{ kode: "IF203", nama: "Aljabar", sks: 3, nilai: "C" }, { kode: "IF999", nama: "Baru", sks: 3, nilai: "A" }],
+  );
+  assert.equal(c.length, 3);
+  assert.match(c[0], /IF203 diubah mahasiswa menjadi 3 SKS, nilai C \(di KHS: 3 SKS, nilai E\)/);
+  assert.match(c[1], /IF999 ditambahkan/);
+  assert.match(c[2], /UM101 dihapus/);
+});
+
+// ---------- rangkuman untuk form dosen ----------
+test("rangkuman dosen memuat angka dan mata kuliah, aman dari HTML, dan dibatasi panjangnya", () => {
+  const khs = { mahasiswa: { ipk: 3 }, nilai: [{ kode: "IF101", nama: "A", sks: 4, nilai: "A" }] };
+  const rencana = { rencana_mk: [{ kode: "IF301", nama: "<b>PBO</b>", sks: 3 }], total_sks: 3, alasan: "ok", peringatan: ["cek"] };
+  const h = ringkasanDosen(rencana, khs, { ke: 1, catatan: "Maksimal 18 SKS" });
+  assert.match(h, /IPK 3,00 · SKS lulus 4 · Rencana 3 SKS \(1 mata kuliah\)/);
+  assert.match(h, /Revisi ke-1/);
+  assert.match(h, /&lt;b&gt;PBO/);
+  const panjang = ringkasanDosen({ ...rencana, alasan: "x".repeat(9000) }, khs);
+  assert.ok(panjang.length <= MAKS_KARAKTER + 100);
+  assert.match(panjang, /dipotong/);
 });
