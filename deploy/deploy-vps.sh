@@ -41,12 +41,15 @@ ARSIP="$TMP/superapp-$REV.tar.gz"
 # Akhiran baris LF, apa pun pengaturan git di Windows.
 git -c core.autocrlf=false -c core.eol=lf archive --format=tar.gz -o "$ARSIP" HEAD
 echo "    commit $REV  $(du -h "$ARSIP" | cut -f1)"
+# Daftar disimpan dulu: "tar | grep -q" dengan pipefail gagal palsu karena grep menutup pipa lebih awal.
+DAFTAR="$TMP/daftar.txt"
+tar -tzf "$ARSIP" > "$DAFTAR"
 for wajib in docker-compose.prod.yml frontend/Dockerfile deploy/Caddyfile; do
-  tar -tzf "$ARSIP" | grep -qx "$wajib" || { echo "DIBATALKAN: $wajib belum ada di commit."; exit 1; }
+  grep -qx "$wajib" "$DAFTAR" || { echo "DIBATALKAN: $wajib belum ada di commit."; exit 1; }
 done
 
 echo "==> [2] Cek berkas sensitif di dalam arsip"
-if tar -tzf "$ARSIP" | grep -E '(^|/)(\.env(\.local|\.production)?|deploy\.env|id_(rsa|ed25519|ecdsa))$|\.(pem|key|p12)$|(^|/)node_modules/'; then
+if grep -E '(^|/)(\.env(\.local|\.production)?|deploy\.env|id_(rsa|ed25519|ecdsa))$|\.(pem|key|p12)$|(^|/)node_modules/' "$DAFTAR"; then
   echo "DIBATALKAN: berkas sensitif ada di arsip."; exit 1
 fi
 echo "    bersih"

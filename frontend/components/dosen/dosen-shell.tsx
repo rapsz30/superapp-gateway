@@ -54,7 +54,7 @@ export function DosenShell({ children }: { children: React.ReactNode }) {
   ]
   const halaman = [...PEMBIMBING, ...KAPRODI].find((item) => pathname.startsWith(item.key))
   const judul = halaman?.label ?? (pathname.startsWith('/dosen/pengajuan/') ? 'Detail pengajuan' : 'Ruang dosen')
-  const terlarang = (!pa && !kaprodi && pathname.startsWith('/dosen/judul')) || (!pa && PEMBIMBING.some((i) => pathname.startsWith(i.key))) || (!kaprodi && pathname.startsWith('/dosen/pembimbing-ta')) || (!kaprodi && !pengelola && KAPRODI.some((i) => pathname.startsWith(i.key)))
+  const terlarang = (!pa && !kaprodi && pathname.startsWith('/dosen/judul')) || (!pa && PEMBIMBING.some((i) => pathname.startsWith(i.key))) || (!kaprodi && pathname.startsWith('/dosen/pembimbing-ta')) || (!kaprodi && !pengelola && KAPRODI.some((i) => i.key !== '/dosen/judul' && pathname.startsWith(i.key)))
 
   function keluar() {
     authService.logout()

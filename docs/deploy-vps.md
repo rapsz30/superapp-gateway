@@ -36,6 +36,8 @@ Skrip hanya mengirim **commit terakhir**, jadi commit dulu. Dijalankan dari Git 
 
 ## 3. Isi `.env` di server
 
+Cara cepat (khusus server `alurkerja.ahlanapp.cloud`; alamat dan id tenant tertulis di dalam skrip): salin `deploy/isi-env.py` ke `~/superapp/`, lalu jalankan `python3 ~/superapp/isi-env.py`. Rahasia internal dibuat acak; kunci OpenAI, Groq, dan akun layanan Camunda diketik sendiri. Tabel di bawah untuk pengisian manual.
+
 Berkasnya ada di `~/superapp/env/` (sesuai `REMOTE_DIR`). Buat secret **baru** dengan `openssl rand -hex 32`; jangan menyalin dari laptop.
 
 | Berkas | Yang harus diisi |

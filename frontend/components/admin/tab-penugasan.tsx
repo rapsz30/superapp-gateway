@@ -185,7 +185,8 @@ function FormPenugasan({ pohon, prodiId, onSelesai }: { pohon: ReturnType<typeof
     <form className="adm-form adm-boxed" onSubmit={kirim}>
       <h3>Penugasan baru</h3>
       {galat && <Notice tone="error">{galat}</Notice>}
-      <OrangPicker label="Dosen PA" peran="dosen_pa" value={orang} onChange={setOrang} />
+      {/* Superadmin boleh memilih siapa saja; menyaring "dosen_pa" membuat orang baru tidak pernah bisa ditugaskan. */}
+      <OrangPicker label={prodiId ? 'Dosen PA' : 'Orang'} peran={isSuper ? undefined : 'dosen_pa'} value={orang} onChange={setOrang} />
       {!prodiId && <Field label="Peran" hint={KETERANGAN[peran]}>
         <select value={peran} onChange={(e) => { const p = e.target.value as Peran; setPeran(p); setTipe(UNIT_SAH[p][0]); setUnitId('') }}>
           {peranBoleh.map((p) => <option key={p}>{p}</option>)}
