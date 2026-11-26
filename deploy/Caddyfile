@@ -1,0 +1,12 @@
+# HTTPS otomatis (Let's Encrypt) untuk DOMAIN. DNS domain harus sudah menunjuk ke server, port 80 dan 443 terbuka.
+{$DOMAIN} {
+	encode gzip
+	request_body {
+		max_size 22MB
+	}
+	reverse_proxy frontend:3000 {
+		transport http {
+			response_header_timeout 130s
+		}
+	}
+}

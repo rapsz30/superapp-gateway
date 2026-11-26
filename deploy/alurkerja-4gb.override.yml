@@ -1,0 +1,56 @@
+# Tambahan untuk memasang AlurKerja di VPS 4 GB (di BAWAH syarat resmi 8 GB; belum pernah diuji).
+# Salin ke folder instalasi AlurKerja di server, lalu selalu sertakan saat menjalankan compose:
+#   docker compose -f docker-compose.yml -f alurkerja-4gb.override.yml up -d
+# (tambahkan -f docker-compose.override.yml di tengah bila installer membuat berkas itu).
+#
+# Tiga hal: (1) semua port hanya 127.0.0.1, (2) memori Java dibatasi, (3) layanan pelengkap tidak dijalankan.
+# Bila Camunda atau Keycloak mati karena kehabisan memori, naikkan -Xmx dan mem_limit-nya.
+
+services:
+  nginx:
+    ports: !override
+      - "127.0.0.1:${AK_PORT_NGINX:-8100}:${NGINX_PUBLIC_TARGET:-80}"
+  postgres:
+    ports: !override
+      - "127.0.0.1:${AK_PORT_POSTGRES:-8101}:5432"
+    mem_limit: 256m
+  minio:
+    ports: !override
+      - "127.0.0.1:${AK_PORT_MINIO_API:-8102}:9000"
+      - "127.0.0.1:${AK_PORT_MINIO_CONSOLE:-8103}:9001"
+    mem_limit: 256m
+  mailpit:
+    ports: !override
+      - "127.0.0.1:${AK_PORT_MAILPIT_SMTP:-8104}:1025"
+      - "127.0.0.1:${AK_PORT_MAILPIT_UI:-8105}:8025"
+    mem_limit: 64m
+
+  camunda:
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:MaxMetaspaceSize=192m"
+    mem_limit: 800m
+  keycloak:
+    environment:
+      JAVA_OPTS_KC_HEAP: "-Xms128m -Xmx384m"
+    mem_limit: 750m
+
+  # Pembuatan pengguna memakai Keycloak Admin API. Bawaan instalasi memakai klien publik "onprem" sehingga gagal
+  # "Keycloak is unavailable"; klien "integration" sudah punya hak realm-management manage-users.
+  tenant:
+    environment:
+      KEYCLOAK_ADMIN_CLIENT: ${INTEGRATION_AUTH_CLIENT_ID}
+      KEYCLOAK_ADMIN_SECRET: ${INTEGRATION_AUTH_CLIENT_SECRET}
+
+  # Tidak dipakai superapp. Nyalakan bila perlu dengan --profile ekstra.
+  dozzle:
+    profiles: [ekstra]
+  dozzle-init:
+    profiles: [ekstra]
+  asynqmon:
+    profiles: [ekstra]
+  simulation-be:
+    profiles: [ekstra]
+  generate-test:
+    profiles: [ekstra]
+  compro-be:
+    profiles: [ekstra]

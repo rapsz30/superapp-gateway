@@ -33,3 +33,5 @@ Thumbs.db
 *.log
 struktur_proyek*.txt
 
+# konfigurasi deploy (alamat server)
+deploy/deploy.env

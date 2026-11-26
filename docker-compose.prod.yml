@@ -1,0 +1,68 @@
+# Tambahan untuk server. Dipakai bersama berkas dasar, TANPA docker-compose.override.yml (port debug):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Tambahkan "--profile https" bila belum ada reverse proxy di server (Caddy mengurus sertifikat sendiri).
+
+x-log: &log
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+
+services:
+  frontend:
+    <<: *log
+    restart: unless-stopped
+    build:
+      context: ./frontend
+      args:
+        API_BASE_URL: http://nginx
+    # Hanya untuk reverse proxy yang sudah ada di server. Dari internet tidak terjangkau.
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3200}:3000"
+    depends_on:
+      nginx:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  caddy:
+    <<: *log
+    profiles: [https]
+    restart: unless-stopped
+    image: caddy:2.8-alpine
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      frontend:
+        condition: service_healthy
+
+  # Batas ukuran log untuk layanan dari berkas dasar.
+  microcred-api: *log
+  microcred-worker: *log
+  db: *log
+  redis: *log
+  identity-db: *log
+  identity-api: *log
+  judul-api: *log
+  pocketbase: *log
+  matkul-db: *log
+  matkul: *log
+  alurkerja-connector: *log
+  auth-verifier: *log
+  nginx: *log
+
+volumes:
+  caddy_data:
+  caddy_config:

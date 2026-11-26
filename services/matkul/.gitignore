@@ -45,3 +45,5 @@ next-env.d.ts
 # PocketBase (WAJIB)
 pb_data
 pocketbase.exe
+
+!.env.example

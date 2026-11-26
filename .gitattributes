@@ -1,1 +1,4 @@
 * text=auto
+
+# skrip dijalankan di Linux
+*.sh text eol=lf
