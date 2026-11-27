@@ -1,9 +1,24 @@
 'use client'
 
-import { Fragment, useState, type ReactNode } from 'react'
+import { Fragment, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { BarChart3, CheckCircle2, Clock3, Home, Info, Mail, Star, Users } from 'lucide-react'
+import { AssessmentScoreSummary } from '@/components/microcred/assessment-score-summary'
+import { CourseFeedback } from '@/components/microcred/course-feedback'
 import { errorMessage } from '@/src/lib/api'
 import { microcredService, type AssessmentResult, type RecommendedCourse } from '@/src/services/microcred-service'
+
+function num(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function pickString(meta: Record<string, unknown> | null | undefined, keys: string[]): string | null {
+  if (!meta) return null
+  for (const key of keys) {
+    const val = meta[key]
+    if (typeof val === 'string' && val.trim()) return val.trim()
+  }
+  return null
+}
 
 function renderInlineMarkdown(text: string): ReactNode[] {
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g)
@@ -27,13 +42,8 @@ function FormattedSummary({ content }: { content: string }) {
   let i = 0
 
   while (i < lines.length) {
-    const raw = lines[i]
-    const trimmed = raw.trim()
-
-    if (!trimmed) {
-      i += 1
-      continue
-    }
+    const trimmed = lines[i].trim()
+    if (!trimmed) { i += 1; continue }
 
     if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
       blocks.push(<hr key={`hr-${i}`} />)
@@ -45,11 +55,11 @@ function FormattedSummary({ content }: { content: string }) {
     if (headingMatch) {
       const level = headingMatch[1].length
       const headingText = renderInlineMarkdown(headingMatch[2])
-      if (level <= 2) {
-        blocks.push(<h4 key={`h-${i}`} className="summary-heading-lg">{headingText}</h4>)
-      } else {
-        blocks.push(<h5 key={`h-${i}`} className="summary-heading-sm">{headingText}</h5>)
-      }
+      blocks.push(
+        level <= 2
+          ? <h4 key={`h-${i}`} className="summary-heading-lg">{headingText}</h4>
+          : <h5 key={`h-${i}`} className="summary-heading-sm">{headingText}</h5>,
+      )
       i += 1
       continue
     }
@@ -94,30 +104,10 @@ function FormattedSummary({ content }: { content: string }) {
       paragraphLines.push(lines[i].trim())
       i += 1
     }
-    blocks.push(
-      <p key={`p-${i}`}>{renderInlineMarkdown(paragraphLines.join(' '))}</p>,
-    )
+    blocks.push(<p key={`p-${i}`}>{renderInlineMarkdown(paragraphLines.join(' '))}</p>)
   }
 
   return <div className="assessment-summary-rich">{blocks}</div>
-}
-
-function num(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
-}
-
-function formatScore(value: number | null): string {
-  if (value === null) return '-'
-  return value.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-}
-
-function pickString(meta: Record<string, unknown> | null | undefined, keys: string[]): string | null {
-  if (!meta) return null
-  for (const key of keys) {
-    const val = meta[key]
-    if (typeof val === 'string' && val.trim()) return val.trim()
-  }
-  return null
 }
 
 function CourseCard({ course }: { course: RecommendedCourse }) {
@@ -139,10 +129,10 @@ function CourseCard({ course }: { course: RecommendedCourse }) {
       <h4>{course.course_title}</h4>
       {focus && (
         <div className="assessment-course-tags">
-          <span>Fokus: {focus}</span>
+          <span>Sesuai minat: {focus}</span>
         </div>
       )}
-      {course.match_reason && <p style={{ fontSize: '0.9rem', margin: '0.35rem 0' }}>{course.match_reason}</p>}
+      {course.match_reason && <p style={{ fontSize: '12px', color: '#43567d', lineHeight: 1.55, margin: '0 0 12px' }}>{course.match_reason}</p>}
       {(level || duration || students || rating !== null) && (
         <dl className="assessment-course-meta">
           {level && <div><dt className="sr-only">Level</dt><dd><BarChart3 aria-hidden="true" /> {level}</dd></div>}
@@ -167,24 +157,28 @@ export function AssessmentResults({
   studentName: string
   onReturnToHome: () => void
 }) {
+  const [activeCourseTab, setActiveCourseTab] = useState<'foundation' | 'target'>('foundation')
   const [emailStatus, setEmailStatus] = useState<string | null>(null)
   const [sendingEmail, setSendingEmail] = useState(false)
 
   const breakdown = result.score_breakdown ?? {}
-  const theoScore = num(breakdown.theoretical?.score ?? breakdown.theoretical?.total)
-  const essayScore = num(breakdown.essay?.score ?? breakdown.essay?.total)
-  const profileScore = num(breakdown.profile?.score ?? breakdown.profile?.total)
-  const overallScore = num(result.overall_score ?? breakdown.overall?.score ?? breakdown.overall?.total)
-
-  const scores = [
-    { name: 'Teori', value: `${formatScore(theoScore)} poin`, color: 'theory' },
-    { name: 'Esai', value: `${formatScore(essayScore)} poin`, color: 'essay' },
-    { name: 'Profil', value: `${formatScore(profileScore)} poin`, color: 'profile' },
-  ]
+  const theoScore = num(breakdown.theoretical?.score ?? breakdown.theoretical?.total) ?? 0
+  const essayScore = num(breakdown.essay?.score ?? breakdown.essay?.total) ?? 0
+  const profileScore = num(breakdown.profile?.score ?? breakdown.profile?.total) ?? 0
+  const overallScore = num(result.overall_score ?? breakdown.overall?.score ?? breakdown.overall?.total) ?? (theoScore + essayScore + profileScore)
+  const maxScore = num(breakdown.overall?.max) ?? 1000
 
   const recommendations = result.recommendations ?? []
   const foundation = recommendations.slice(0, 5)
   const target = recommendations.slice(5)
+
+  const handleCourseTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+    event.preventDefault()
+    const next = activeCourseTab === 'foundation' ? 'target' : 'foundation'
+    setActiveCourseTab(next)
+    document.getElementById(`course-tab-${next}`)?.focus()
+  }
 
   async function handleSendEmail() {
     if (sendingEmail) return
@@ -208,7 +202,9 @@ export function AssessmentResults({
         <p className="assessment-result-greeting">Halo, <strong>{studentName}</strong></p>
         <p className="assessment-result-intro">Berikut ringkasan skor, analisis AI, dan rekomendasi kursus yang sesuai untuk Anda.</p>
         {result.degraded && (
-          <p className="account-settings-result-note">Sebagian analisis berjalan dalam mode cadangan karena layanan penilaian AI sedang terbatas.</p>
+          <p className="account-settings-result-note" style={{ marginTop: '12px' }}>
+            Sebagian analisis berjalan dalam mode cadangan karena layanan penilaian AI sedang terbatas.
+          </p>
         )}
         <div className="assessment-result-actions">
           <button type="button" className="outline-button" onClick={onReturnToHome}><Home /> Kembali ke beranda</button>
@@ -216,23 +212,18 @@ export function AssessmentResults({
             <Mail /> {sendingEmail ? 'Mengirim...' : 'Kirim ke email'}
           </button>
         </div>
-        {emailStatus && <p className="account-settings-feedback" role="status" style={{ marginTop: '0.75rem' }}>{emailStatus}</p>}
+        {emailStatus && <p className="account-settings-feedback" role="status" style={{ marginTop: '12px' }}>{emailStatus}</p>}
       </section>
 
       <section className="assessment-result-section" aria-labelledby="score-summary-title">
         <h2 id="score-summary-title">Ringkasan skor</h2>
-        <div className="assessment-score-grid">
-          <article className="assessment-score-total">
-            <span>Skor keseluruhan</span>
-            <div><strong>{formatScore(overallScore)}</strong><span>poin</span></div>
-          </article>
-          <article className="assessment-score-breakdown" aria-label="Komposisi skor">
-            <h3>Komposisi skor</h3>
-            <div className="assessment-score-bar" aria-hidden="true"><span className="theory"></span><span className="essay"></span><span className="profile"></span></div>
-            <ul>{scores.map((score) => <li key={score.name}><span><i className={score.color} />{score.name}</span><strong>{score.value}</strong></li>)}</ul>
-            <div className="assessment-score-total-row"><span>Total</span><strong>{formatScore(overallScore)} poin</strong></div>
-          </article>
-        </div>
+        <AssessmentScoreSummary
+          theoryScore={theoScore}
+          essayScore={essayScore}
+          profileScore={profileScore}
+          overallScore={overallScore}
+          maxScore={maxScore}
+        />
       </section>
 
       {result.summary && (
@@ -240,7 +231,10 @@ export function AssessmentResults({
           <h2 id="analysis-title">Analisis AI</h2>
           <div className="assessment-analysis-grid">
             <article className="assessment-analysis-card" style={{ gridColumn: '1 / -1' }}>
-              <div className="assessment-analysis-title"><h3>Ringkasan Kompetensi</h3><strong>{formatScore(overallScore)} poin</strong></div>
+              <div className="assessment-analysis-title">
+                <h3>Ringkasan Kompetensi</h3>
+                <strong>{overallScore.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} poin</strong>
+              </div>
               <FormattedSummary content={result.summary} />
             </article>
           </div>
@@ -252,34 +246,69 @@ export function AssessmentResults({
         <div className="assessment-recommendation-note">
           <Info />
           <div>
-            <p>Rekomendasi diurutkan berdasarkan kesesuaian dengan hasil asesmen Anda pada track {trackName}.</p>
+            <p>Jalur target bersifat aspirasional. Selesaikan Fondasi Wajib terlebih dahulu untuk mengurangi risiko kesulitan belajar sebelum melanjutkan ke jalur target pada track {trackName}.</p>
           </div>
         </div>
         {recommendations.length === 0 ? (
-          <div className="activity-result-empty">Belum ada rekomendasi kursus yang dihasilkan.</div>
+          <div className="activity-result-empty" style={{ marginTop: '16px' }}>Belum ada rekomendasi kursus yang dihasilkan.</div>
         ) : (
           <>
-            <div className="assessment-course-heading">
-              <div><h3>Rekomendasi Utama</h3><p>Kursus yang paling sesuai dengan profil kompetensi Anda saat ini.</p></div>
-              <span>Tahap 1</span>
+            <div className="assessment-course-tabs" role="tablist" aria-label="Kategori rekomendasi kursus">
+              <button
+                type="button"
+                role="tab"
+                id="course-tab-foundation"
+                aria-controls="course-panel-foundation"
+                aria-selected={activeCourseTab === 'foundation'}
+                tabIndex={activeCourseTab === 'foundation' ? 0 : -1}
+                className={activeCourseTab === 'foundation' ? 'active' : ''}
+                onClick={() => setActiveCourseTab('foundation')}
+                onKeyDown={handleCourseTabKeyDown}
+              >
+                Tahap 1: Fondasi Wajib ({foundation.length})
+              </button>
+              <button
+                type="button"
+                role="tab"
+                id="course-tab-target"
+                aria-controls="course-panel-target"
+                aria-selected={activeCourseTab === 'target'}
+                tabIndex={activeCourseTab === 'target' ? 0 : -1}
+                className={activeCourseTab === 'target' ? 'active' : ''}
+                onClick={() => setActiveCourseTab('target')}
+                onKeyDown={handleCourseTabKeyDown}
+              >
+                Tahap 2: Jalur Target ({target.length})
+              </button>
             </div>
-            <div className="assessment-course-grid">
-              {foundation.map((course) => <CourseCard course={course} key={`${course.rank}-${course.course_id}`} />)}
-            </div>
-            {target.length > 0 && (
-              <>
-                <div className="assessment-course-heading target">
-                  <div><h3>Rekomendasi Lanjutan</h3><p>Kursus lanjutan untuk memperdalam penguasaan materi.</p></div>
-                  <span>Tahap 2</span>
+            {activeCourseTab === 'foundation' ? (
+              <div role="tabpanel" id="course-panel-foundation" aria-labelledby="course-tab-foundation">
+                <div className="assessment-course-heading">
+                  <div><h3>Fondasi Wajib</h3><p>Selesaikan jalur ini terlebih dahulu untuk meningkatkan peluang berhasil pada topik target.</p></div>
                 </div>
-                <div className="assessment-course-grid target">
-                  {target.map((course) => <CourseCard course={course} key={`${course.rank}-${course.course_id}`} />)}
+                <div className="assessment-course-grid">
+                  {foundation.map((course) => <CourseCard course={course} key={`${course.rank}-${course.course_id}`} />)}
                 </div>
-              </>
+              </div>
+            ) : (
+              <div role="tabpanel" id="course-panel-target" aria-labelledby="course-tab-target">
+                <div className="assessment-course-heading">
+                  <div><h3>Jalur Target (Aspirasional)</h3><p>Jalur minat Anda, direkomendasikan setelah fondasi selesai.</p></div>
+                </div>
+                {target.length === 0 ? (
+                  <div className="activity-result-empty">Tidak ada kursus tambahan pada tahap lanjutan.</div>
+                ) : (
+                  <div className="assessment-course-grid target">
+                    {target.map((course) => <CourseCard course={course} key={`${course.rank}-${course.course_id}`} />)}
+                  </div>
+                )}
+              </div>
             )}
           </>
         )}
       </section>
+
+      <CourseFeedback assessmentId={result.assessment_id} courses={recommendations} />
     </div>
   )
 }
