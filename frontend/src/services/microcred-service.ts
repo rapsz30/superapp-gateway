@@ -111,4 +111,19 @@ export const microcredService = {
   emailSummary(assessmentId: string): Promise<{ to_email: string; sent_at: string }> {
     return apiFetch(`${base}/assessments/${assessmentId}/email-summary`, { method: 'POST' })
   },
+
+  submitFeedback(
+    assessmentId: string,
+    payload: {
+      rating_relevance: number
+      rating_acceptance: number
+      item_ratings?: { rank: number; course_id: string; relevance_score_0_2: number }[]
+      comment?: string
+    },
+  ): Promise<{ id: string }> {
+    return apiFetch(`${base}/assessments/${assessmentId}/feedback`, {
+      method: 'POST',
+      json: payload,
+    })
+  },
 }
