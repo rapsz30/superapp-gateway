@@ -129,6 +129,13 @@ export function useOrang(ids: (string | null | undefined)[]) {
     return o ? o.nama_lengkap : `${id.slice(0, 8)}…`
   }
 }
+
+/** Objek orang dari cache yang sama dengan useOrang (untuk kolom tambahan). */
+export function useOrangData(ids: (string | null | undefined)[]) {
+  useOrang(ids)
+  return (id: string | null | undefined): Orang | null => (id ? cacheOrang.get(id) ?? null : null)
+}
+
 export function lupakanOrang(id: string) {
   cacheOrang.delete(id)
 }

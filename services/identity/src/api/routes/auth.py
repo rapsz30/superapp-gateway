@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Request, Response
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 
 from src.api.deps import (
     DB,
@@ -12,14 +14,27 @@ from src.api.deps import (
     SayaBebas,
     alamat_klien,
     catat_gagal,
+    catat_registrasi,
     reset_gagal,
     terlalu_banyak_gagal,
+    terlalu_banyak_registrasi,
 )
 from src.api.errors import galat
-from src.api.schemas import GantiSandiIn, LoginIn, LogoutIn, RefreshIn, TokenOut
+from src.api.schemas import (
+    GantiSandiIn,
+    LoginIn,
+    LogoutIn,
+    RefreshIn,
+    RegisterIn,
+    RegistrasiStatusOut,
+    TokenOut,
+)
+from src.core.config import get_settings
 from src.core.security import cek_sandi, hash_refresh, hash_sandi, validasi_kebijakan_sandi
 from src.domain import audit
 from src.domain.cakupan import penugasan_aktif
+from src.domain.mahasiswa_baru import buat_mahasiswa
+from src.domain.prodi_terbuka import adalah_prodi_terbuka, dosen_terbuka, prodi_terbuka
 from src.domain.token_service import cabut_semua_refresh, terbitkan_token
 from src.models import (
     Akun,
@@ -36,6 +51,67 @@ from src.models import (
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 GALAT_LOGIN = "Email atau sandi salah"
+_LOKAL_CADANGAN = frozenset({"admin", "superadmin"})
+_LOKAL_MAHASISWA = re.compile(r"^mahasiswa\d+$")
+
+
+def _email_cadangan(email: str) -> bool:
+    lokal = email.split("@", 1)[0].lower()
+    return lokal in _LOKAL_CADANGAN or bool(_LOKAL_MAHASISWA.fullmatch(lokal))
+
+
+def _registrasi_aktif(db) -> bool:
+    s = get_settings()
+    return bool(s.registrasi_aktif and prodi_terbuka(db) is not None)
+
+
+@router.get("/registrasi", response_model=RegistrasiStatusOut)
+def status_registrasi(db: DB) -> RegistrasiStatusOut:
+    return RegistrasiStatusOut(aktif=_registrasi_aktif(db))
+
+
+@router.post("/register", response_model=TokenOut, status_code=201)
+def register(body: RegisterIn, db: DB, hari: Hari) -> dict:
+    if not get_settings().registrasi_aktif or prodi_terbuka(db) is None:
+        raise galat(404, "Registrasi tidak tersedia.")
+    if terlalu_banyak_registrasi():
+        raise galat(429, "Batas pendaftaran tercapai. Coba lagi nanti.")
+
+    prodi = prodi_terbuka(db)
+    assert prodi is not None
+    dosen = dosen_terbuka(db, prodi, hari)
+    if dosen is None:
+        raise galat(503, "Prodi terbuka belum siap: dosen PA/kaprodi belum ditetapkan.")
+
+    email = body.email.strip().lower()
+    if _email_cadangan(email):
+        raise galat(409, "Email tidak dapat dipakai.")
+    pesan = validasi_kebijakan_sandi(body.sandi, email)
+    if pesan:
+        raise galat(400, pesan)
+    if db.scalar(select(Akun.id).where(func.lower(Akun.email) == email)):
+        raise galat(409, "Email sudah terdaftar.")
+
+    try:
+        orang, akun = buat_mahasiswa(
+            db,
+            nama_lengkap=body.nama_lengkap,
+            email=email,
+            sandi_hash=hash_sandi(body.sandi),
+            prodi=prodi,
+            dosen_id=dosen.id,
+            hari=hari,
+            prodi_isian=body.program_studi,
+            pt_isian=body.perguruan_tinggi,
+            pelaku_id=None,
+        )
+        token = terbitkan_token(db, akun, hari)
+        catat_registrasi()
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise galat(409, "Email sudah terdaftar.") from None
+    return token
 
 
 @router.post("/login", response_model=TokenOut)
@@ -139,11 +215,16 @@ def saya_profil(saya: SayaBebas, db: DB, hari: Hari) -> dict:
         "nim": orang.nim,
         "nidn": orang.nidn,
         "email": saya.akun.email,
+        "prodi_isian": orang.prodi_isian,
+        "pt_isian": orang.pt_isian,
         "wajib_ganti_sandi": saya.akun.wajib_ganti_sandi,
         "peran": cak.peran,
         "unit": unit,
         "pembimbing_akademik": None,
         "kaprodi": None,
+        "panduan_pribadi": bool(
+            cak.prodi_mahasiswa is not None and adalah_prodi_terbuka(db, cak.prodi_mahasiswa)
+        ),
     }
     hasil["akademik"] = None
     if cak.prodi_mahasiswa is not None:
@@ -157,7 +238,13 @@ def saya_profil(saya: SayaBebas, db: DB, hari: Hari) -> dict:
                 )
             )
             hasil["akademik"] = {
-                "prodi": {"id": str(prodi.id), "kode": prodi.kode, "nama": prodi.nama, "jenjang": prodi.jenjang},
+                "prodi": {
+                    "id": str(prodi.id),
+                    "kode": prodi.kode,
+                    "nama": prodi.nama,
+                    "jenjang": prodi.jenjang,
+                    "terbuka": adalah_prodi_terbuka(db, prodi.id),
+                },
                 "jurusan": {"kode": jurusan.kode, "nama": jurusan.nama} if jurusan else None,
                 "fakultas": {"kode": fakultas.kode, "nama": fakultas.nama} if fakultas else None,
                 "angkatan": anggota.angkatan if anggota else None,

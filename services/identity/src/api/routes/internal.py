@@ -15,7 +15,9 @@ from sqlalchemy import select
 from src.api.deps import DB
 from src.api.errors import tidak_ditemukan
 from src.core.config import get_settings
-from src.models import Akun, Orang, PanduanAkademik, Pengajuan, Prodi
+from src.domain.panduan_berlaku import panduan_berlaku
+from src.domain.prodi_terbuka import adalah_prodi_terbuka
+from src.models import Akun, Orang, Pengajuan, Prodi
 
 router = APIRouter(prefix="/internal", tags=["internal"], include_in_schema=False)
 
@@ -52,9 +54,7 @@ def konteks_pengajuan(pengajuan_id: uuid.UUID, db: DB, x_internal_token: str = H
         raise tidak_ditemukan("Pengajuan")
     prodi = db.get(Prodi, p.prodi_id)
     mhs = db.get(Orang, p.mahasiswa_id)
-    panduan = db.scalar(
-        select(PanduanAkademik).where(PanduanAkademik.prodi_id == p.prodi_id, PanduanAkademik.status == "aktif")
-    )
+    panduan = panduan_berlaku(db, p.prodi_id, p.mahasiswa_id)
     if prodi is None or panduan is None or not panduan.teks:
         raise tidak_ditemukan("Panduan aktif")
     if p.status == "diajukan" and (p.panduan_id != panduan.id):
@@ -62,6 +62,17 @@ def konteks_pengajuan(pengajuan_id: uuid.UUID, db: DB, x_internal_token: str = H
         db.commit()
     return {
         "mahasiswa": {"nim": mhs.nim if mhs else None},
-        "prodi": {"id": str(prodi.id), "kode": prodi.kode, "nama": prodi.nama, "maks_sks_semester": prodi.maks_sks_semester},
-        "panduan": {"id": str(panduan.id), "versi": panduan.versi, "teks": panduan.teks},
+        "prodi": {
+            "id": str(prodi.id),
+            "kode": prodi.kode,
+            "nama": prodi.nama,
+            "maks_sks_semester": prodi.maks_sks_semester,
+            "terbuka": adalah_prodi_terbuka(db, prodi.id),
+        },
+        "panduan": {
+            "id": str(panduan.id),
+            "versi": panduan.versi,
+            "teks": panduan.teks,
+            "pribadi": panduan.pemilik_id is not None,
+        },
     }

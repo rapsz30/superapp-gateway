@@ -114,7 +114,7 @@ masalah=0
 for pasangan in "services/identity/.env JWT_SECRET" "services/identity/.env INTERNAL_TOKEN" \
   "services/identity/.env POSTGRES_PASSWORD" "services/matkul/.env.local POSTGRES_PASSWORD" \
   "services/matkul/.env.local MATKUL_SERVICE_TOKEN" "services/microcred/.env JWT_SECRET" \
-  "services/microcred/.env POSTGRES_PASSWORD" "services/judul/.env GROQ_API_KEY"; do
+  "services/microcred/.env POSTGRES_PASSWORD" "services/judul/.env OPENAI_API_KEY"; do
   read -r f k <<<"$pasangan"
   v="$(nilai "$f" "$k" || true)"
   if [[ -z "$v" || "$v" == *ganti* || "$v" == *replace* || "$v" == *change* ]]; then

@@ -47,7 +47,8 @@ jobs:
           EOF
 
           cat << 'EOF' > services/judul/.env
-          GROQ_API_KEY=gsk_ci_dummy_key_not_for_production
+          OPENAI_API_KEY=sk-ci-dummy-key-not-for-production
+          OPENAI_MODEL=gpt-6-luna
           EOF
 
           cat << 'EOF' > services/matkul/.env.local
@@ -347,7 +348,8 @@ jobs:
           sed -i "s|^AUTO_PROCESS_JOBS=.*|AUTO_PROCESS_JOBS=true|" services/microcred/.env
 
           cat << 'EOF' > services/judul/.env
-          GROQ_API_KEY=gsk_ci_dummy_key_not_for_production
+          OPENAI_API_KEY=sk-ci-dummy-key-not-for-production
+          OPENAI_MODEL=gpt-6-luna
           EOF
 
           cat << 'EOF' > services/matkul/.env.local

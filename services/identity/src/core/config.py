@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     alurkerja_sinkron_detik: int = 60
     # Biaya bcrypt. Jangan diturunkan di produksi; nilai kecil hanya untuk uji otomatis.
     bcrypt_rounds: int = 12
+    # Registrasi publik ke prodi dummy. PRODI_TERBUKA kosong mematikan registrasi, batch dummy, dan panduan pribadi.
+    registrasi_aktif: bool = False
+    prodi_terbuka: str = ""
+    registrasi_maks_per_jam: int = 100
+    dummy_maks_sekali: int = 300
 
     @field_validator("jwt_secret")
     @classmethod

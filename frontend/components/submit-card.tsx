@@ -49,7 +49,7 @@ export function SubmitCard({ result, file = null, submission: latest, onChange, 
         <b>{submission.dpa?.nama_lengkap ?? 'Belum ditentukan'}</b>
         {submission.jumlah_revisi > 0 && <small>Direvisi {submission.jumlah_revisi} kali</small>}
       </div>
-      {(submission.catatan_dpa || (submission.panduan.versi_aktif_sekarang && submission.panduan.versi_aktif_sekarang > submission.panduan.versi)) && <div className="submit-note"><span>{submission.catatan_dpa ? 'Catatan pembimbing' : 'Informasi panduan'}</span><p>{submission.catatan_dpa || 'Panduan prodi sudah diperbarui sejak pengajuan ini dibuat.'}</p></div>}
+      {(submission.catatan_dpa || (submission.panduan.versi_aktif_sekarang && submission.panduan.versi_aktif_sekarang > submission.panduan.versi)) && <div className="submit-note"><span>{submission.catatan_dpa ? 'Catatan pembimbing' : 'Informasi panduan'}</span><p>{submission.catatan_dpa || 'Panduan akademik sudah diperbarui sejak pengajuan ini dibuat. Pertimbangkan mengajukan ulang bila perlu.'}</p></div>}
       <ol className="submit-steps" aria-label="Progres pengajuan">{submission.langkah.map((step) => <li key={step.kunci} data-state={step.keadaan}><span className="submit-step-marker" aria-hidden="true">{step.keadaan === 'selesai' ? '✓' : step.keadaan === 'aktif' ? '•' : step.keadaan === 'galat' ? '!' : '○'}</span><div><b>{step.label}</b>{step.keterangan && <small>{step.keterangan}</small>}</div></li>)}</ol>
       {submission.pesan_galat && <p className="form-error" role="alert">Proses terhenti: {submission.pesan_galat}. Anda dapat membatalkan lalu mencoba lagi.</p>}
       {running && submission.tahap === 'periksa' && bacaan && <div className="info-callout"><span>

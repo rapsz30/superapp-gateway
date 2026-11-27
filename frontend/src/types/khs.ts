@@ -72,22 +72,25 @@ export interface SemesterRecommendation {
   jenis: 'ulang' | 'baru'
 }
 
-/** Panduan akademik aktif milik prodi mahasiswa (GET /api/identity/akademik/konteks). */
+/** Panduan akademik aktif (GET /api/identity/akademik/konteks). */
 export interface GuideInfo {
-  panduanId: string
-  version: number
-  title: string
+  panduanId: string | null
+  version: number | null
+  title: string | null
   effectiveFrom: string | null
   program: string
   faculty: string | null
   advisorName: string | null
+  panduanPribadi: boolean
+  prodiTerbuka: boolean
 }
 
-/** Dasar rekomendasi: versi panduan prodi yang dipakai server saat menyusun hasil. */
+/** Dasar rekomendasi: versi panduan yang dipakai server saat menyusun hasil. */
 export interface RecommendationGuideRef {
   id: string
   versi: number
   judul: string
+  pribadi?: boolean
   prodi: { id: string; kode: string; nama: string }
 }
 

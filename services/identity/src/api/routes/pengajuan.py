@@ -28,10 +28,11 @@ from src.api.schemas import KeputusanIn
 from src.core.config import get_settings
 from src.db import get_sessionmaker
 from src.domain import audit
+from src.domain.panduan_berlaku import pesan_tanpa_panduan, panduan_berlaku
 from src.integrations import alurkerja, matkul
 from src.integrations.alurkerja import AlurKerjaGalat, Snapshot, json_atau_nilai
 from src.integrations.matkul import MatkulGalat
-from src.models import Akun, Bimbingan, Orang, PanduanAkademik, Pengajuan, Prodi
+from src.models import Akun, Bimbingan, Orang, Pengajuan, Prodi
 
 router = APIRouter(tags=["pengajuan"])
 log = logging.getLogger("identity.pengajuan")
@@ -100,9 +101,8 @@ def _keluaran(db: Session, p: Pengajuan, *, rinci: bool) -> dict:
     mhs = db.get(Orang, p.mahasiswa_id)
     dpa = db.get(Orang, p.dpa_id)
     prodi = db.get(Prodi, p.prodi_id)
-    aktif = db.scalar(
-        select(PanduanAkademik.versi).where(PanduanAkademik.prodi_id == p.prodi_id, PanduanAkademik.status == "aktif")
-    )
+    panduan_sekarang = panduan_berlaku(db, p.prodi_id, p.mahasiswa_id)
+    aktif = panduan_sekarang.versi if panduan_sekarang else None
     d = p.data_proses or {}
     hasil: dict[str, Any] = {
         "id": str(p.id),
@@ -281,11 +281,11 @@ def ajukan(
     if not isi.startswith(b"%PDF-"):
         raise galat(400, "KHS harus berupa PDF.")
 
-    panduan = db.scalar(
-        select(PanduanAkademik).where(PanduanAkademik.prodi_id == cak.prodi_mahasiswa, PanduanAkademik.status == "aktif")
-    )
+    panduan = panduan_berlaku(db, cak.prodi_mahasiswa, saya.orang_id)
     if panduan is None:
-        raise galat(409, "Prodi Anda belum memiliki panduan akademik aktif. Hubungi kaprodi.")
+        prodi = db.get(Prodi, cak.prodi_mahasiswa)
+        nama = prodi.nama if prodi else "Anda"
+        raise galat(409, pesan_tanpa_panduan(db, cak.prodi_mahasiswa, nama))
     dpa = db.scalar(
         select(Orang)
         .join(Bimbingan, Bimbingan.dosen_id == Orang.id)

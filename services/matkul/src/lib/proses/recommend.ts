@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { opsiModel } from "../model.ts";
 import type { NilaiUII } from "../uii-grade.ts";
 import { getMutu, getStatusLulus } from "../uii-grade.ts";
 
@@ -213,9 +214,7 @@ ATURAN:
 `.trim();
 
   const completion = await openai().chat.completions.create({
-    model: process.env.LLM_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini",
-    temperature: 0.3,
-    max_tokens: 1500,
+    ...opsiModel(process.env.LLM_MODEL || process.env.OPENAI_MODEL || "gpt-6-luna", 0.3, 1500),
     messages: [
       { role: "system", content: "Kamu asisten akademik yang patuh panduan akademik." },
       { role: "user", content: prompt },

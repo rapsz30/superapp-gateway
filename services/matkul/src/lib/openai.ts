@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { opsiModel } from "./model.ts";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -75,9 +76,7 @@ ${text}
 `.trim();
 
   const res = await client.chat.completions.create({
-    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-    temperature: 0,
-    max_tokens: 4000,
+    ...opsiModel(process.env.OPENAI_MODEL || "gpt-6-luna", 0, 4000),
     messages: [
       { role: "system", content: "Keluarkan HANYA JSON valid sesuai format. Tanpa markdown." },
       { role: "user", content: prompt },

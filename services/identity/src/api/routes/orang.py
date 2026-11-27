@@ -25,6 +25,7 @@ from src.api.schemas import (
 from src.core.security import hash_sandi, sandi_acak, validasi_kebijakan_sandi
 from src.domain import audit
 from src.domain.cakupan import orang_terlihat, penugasan_aktif
+from src.domain.prodi_terbuka import cari_prodi_dari_jalur
 from src.domain.token_service import cabut_semua_refresh
 from src.models import Akun, Fakultas, Jurusan, KeanggotaanProdi, Orang, Penugasan, Prodi
 
@@ -66,6 +67,8 @@ def _keluaran(db, orang: Orang, hari, tampilkan_akun: bool) -> OrangOut:
         nim=orang.nim,
         nidn=orang.nidn,
         email_kontak=orang.email_kontak,
+        prodi_isian=orang.prodi_isian if tampilkan_akun else None,
+        pt_isian=orang.pt_isian if tampilkan_akun else None,
         peran=_peran_orang(db, orang.id, hari),
         akun=akun,
     )
@@ -169,7 +172,7 @@ def impor_orang(saya: Superadmin, db: DB, hari: Hari, berkas: UploadFile = File(
                     item["sandi_sementara"] = sandi
 
                 if r.get("prodi"):
-                    prodi = _cari_prodi_dari_jalur(db, r["prodi"])
+                    prodi = cari_prodi_dari_jalur(db, r["prodi"])
                     angkatan = None
                     if r.get("angkatan"):
                         angkatan = int(r["angkatan"])
@@ -205,23 +208,6 @@ def _pesan(exc: Exception) -> str:
     return str(exc)
 
 
-def _cari_prodi_dari_jalur(db, jalur: str) -> Prodi:
-    bagian = [b.strip() for b in jalur.split("/")]
-    if len(bagian) != 3 or not all(bagian):
-        raise ValueError("Kolom prodi harus berbentuk KODE_FAKULTAS/KODE_JURUSAN/KODE_PRODI.")
-    prodi = db.scalar(
-        select(Prodi)
-        .join(Jurusan, Jurusan.id == Prodi.jurusan_id)
-        .join(Fakultas, Fakultas.id == Jurusan.fakultas_id)
-        .where(Fakultas.kode == bagian[0], Jurusan.kode == bagian[1], Prodi.kode == bagian[2])
-    )
-    if prodi is None:
-        raise ValueError(f"Prodi {jalur} tidak ditemukan.")
-    if not prodi.aktif:
-        raise ValueError(f"Prodi {jalur} tidak aktif.")
-    return prodi
-
-
 @router.get("/orang/{oid}", response_model=OrangOut)
 def ambil_orang(oid: uuid.UUID, saya: Saya, db: DB, hari: Hari) -> OrangOut:
     obj = db.get(Orang, oid)
@@ -231,7 +217,8 @@ def ambil_orang(oid: uuid.UUID, saya: Saya, db: DB, hari: Hari) -> OrangOut:
         and db.scalar(select(func.count()).select_from(terlihat).where(terlihat.c[0] == oid)) == 0
     ):
         raise tidak_ditemukan("Orang")
-    return _keluaran(db, obj, hari, saya.superadmin)
+    # Isian registrasi hanya untuk superadmin atau orang itu sendiri.
+    return _keluaran(db, obj, hari, saya.superadmin or oid == saya.orang_id)
 
 
 @router.post("/orang", response_model=OrangOut, status_code=201)

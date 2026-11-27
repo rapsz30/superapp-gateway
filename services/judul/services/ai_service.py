@@ -4,7 +4,7 @@ import json
 from typing import Dict, Any
 import time
 
-from groq import APIConnectionError, BadRequestError
+from openai import APIConnectionError, BadRequestError
 
 from config.settings import settings
 from services.prompt_service import TEMA_BAWAAN, prompt_service
@@ -18,9 +18,8 @@ class AIService:
     """ Handle interaksi dengan AI """
 
     def __init__(self):
-        # Inisialisasi AI service dengan Groq client
-        self.client = settings.get_groq_client()
-        self.model = settings.GROQ_MODEL
+        self.client = settings.get_openai_client()
+        self.model = settings.OPENAI_MODEL
 
     def get_recommendations(
         self, interests: str, prodi: str = "", mata_kuliah: list | None = None, tema: list | None = None,
@@ -39,7 +38,7 @@ class AIService:
         # Model sesekali menghasilkan JSON yang ditolak atau tidak lengkap; ulangi sebelum menyerah.
         for percobaan in range(1, MAKS_PERCOBAAN + 1):
             try:
-                recommendations = json.loads(self._call_groq_api(prompt))
+                recommendations = json.loads(self._call_openai_api(prompt))
                 self._validate_response(recommendations)
                 break
             except (APIConnectionError, BadRequestError, ValueError, TypeError) as e:
@@ -61,7 +60,7 @@ class AIService:
 
         return recommendations_with_refs
 
-    def _call_groq_api(self, prompt: str) -> str:
+    def _call_openai_api(self, prompt: str) -> str:
         try:
             chat_completion = self.client.chat.completions.create(
                 messages=[
@@ -73,14 +72,14 @@ class AIService:
                 model=self.model,
                 response_format={"type": "json_object"},
                 temperature=0.4,
-                # Penalaran singkat dan ruang keluaran cukup, agar JSON tidak terpotong.
+                # Ruang keluaran cukup agar JSON tidak terpotong.
                 max_completion_tokens=4000,
-                extra_body={"reasoning_effort": "low"},
+                **settings.opsi_model(self.model),
             )
             return chat_completion.choices[0].message.content
 
         except Exception as e:
-            print(f"Error calling Groq API : {e}")
+            print(f"Error calling OpenAI API : {e}")
             raise
 
     def _validate_response(self, response: Dict[str, Any]) -> None:

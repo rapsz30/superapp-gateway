@@ -59,24 +59,35 @@ export const khsService = {
   },
 
   /**
-   * Panduan akademik aktif milik prodi mahasiswa. Dikelola kaprodi di layanan identity; mahasiswa
-   * tidak mengunggah panduan sendiri. Server memakai panduan yang sama saat menyusun rekomendasi.
+   * Panduan akademik aktif. Prodi biasa: dikelola kaprodi. Prodi dummy: panduan pribadi mahasiswa.
    */
   async getGuide(): Promise<GuideInfo> {
     const data = await apiFetch<{
-      prodi: { nama: string; fakultas: { nama: string } | null }
+      prodi: { nama: string; terbuka?: boolean; fakultas: { nama: string } | null }
       pembimbing_akademik: { nama_lengkap: string } | null
-      panduan: { id: string; versi: number; judul: string; berlaku_mulai: string | null }
+      panduan: { id: string; versi: number; judul: string; berlaku_mulai: string | null; pribadi?: boolean } | null
+      panduan_pribadi?: boolean
     }>('/api/identity/akademik/konteks?tanpa_teks=true')
     return {
-      panduanId: data.panduan.id,
-      version: data.panduan.versi,
-      title: data.panduan.judul,
-      effectiveFrom: data.panduan.berlaku_mulai,
+      panduanId: data.panduan?.id ?? null,
+      version: data.panduan?.versi ?? null,
+      title: data.panduan?.judul ?? null,
+      effectiveFrom: data.panduan?.berlaku_mulai ?? null,
       program: data.prodi.nama,
       faculty: data.prodi.fakultas?.nama ?? null,
       advisorName: data.pembimbing_akademik?.nama_lengkap ?? null,
+      panduanPribadi: Boolean(data.panduan_pribadi),
+      prodiTerbuka: Boolean(data.prodi.terbuka ?? data.panduan_pribadi),
     }
+  },
+
+  /** Unggah panduan pribadi (mahasiswa prodi dummy). Langsung aktif. */
+  async uploadPersonalGuide(file: File, judul = 'Panduan akademik saya'): Promise<GuideInfo> {
+    const form = new FormData()
+    form.append('judul', judul)
+    form.append('berkas', file)
+    await apiFetch('/api/identity/panduan/saya', { method: 'POST', body: form })
+    return this.getGuide()
   },
 
   /** Buka PDF panduan di tab baru. Berkas butuh token, jadi diunduh dulu lalu ditampilkan lewat blob. */

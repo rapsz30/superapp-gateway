@@ -20,12 +20,16 @@ from src.api.schemas import (
     KeanggotaanOut,
     KeanggotaanPindahIn,
     KeanggotaanStatusIn,
+    MahasiswaDummyIn,
     PenugasanIn,
     PenugasanOut,
 )
+from src.core.config import get_settings
 from src.domain import audit
 from src.api.routes.pengajuan import alihkan_pengajuan_terbuka, batalkan_pengajuan_terbuka
 from src.domain.cakupan import orang_terlihat, penugasan_aktif, prodi_dicakup_pa
+from src.domain.mahasiswa_baru import DOMAIN_DUMMY, buat_mahasiswa, nomor_mahasiswa_berikut
+from src.domain.prodi_terbuka import adalah_prodi_terbuka, dosen_terbuka
 from src.core.security import hash_sandi, validasi_kebijakan_sandi
 from src.models import (
     Akun,
@@ -265,6 +269,48 @@ def daftar_keanggotaan(
     total = db.scalar(select(func.count()).select_from(q.subquery())) or 0
     rows = db.scalars(q.order_by(KeanggotaanProdi.mulai.desc()).offset(hal.offset).limit(hal.ukuran)).all()
     return {"data": [KeanggotaanOut.model_validate(r) for r in rows], "total": total}
+
+
+@router.post("/prodi/{pid}/mahasiswa-dummy")
+def buat_mahasiswa_dummy(pid: uuid.UUID, body: MahasiswaDummyIn, saya: Superadmin, db: DB, hari: Hari) -> dict:
+    """Buat banyak mahasiswa dummy pada prodi terbuka. Hanya superadmin."""
+    s = get_settings()
+    if body.jumlah > s.dummy_maks_sekali:
+        raise galat(400, f"Jumlah maksimal sekali buat adalah {s.dummy_maks_sekali}.")
+    prodi = db.get(Prodi, pid)
+    if prodi is None:
+        raise tidak_ditemukan("Prodi")
+    if not adalah_prodi_terbuka(db, pid):
+        raise galat(400, "Hanya prodi terbuka (dummy) yang boleh memakai pembuat mahasiswa dummy.")
+    dosen = dosen_terbuka(db, prodi, hari)
+    if dosen is None:
+        raise galat(503, "Prodi terbuka belum siap: dosen PA/kaprodi belum ditetapkan.")
+    pesan = validasi_kebijakan_sandi(body.sandi)
+    if pesan:
+        raise galat(400, pesan)
+
+    sandi_hash = hash_sandi(body.sandi)
+    mulai = nomor_mahasiswa_berikut(db)
+    akun_keluar: list[dict] = []
+    for i in range(body.jumlah):
+        nomor = mulai + i
+        nama = f"Mahasiswa {nomor:03d}"
+        email = f"mahasiswa{nomor}@{DOMAIN_DUMMY}"
+        orang, _akun = buat_mahasiswa(
+            db,
+            nama_lengkap=nama,
+            email=email,
+            sandi_hash=sandi_hash,
+            prodi=prodi,
+            dosen_id=dosen.id,
+            hari=hari,
+            prodi_isian="Program studi dummy",
+            pt_isian="Perguruan tinggi dummy",
+            pelaku_id=saya.orang_id,
+        )
+        akun_keluar.append({"nama": orang.nama_lengkap, "email": email})
+    db.commit()
+    return {"dibuat": len(akun_keluar), "akun": akun_keluar}
 
 
 @router.post("/keanggotaan", response_model=KeanggotaanOut, status_code=201)

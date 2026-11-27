@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from src.api.deps import DB, Hari, Pengguna, Saya
 from src.api.errors import dilarang
 from src.domain.cakupan import orang_terlihat, penugasan_aktif
+from src.domain.prodi_terbuka import prodi_terbuka
 from src.models import (
     STATUS_KEANGGOTAAN,
     STATUS_PENGAJUAN,
@@ -222,11 +223,21 @@ def ambil_ringkasan(saya: Manajer, db: DB, hari: Hari) -> dict:
             )
         ).all()
     )
+    # Hanya panduan prodi (bukan pribadi). Prodi dummy tidak dihitung "tanpa panduan".
     panduan_prodi = set(
-        db.scalars(select(PanduanAkademik.prodi_id).where(PanduanAkademik.status == "aktif")).all()
+        db.scalars(
+            select(PanduanAkademik.prodi_id).where(
+                PanduanAkademik.status == "aktif", PanduanAkademik.pemilik_id.is_(None)
+            )
+        ).all()
     )
+    dummy = prodi_terbuka(db)
     prodi_tanpa_kaprodi = [_label_prodi(p) for p in prodi_list if p.id not in kaprodi_unit]
-    prodi_tanpa_panduan = [_label_prodi(p) for p in prodi_list if p.id not in panduan_prodi]
+    prodi_tanpa_panduan = [
+        _label_prodi(p)
+        for p in prodi_list
+        if p.id not in panduan_prodi and (dummy is None or p.id != dummy.id)
+    ]
 
     per_prodi: dict[uuid.UUID, int] = defaultdict(int)
     mpq = select(KeanggotaanProdi.prodi_id, func.count()).where(

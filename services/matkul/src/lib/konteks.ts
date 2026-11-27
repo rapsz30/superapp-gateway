@@ -11,6 +11,7 @@ export type KonteksAkademik = {
     nama: string;
     jenjang: string;
     maks_sks_semester?: number | null;
+    terbuka?: boolean;
     jurusan: { id: string; kode: string; nama: string } | null;
     fakultas: { id: string; kode: string; nama: string } | null;
   };
@@ -22,7 +23,9 @@ export type KonteksAkademik = {
     berlaku_mulai: string | null;
     teks_karakter: number | null;
     teks?: string;
+    pribadi?: boolean;
   };
+  panduan_pribadi?: boolean;
 };
 
 const buangKataUmum = (s: string) =>
@@ -47,6 +50,10 @@ export function peringatanKonteks(
   konteks: KonteksAkademik,
 ): string[] {
   const hasil: string[] = [];
+  // Prodi dummy: KHS pengguna hampir selalu berbeda dari nama prodi akun — lewati peringatan.
+  if (konteks.prodi.terbuka || konteks.panduan_pribadi || konteks.panduan.pribadi) {
+    return hasil;
+  }
   const prodiKhs = khs.mahasiswa?.prodi ?? khs.mahasiswa?.fakultas;
   if (!prodiCocok(prodiKhs, konteks.prodi.nama)) {
     hasil.push(

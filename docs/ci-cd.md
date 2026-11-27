@@ -51,7 +51,7 @@ flowchart TD
 ## 3. Manajemen Secret dan Alasan Penggunaan Nilai Tiruan (*Mock Values*)
 
 ### 3.1. Daftar Secret yang Dipakai
-- **`GITHUB_TOKEN` (Otomatis dari GitHub Actions)**: Satu-satunya kredensial asli yang digunakan oleh workflow, dipakai pada job `publish` di [`cd.yml`](../.github/workflows/cd.yml) untuk autentikasi ke `ghcr.io` melalui `docker/login-action@v3`. Tidak ada *repository secret* eksternal (seperti kunci OpenAI, Groq, atau Resend asli) yang disimpan maupun dimuat di CI.
+- **`GITHUB_TOKEN` (Otomatis dari GitHub Actions)**: Satu-satunya kredensial asli yang digunakan oleh workflow, dipakai pada job `publish` di [`cd.yml`](../.github/workflows/cd.yml) untuk autentikasi ke `ghcr.io` melalui `docker/login-action@v3`. Tidak ada *repository secret* eksternal (seperti kunci OpenAI atau Resend asli) yang disimpan maupun dimuat di CI.
 
 ### 3.2. Penyusunan Berkas `.env` Tiruan di CI dan Alasannya
 Pada job `validate` dan `smoke`, berkas lingkungan dibuat secara dinamis sebelum perintah `docker compose` dijalankan:
@@ -61,13 +61,13 @@ Pada job `validate` dan `smoke`, berkas lingkungan dibuat secara dinamis sebelum
    - Variabel database dipertahankan konsisten dengan `.env.example` (`POSTGRES_DB=microcred`, `POSTGRES_USER=microcred`, `POSTGRES_PASSWORD=postgres-password`, `DATABASE_URL=postgresql+asyncpg://microcred:postgres-password@db:5432/microcred`).
    - `OPENAI_API_KEY=placeholder-openai-key` dan `RESEND_API_KEY=placeholder-resend-key` tetap berupa nilai tiruan.
 2. **`services/judul/.env`**:
-   - Diisi `GROQ_API_KEY=gsk_ci_dummy_key_not_for_production` agar container `judul-api` dapat melewati inisialisasi konfigurasi saat *startup* tanpa memerlukan kunci Groq asli.
+   - Diisi `OPENAI_API_KEY=sk-ci-dummy-key-not-for-production` agar container `judul-api` dapat melewati inisialisasi konfigurasi saat *startup* tanpa memerlukan kunci OpenAI asli.
 3. **`services/matkul/.env.local`**:
    - Diisi `OPENAI_API_KEY=sk-ci-dummy-key-not-for-production`, `PB_ADMIN_EMAIL=admin@example.com`, dan `PB_ADMIN_PASSWORD=ci-dummy-password-12345` agar container Next.js (`matkul`) dapat berjalan tanpa kredensial produksi.
 
 **Alasan Penggunaan Nilai Tiruan**:
 - Mencegah kebocoran kredensial berbayar pada log CI atau *Pull Request*.
-- Menghindari biaya pemanggilan API LLM (OpenAI & Groq) serta pengiriman email nyata (Resend) pada setiap *commit*.
+- Menghindari biaya pemanggilan API LLM (OpenAI) serta pengiriman email nyata (Resend) pada setiap *commit*.
 - Menjaga agar pengujian CI bersifat deterministik (tidak gagal akibat kuota kredit API pihak ketiga habis atau gangguan jaringan eksternal).
 
 ---
@@ -138,7 +138,7 @@ Sembilan skenario yang diuji oleh [`gateway/ci/smoke.sh`](../gateway/ci/smoke.sh
 
 ## 7. Keterbatasan Pipeline CI/CD
 
-1. **Tanpa Pengujian Endpoint LLM di CI**: Pipeline CI sengaja tidak memanggil endpoint yang bergantung pada API OpenAI maupun Groq (seperti `POST /api/judul-recommender/get-recommendations` atau pipeline skoring esai Micro-cred) untuk menghindari ketergantungan pada kuota berbayar dan menjaga keandalan pengujian otomatis.
+1. **Tanpa Pengujian Endpoint LLM di CI**: Pipeline CI sengaja tidak memanggil endpoint yang bergantung pada API OpenAI (seperti `POST /api/judul-recommender/get-recommendations` atau pipeline skoring esai Micro-cred) untuk menghindari ketergantungan pada kuota berbayar dan menjaga keandalan pengujian otomatis.
 2. **Tanpa Target Deploy Otomatis ke Server**: Workflow [`cd.yml`](../.github/workflows/cd.yml) hanya mencakup tahap *Continuous Delivery* berupa pembuatan dan publikasi *image* ke GitHub Container Registry (`ghcr.io/<owner>/superapp-<nama>`), belum mencakup *deployment* otomatis (SSH/Kubernetes/ Watchtower) ke server produksi.
 3. **Waktu Build Image `matkul` Paling Lama**: Di antara ke-6 image, proses *build* container `matkul` (instalasi dependensi `npm` dan kompilasi `next build` pada Next.js) membutuhkan waktu paling lama, terutama pada eksekusi pertama sebelum cache `type=gha` terbentuk.
 4. **Duplikasi Skrip Smoke Test Lintas-Platform**: Skrip [`gateway/auth/smoke-test.ps1`](../gateway/auth/smoke-test.ps1) tetap dipertahankan khusus untuk pengujian interaktif berbasis PowerShell di Windows (38 kasus uji detail), sedangkan [`gateway/ci/smoke.sh`](../gateway/ci/smoke.sh) (Bash) digunakan untuk lingkungan runner Linux di GitHub Actions dan Git Bash.

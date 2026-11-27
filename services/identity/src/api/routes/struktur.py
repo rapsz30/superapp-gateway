@@ -21,9 +21,16 @@ from src.api.schemas import (
 )
 from src.domain import audit
 from src.domain.cakupan import penugasan_aktif
+from src.domain.prodi_terbuka import adalah_prodi_terbuka
 from src.models import Fakultas, Jurusan, KeanggotaanProdi, Penugasan, Prodi
 
 router = APIRouter(tags=["struktur"])
+
+
+def _prodi_out(db, obj: Prodi) -> ProdiOut:
+    out = ProdiOut.model_validate(obj)
+    out.terbuka = adalah_prodi_terbuka(db, obj.id)
+    return out
 
 
 def _ada_penugasan_aktif(db, unit_id: uuid.UUID, hari) -> bool:
@@ -170,19 +177,19 @@ def daftar_prodi(
         q = q.where(Prodi.aktif == aktif)
     total = db.scalar(select(func.count()).select_from(q.subquery())) or 0
     rows = db.scalars(q.order_by(Prodi.kode).offset(hal.offset).limit(hal.ukuran)).all()
-    return {"data": [ProdiOut.model_validate(r) for r in rows], "total": total}
+    return {"data": [_prodi_out(db, r) for r in rows], "total": total}
 
 
 @router.get("/prodi/{pid}", response_model=ProdiOut)
-def ambil_prodi(pid: uuid.UUID, _: Saya, db: DB) -> Prodi:
+def ambil_prodi(pid: uuid.UUID, _: Saya, db: DB) -> ProdiOut:
     obj = db.get(Prodi, pid)
     if obj is None:
         raise tidak_ditemukan("Prodi")
-    return obj
+    return _prodi_out(db, obj)
 
 
 @router.post("/prodi", response_model=ProdiOut, status_code=201)
-def buat_prodi(body: ProdiIn, saya: Superadmin, db: DB) -> Prodi:
+def buat_prodi(body: ProdiIn, saya: Superadmin, db: DB) -> ProdiOut:
     induk = db.get(Jurusan, body.jurusan_id)
     if induk is None:
         raise galat(400, "Jurusan tidak ditemukan.")
@@ -199,11 +206,11 @@ def buat_prodi(body: ProdiIn, saya: Superadmin, db: DB) -> Prodi:
     db.flush()
     audit.catat(db, saya.orang_id, "prodi.buat", "prodi", obj.id, None, audit.ke_dict(obj))
     db.commit()
-    return obj
+    return _prodi_out(db, obj)
 
 
 @router.patch("/prodi/{pid}", response_model=ProdiOut)
-def ubah_prodi(pid: uuid.UUID, body: ProdiPatch, saya: Superadmin, db: DB, hari: Hari) -> Prodi:
+def ubah_prodi(pid: uuid.UUID, body: ProdiPatch, saya: Superadmin, db: DB, hari: Hari) -> ProdiOut:
     obj = db.get(Prodi, pid)
     if obj is None:
         raise tidak_ditemukan("Prodi")
@@ -232,7 +239,7 @@ def ubah_prodi(pid: uuid.UUID, body: ProdiPatch, saya: Superadmin, db: DB, hari:
         obj.aktif = body.aktif
     audit.catat(db, saya.orang_id, "prodi.ubah", "prodi", obj.id, sebelum, audit.ke_dict(obj))
     db.commit()
-    return obj
+    return _prodi_out(db, obj)
 
 
 # ---------------- Pohon ----------------

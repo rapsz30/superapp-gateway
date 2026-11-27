@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, type FormEvent } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff } from 'lucide-react'
 import { BrandLogo } from '@/components/brand'
@@ -23,6 +24,7 @@ export function LoginView() {
   const [showPassword, setShowPassword] = useState(false)
   const [showRecoveryHelp, setShowRecoveryHelp] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [registrasiAktif, setRegistrasiAktif] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -32,6 +34,7 @@ export function LoginView() {
   useEffect(() => {
     // Sudah punya sesi: langsung ke beranda (sesi yang kedaluwarsa akan dibersihkan oleh apiFetch).
     if (tokenStore.get()) router.replace('/beranda')
+    void authService.statusRegistrasi().then(setRegistrasiAktif).catch(() => setRegistrasiAktif(false))
   }, [router])
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -125,7 +128,15 @@ export function LoginView() {
             </>
           )}
           <button className="login-submit" type="submit" disabled={submitting}>{submitting ? 'Memproses...' : changing ? 'Simpan dan lanjut' : 'Masuk'}</button>
-          {!changing && <p className="login-switch">Akun dibuat oleh admin kampus. Belum punya akun? Hubungi admin akademik prodi Anda.</p>}
+          {!changing && (
+            <p className="login-switch">
+              {registrasiAktif ? (
+                <>Belum punya akun? <Link href="/daftar">Daftar</Link></>
+              ) : (
+                <>Akun kampus dibuat oleh admin. Belum punya akun? Hubungi admin akademik prodi Anda.</>
+              )}
+            </p>
+          )}
         </form>
       </section>
     </main>

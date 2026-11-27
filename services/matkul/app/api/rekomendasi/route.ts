@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { opsiModel } from "@/src/lib/model";
 import { NextResponse } from "next/server";
 import type { NilaiUII } from "@/src/lib/uii-grade";
 import { getMutu, getStatusLulus } from "@/src/lib/uii-grade";
@@ -158,7 +159,13 @@ ATURAN NILAI:
 - Mata kuliah yang statusnya "Tidak Lulus" atau "Lulus (bersyarat)" SUDAH otomatis ditandai sistem untuk diulang/diperbaiki — kamu TIDAK perlu memasukkannya ke "rekomendasi_semester_depan", cukup beri SARAN untuk masing-masing di "evaluasi_nilai".
 - Gunakan angka total_sks, total_mk, dan ipk persis seperti yang diberikan di bawah ini saat menulis "ringkasan" — JANGAN mengarang angka lain.
 
-PANDUAN AKADEMIK${konteks ? ` PROGRAM STUDI ${konteks.prodi.nama.toUpperCase()} (versi ${konteks.panduan.versi})` : ""}:
+PANDUAN AKADEMIK${
+      konteks
+        ? konteks.panduan.pribadi || konteks.panduan_pribadi || konteks.prodi.terbuka
+          ? ` YANG DIUNGGAH MAHASISWA (versi ${konteks.panduan.versi})`
+          : ` PROGRAM STUDI ${konteks.prodi.nama.toUpperCase()} (versi ${konteks.panduan.versi})`
+        : ""
+    }:
 """
 ${panduanText.slice(0, 120000)}
 """
@@ -198,9 +205,7 @@ ATURAN:
 `.trim();
 
     const completion = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      temperature: 0.3,
-      max_tokens: 1500,
+      ...opsiModel(process.env.OPENAI_MODEL || "gpt-6-luna", 0.3, 1500),
       messages: [
         { role: "system", content: "Kamu asisten akademik yang patuh panduan akademik." },
         { role: "user", content: prompt },
@@ -299,6 +304,7 @@ ATURAN:
             id: konteks.panduan.id,
             versi: konteks.panduan.versi,
             judul: konteks.panduan.judul,
+            pribadi: Boolean(konteks.panduan.pribadi || konteks.panduan_pribadi || konteks.prodi.terbuka),
             prodi: { id: konteks.prodi.id, kode: konteks.prodi.kode, nama: konteks.prodi.nama },
           }
         : null,

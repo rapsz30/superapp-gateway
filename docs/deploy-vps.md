@@ -36,7 +36,7 @@ Skrip hanya mengirim **commit terakhir**, jadi commit dulu. Dijalankan dari Git 
 
 ## 3. Isi `.env` di server
 
-Cara cepat (khusus server `alurkerja.ahlanapp.cloud`; alamat dan id tenant tertulis di dalam skrip): salin `deploy/isi-env.py` ke `~/superapp/`, lalu jalankan `python3 ~/superapp/isi-env.py`. Rahasia internal dibuat acak; kunci OpenAI, Groq, dan akun layanan Camunda diketik sendiri. Tabel di bawah untuk pengisian manual.
+Cara cepat (khusus server `alurkerja.ahlanapp.cloud`; alamat dan id tenant tertulis di dalam skrip): salin `deploy/isi-env.py` ke `~/superapp/`, lalu jalankan `python3 ~/superapp/isi-env.py`. Rahasia internal dibuat acak; kunci OpenAI (matkul dan judul) serta akun layanan Camunda diketik sendiri. Tabel di bawah untuk pengisian manual.
 
 Berkasnya ada di `~/superapp/env/` (sesuai `REMOTE_DIR`). Buat secret **baru** dengan `openssl rand -hex 32`; jangan menyalin dari laptop.
 
@@ -45,7 +45,7 @@ Berkasnya ada di `~/superapp/env/` (sesuai `REMOTE_DIR`). Buat secret **baru** d
 | `services/identity/.env` | `POSTGRES_PASSWORD` dan sandi yang sama di `DATABASE_URL`; `JWT_SECRET`; `INTERNAL_TOKEN`; `MATKUL_SERVICE_TOKEN`; semua `ALURKERJA_*` untuk AlurKerja server |
 | `services/matkul/.env.local` | `OPENAI_API_KEY`; `POSTGRES_PASSWORD` dan `DATABASE_URL`; `MATKUL_SERVICE_TOKEN` dan `INTERNAL_TOKEN` (**sama** dengan identity); `PB_ADMIN_*` |
 | `services/microcred/.env` | `APP_ENV=production`; `JWT_SECRET` (**berbeda** dari identity); `POSTGRES_PASSWORD` dan `DATABASE_URL`; kunci lain boleh isi tiruan selama fiturnya ditunda |
-| `services/judul/.env` | `GROQ_API_KEY` |
+| `services/judul/.env` | `OPENAI_API_KEY` (opsional `OPENAI_MODEL=gpt-6-luna`) |
 | `alurkerja-connector/.env` | `ALURKERJA_BASE_URL`, akun worker, `GATEWAY_TOKEN` (**sama** dengan `MATKUL_SERVICE_TOKEN`) |
 
 - Sertifikat AlurKerja asli (Let's Encrypt dan sejenisnya): kosongkan `ALURKERJA_CA_BUNDLE`.

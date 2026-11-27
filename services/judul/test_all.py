@@ -7,7 +7,7 @@ print("="*50)
 try:
     from config.settings import settings
     print("✅ 1. settings imported")
-    print(f"   Model: {settings.GROQ_MODEL}")
+    print(f"   Model: {settings.OPENAI_MODEL}")
 except Exception as e:
     print(f"❌ 1. Error: {e}")
 

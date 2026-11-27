@@ -115,7 +115,9 @@ Hal = Annotated[Paginasi, Depends()]
 
 # ---------- Pembatas laju login (dalam memori; cukup untuk satu instance) ----------
 _gagal: dict[str, deque[float]] = defaultdict(deque)
+_registrasi: deque[float] = deque()
 _BATAS_KUNCI = 10_000
+_JENDELA_REGISTRASI = 3600
 
 
 def _bersihkan(kunci: str, sekarang: float, jendela: int) -> deque[float]:
@@ -142,8 +144,24 @@ def reset_gagal(kunci: str) -> None:
     _gagal.pop(kunci, None)
 
 
+def _bersihkan_registrasi(sekarang: float) -> deque[float]:
+    while _registrasi and sekarang - _registrasi[0] > _JENDELA_REGISTRASI:
+        _registrasi.popleft()
+    return _registrasi
+
+
+def terlalu_banyak_registrasi() -> bool:
+    s = get_settings()
+    return len(_bersihkan_registrasi(time.monotonic())) >= s.registrasi_maks_per_jam
+
+
+def catat_registrasi() -> None:
+    _bersihkan_registrasi(time.monotonic()).append(time.monotonic())
+
+
 def reset_semua_pembatas() -> None:
     _gagal.clear()
+    _registrasi.clear()
 
 
 def alamat_klien(request: Request) -> str:

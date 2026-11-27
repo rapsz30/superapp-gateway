@@ -13,6 +13,10 @@ export interface AuthUser {
   mustChangePassword: boolean
   /** Unit tempat setiap peran berlaku, misalnya kaprodi pada prodi tertentu. */
   units: UnitPeran[]
+  panduanPribadi: boolean
+  prodiTerbuka: boolean
+  prodiIsian: string | null
+  ptIsian: string | null
 }
 
 export interface UnitPeran {
@@ -20,6 +24,14 @@ export interface UnitPeran {
   tipe: string
   id?: string
   nama?: string | null
+}
+
+export interface RegisterInput {
+  nama_lengkap: string
+  email: string
+  sandi: string
+  program_studi: string
+  perguruan_tinggi: string
 }
 
 interface TokenResponse {
@@ -39,8 +51,11 @@ interface ProfilResponse {
   wajib_ganti_sandi: boolean
   peran: string[]
   unit?: UnitPeran[]
+  prodi_isian?: string | null
+  pt_isian?: string | null
+  panduan_pribadi?: boolean
   akademik: {
-    prodi: { nama: string }
+    prodi: { nama: string; terbuka?: boolean }
     fakultas: { nama: string } | null
   } | null
 }
@@ -58,14 +73,30 @@ function mapUser(profil: ProfilResponse): AuthUser {
     roles: profil.peran,
     mustChangePassword: profil.wajib_ganti_sandi,
     units: profil.unit ?? [],
+    panduanPribadi: Boolean(profil.panduan_pribadi),
+    prodiTerbuka: Boolean(profil.akademik?.prodi.terbuka ?? profil.panduan_pribadi),
+    prodiIsian: profil.prodi_isian ?? null,
+    ptIsian: profil.pt_isian ?? null,
   }
 }
 
 export const authService = {
-  /**
-   * Masuk. Akun dibuat oleh admin kampus (tidak ada pendaftaran mandiri), sehingga sandi awal
-   * bersifat sementara dan `mustChangePassword` bernilai true sampai diganti.
-   */
+  async statusRegistrasi(): Promise<boolean> {
+    const r = await apiFetch<{ aktif: boolean }>(`${BASE}/auth/registrasi`, { auth: false })
+    return Boolean(r.aktif)
+  },
+
+  async register(input: RegisterInput): Promise<AuthUser> {
+    const tokens = await apiFetch<TokenResponse>(`${BASE}/auth/register`, {
+      method: 'POST',
+      json: input,
+      auth: false,
+    })
+    tokenStore.set(tokens.access_token, tokens.refresh_token)
+    return this.me()
+  },
+
+  /** Masuk dengan email dan sandi. */
   async login(email: string, password: string): Promise<AuthUser> {
     const tokens = await apiFetch<TokenResponse>(`${BASE}/auth/login`, {
       method: 'POST',

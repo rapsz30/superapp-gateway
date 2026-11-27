@@ -67,7 +67,7 @@ export function TabOrang() {
           <div className="adm-scroll">
             <table className="adm-table">
               <thead>
-                <tr><th>Nama</th><th>NIM / NIDN</th><th>Peran</th><th>Akun</th><th /></tr>
+                <tr><th>Nama</th><th>NIM / NIDN</th><th>Prodi isian</th><th>Perguruan tinggi</th><th>Peran</th><th>Akun</th><th /></tr>
               </thead>
               <tbody>
                 {daftar.data.data.map((o) => (
@@ -75,6 +75,8 @@ export function TabOrang() {
                     <tr>
                       <td>{o.nama_lengkap}</td>
                       <td>{o.nim ?? o.nidn ?? '—'}</td>
+                      <td>{o.prodi_isian ?? '—'}</td>
+                      <td>{o.pt_isian ?? '—'}</td>
                       <td>{o.peran.length ? o.peran.map((p) => <Badge key={p} tone="biru">{p}</Badge>) : <span className="adm-muted">—</span>}</td>
                       <td>
                         {o.akun ? (

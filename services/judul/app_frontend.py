@@ -14,7 +14,7 @@ st.set_page_config(
 
 # --- Tampilan Antarmuka (UI) ---
 st.title("🤖 Asisten AI Rekomendasi Judul Tugas Akhir")
-st.caption("Ditenagai oleh Llama3 via Groq, FastAPI, & Streamlit")
+st.caption("Ditenagai oleh OpenAI, FastAPI, & Streamlit")
 
 # Membuat form agar aplikasi tidak me-refresh setiap kali user mengetik
 with st.form("input_form"):

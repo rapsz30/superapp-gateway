@@ -4,7 +4,7 @@
 import os
 import json
 import prompt_eng
-from groq import Groq
+from openai import OpenAI
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -15,17 +15,17 @@ from dotenv import load_dotenv
 # =================================================================
 load_dotenv()
 
-# Inisialisasi klien Groq dengan API Key
+# Inisialisasi klien OpenAI dengan API Key
 try:
-    client = Groq(
-        api_key=os.environ.get("GROQ_API_KEY"),
+    client = OpenAI(
+        api_key=os.environ.get("OPENAI_API_KEY"),
     )
 except Exception as e:
-    print(f"Error konfigurasi Groq: {e}")
+    print(f"Error konfigurasi OpenAI: {e}")
 
 app = FastAPI(
-    title="Rekomendasi Judul Tugas Akhir (Groq Llama3)",
-    description="API untuk mendapatkan rekomendasi judul TA menggunakan Groq Llama3.",
+    title="Rekomendasi Judul Tugas Akhir (OpenAI)",
+    description="API untuk mendapatkan rekomendasi judul TA menggunakan OpenAI.",
     version="1.1.0"
 )
 
@@ -109,17 +109,15 @@ async def get_recommendations(user_input: UserInput):
         # 1. Buat prompt lengkap berdasarkan input pengguna
         prompt = create_prompt(user_input.interests)
 
-        # 2. Kirim prompt ke model Llama3 via Groq
+        # 2. Kirim prompt ke OpenAI
         chat_completion = client.chat.completions.create(
-            # --- BAGIAN YANG DIPERBAIKI ---
             messages=[
                 {
                     "role": "user",
                     "content": prompt,
                 }
             ],
-            # ---------------------------
-            model="llama-3.1-8b-instant",
+            model=os.environ.get("OPENAI_MODEL", "gpt-6-luna"),
             response_format={"type": "json_object"},
         )
 

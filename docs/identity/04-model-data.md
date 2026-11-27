@@ -36,7 +36,9 @@ erDiagram
       text nama_lengkap
       text nim UK
       text nidn UK
-      text email_kontak }
+      text email_kontak
+      text prodi_isian
+      text pt_isian }
     AKUN { uuid id PK
       uuid orang_id FK
       text email UK
@@ -66,6 +68,7 @@ erDiagram
       date selesai }
     PANDUAN_AKADEMIK { uuid id PK
       uuid prodi_id FK
+      uuid pemilik_id FK
       int versi
       text judul
       date berlaku_mulai

@@ -9,7 +9,7 @@ Dibangun 26 Nov 2026. Tampilan web dikerjakan terpisah, panduannya di [`docs/jud
 | Peninjau | **Dosen pembimbing TA** aktif yang dipilih mahasiswa dari daftar dosen prodinya; penugasan kaprodi dapat menjadi pilihan awal |
 | Revisi | **Mahasiswa** memperbaiki sendiri di web, lalu ditinjau lagi |
 | Tema | Setiap rekomendasi dan pengajuan punya **satu tema dari daftar baku**, untuk rekap per prodi |
-| Penyedia AI | Groq (`GROQ_API_KEY` di `services/judul/.env`) |
+| Penyedia AI | OpenAI (`OPENAI_API_KEY` di `services/judul/.env`, bawaan model `gpt-6-luna`) |
 
 ## Alur
 

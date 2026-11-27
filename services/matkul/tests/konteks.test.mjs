@@ -27,3 +27,12 @@ test("peringatan hanya muncul saat prodi KHS beda", () => {
   assert.match(w[0], /panduan prodi akun/);
 });
 
+test("peringatan dilewati untuk prodi terbuka / panduan pribadi", () => {
+  const k = konteks("Dummy Umum");
+  k.prodi.terbuka = true;
+  assert.deepEqual(peringatanKonteks({ mahasiswa: { prodi: "Teknik Industri" } }, k), []);
+  const k2 = konteks("Dummy Umum");
+  k2.panduan.pribadi = true;
+  assert.deepEqual(peringatanKonteks({ mahasiswa: { prodi: "Teknik Industri" } }, k2), []);
+});
+

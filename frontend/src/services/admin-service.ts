@@ -21,6 +21,7 @@ export interface Prodi {
   jenjang: Jenjang
   maks_sks_semester: number | null
   aktif: boolean
+  terbuka?: boolean
 }
 
 export interface StrukturProdi { id: string; kode: string; nama: string; jenjang: Jenjang; aktif: boolean }
@@ -34,6 +35,8 @@ export interface Orang {
   nim: string | null
   nidn: string | null
   email_kontak: string | null
+  prodi_isian?: string | null
+  pt_isian?: string | null
   peran: string[]
   akun: AkunRingkas | null
 }
@@ -189,6 +192,8 @@ export const adminService = {
 
   daftarKeanggotaan: (query: { orang_id?: string; prodi_id?: string; aktif?: boolean; halaman?: number; ukuran?: number }) =>
     get<Page<Keanggotaan>>('/keanggotaan', query),
+  buatMahasiswaDummy: (prodiId: string, body: { jumlah: number; sandi: string }) =>
+    post<{ dibuat: number; akun: { nama: string; email: string }[] }>(`/prodi/${prodiId}/mahasiswa-dummy`, body),
   buatKeanggotaan: (body: { orang_id: string; prodi_id: string; angkatan?: number | null; status?: 'aktif' | 'cuti' }) =>
     post<Keanggotaan>('/keanggotaan', body),
   ubahStatusKeanggotaan: (id: string, status: 'aktif' | 'cuti' | 'lulus' | 'keluar') =>

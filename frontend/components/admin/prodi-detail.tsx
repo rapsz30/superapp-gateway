@@ -36,6 +36,7 @@ export function ProdiDetail({ prodiId }: { prodiId: string }) {
   const info = unit.get(prodiId)
   const prodi = detail.data
   const stats = ringkasan.data
+  const terbuka = Boolean(prodi.terbuka)
   return <div className="prodi-detail">
     <Card className="prodi-identity" variant="borderless">
       <Button type="link" href="/admin/struktur" icon={<ArrowLeftOutlined />} className="prodi-back">Struktur akademik</Button>
@@ -56,10 +57,17 @@ export function ProdiDetail({ prodiId }: { prodiId: string }) {
       <Col xs={12} md={6}><div className="prodi-metric"><Statistic title="Batas SKS" value={prodi.maks_sks_semester ?? 24} suffix="SKS" prefix={<BookOutlined />} /></div></Col>
     </Row>
     <Card className="prodi-workspace" variant="borderless"><Tabs items={[
-      { key: 'ringkasan', label: 'Ringkasan', icon: <ApartmentOutlined />, children: <Card size="small" title="Informasi program studi"><Descriptions column={{ xs: 1, sm: 2 }} items={[{ key: 'kode', label: 'Kode', children: prodi.kode }, { key: 'jenjang', label: 'Jenjang', children: prodi.jenjang }, { key: 'sks', label: 'Batas SKS per semester', children: `${prodi.maks_sks_semester ?? 24} SKS` }, { key: 'panduan', label: 'Panduan aktif', children: stats?.panduanAktif ? <Tag color="success">v{stats.panduanAktif.versi}</Tag> : <Tag color="warning">Belum ada</Tag> }]} /></Card> },
+      { key: 'ringkasan', label: 'Ringkasan', icon: <ApartmentOutlined />, children: <Card size="small" title="Informasi program studi"><Descriptions column={{ xs: 1, sm: 2 }} items={[{ key: 'kode', label: 'Kode', children: prodi.kode }, { key: 'jenjang', label: 'Jenjang', children: prodi.jenjang }, { key: 'sks', label: 'Batas SKS per semester', children: `${prodi.maks_sks_semester ?? 24} SKS` }, { key: 'jenis', label: 'Jenis', children: terbuka ? <Tag color="processing">Prodi terbuka (dummy)</Tag> : 'Prodi kampus' }, { key: 'panduan', label: 'Panduan aktif', children: terbuka ? <Tag>Per pengguna</Tag> : (stats?.panduanAktif ? <Tag color="success">v{stats.panduanAktif.versi}</Tag> : <Tag color="warning">Belum ada</Tag>) }]} /></Card> },
       { key: 'dosen', label: 'Dosen & penugasan', icon: <UserSwitchOutlined />, children: <TabPenugasan prodiId={prodiId} /> },
-      { key: 'panduan', label: 'Panduan akademik', icon: <BookOutlined />, children: <TabPanduan initialProdiId={prodiId} /> },
-      { key: 'mahasiswa', label: 'Mahasiswa', icon: <TeamOutlined />, children: <TabMahasiswaProdi prodiId={prodiId} /> },
+      {
+        key: 'panduan',
+        label: 'Panduan akademik',
+        icon: <BookOutlined />,
+        children: terbuka
+          ? <Alert type="info" showIcon title="Prodi terbuka memakai panduan pribadi" description="Setiap mahasiswa mengunggah panduan akademiknya sendiri. Kaprodi tidak mengunggah panduan prodi di sini." />
+          : <TabPanduan initialProdiId={prodiId} />,
+      },
+      { key: 'mahasiswa', label: 'Mahasiswa', icon: <TeamOutlined />, children: <TabMahasiswaProdi prodiId={prodiId} terbuka={terbuka} /> },
       { key: 'dpa', label: 'DPA', icon: <UserSwitchOutlined />, children: <TabBimbingan prodiId={prodiId} /> },
     ]} /></Card>
   </div>

@@ -72,6 +72,28 @@ class TokenOut(BaseModel):
     peran: list[str]
 
 
+class RegistrasiStatusOut(BaseModel):
+    aktif: bool
+
+
+class RegisterIn(Dasar):
+    nama_lengkap: Nama
+    email: EmailStr
+    sandi: str = Field(min_length=1, max_length=200)
+    program_studi: Nama
+    perguruan_tinggi: Nama
+
+    @field_validator("email")
+    @classmethod
+    def _huruf_kecil(cls, v: str) -> str:
+        return v.strip().lower()
+
+
+class MahasiswaDummyIn(Dasar):
+    jumlah: int = Field(ge=1)
+    sandi: str = Field(min_length=1, max_length=200)
+
+
 # ---------- Struktur ----------
 class FakultasIn(Dasar):
     kode: Kode
@@ -127,6 +149,7 @@ class ProdiOut(Dasar):
     jenjang: str
     maks_sks_semester: int | None = None
     aktif: bool
+    terbuka: bool = False
 
 
 # ---------- Orang dan akun ----------
@@ -160,6 +183,8 @@ class OrangOut(BaseModel):
     nim: str | None = None
     nidn: str | None = None
     email_kontak: str | None = None
+    prodi_isian: str | None = None
+    pt_isian: str | None = None
     peran: list[str] = []
     akun: AkunRingkas | None = None
 
@@ -285,6 +310,7 @@ class BimbinganOut(Dasar):
 class PanduanOut(Dasar):
     id: uuid.UUID
     prodi_id: uuid.UUID
+    pemilik_id: uuid.UUID | None = None
     versi: int
     judul: str
     berlaku_mulai: date | None

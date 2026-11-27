@@ -77,7 +77,13 @@ export function CourseDashboard({ studentId, name, submission, loading, error, o
     <div className="course-heading">
       <div>
         <h1>{name ? `Halo, ${name}` : 'Perencanaan studi'}</h1>
-        <p>{guide ? `Program studi ${guide.program}${guide.advisorName ? ` · Pembimbing akademik: ${guide.advisorName}` : ' · Pembimbing akademik belum ditetapkan'}` : guideError || 'Status pengajuan, nilai, dan rencana studi Anda.'}</p>
+        <p>{guide
+          ? (guide.panduanPribadi
+            ? (guide.panduanId
+              ? `Panduan pribadi aktif (versi ${guide.version})${guide.advisorName ? ` · Pembimbing: ${guide.advisorName}` : ''}`
+              : 'Unggah panduan akademik Anda di alur rekomendasi sebelum mengajukan rencana studi.')
+            : `Program studi ${guide.program}${guide.advisorName ? ` · Pembimbing akademik: ${guide.advisorName}` : ' · Pembimbing akademik belum ditetapkan'}`)
+          : guideError || 'Status pengajuan, nilai, dan rencana studi Anda.'}</p>
       </div>
       {current && !open && <button type="button" className="primary" onClick={onStart}>{startLabel} <ArrowRight /></button>}
     </div>

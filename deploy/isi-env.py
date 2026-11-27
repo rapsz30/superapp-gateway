@@ -127,11 +127,11 @@ def main() -> None:
     identity.set("ALURKERJA_CA_BUNDLE", "")
     konektor.set("ALURKERJA_BASE_URL", ALURKERJA_URL)
     konektor.set("LLM_PROVIDER", "openai")
-    konektor.set("LLM_MODEL", "gpt-4o-mini")
+    konektor.set("LLM_MODEL", "gpt-6-luna")
 
     print("Rahasia internal sudah dibuat. Sekarang yang harus Anda ketik (tidak tampil di layar).\n")
     tanya(matkul, "OPENAI_API_KEY", "Kunci OpenAI")
-    tanya(judul, "GROQ_API_KEY", "Kunci Groq")
+    tanya(judul, "OPENAI_API_KEY", "Kunci OpenAI (judul)")
     print("\nAkun layanan Camunda untuk superapp:")
     pengguna = tanya(identity, "ALURKERJA_USERNAME", "  Nama pengguna", rahasia=False)
     sandi = tanya(identity, "ALURKERJA_PASSWORD", "  Sandi")

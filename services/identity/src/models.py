@@ -98,6 +98,9 @@ class Orang(Base):
     nim: Mapped[str | None] = mapped_column(String(32), unique=True)
     nidn: Mapped[str | None] = mapped_column(String(32), unique=True)
     email_kontak: Mapped[str | None] = mapped_column(String(255))
+    # Catatan bebas dari formulir registrasi (bukan struktur kampus).
+    prodi_isian: Mapped[str | None] = mapped_column(String(200))
+    pt_isian: Mapped[str | None] = mapped_column(String(200))
     dibuat: Mapped[datetime] = _dibuat()
 
 
@@ -252,18 +255,43 @@ class Bimbingan(Base):
 class PanduanAkademik(Base):
     __tablename__ = "panduan_akademik"
     __table_args__ = (
-        UniqueConstraint("prodi_id", "versi", name="uq_panduan_versi"),
         CheckConstraint("status IN ('draf','aktif','diarsipkan')", name="ck_panduan_status"),
+        # Panduan prodi (pemilik_id NULL): satu aktif dan versi unik per prodi.
         Index(
             "uq_panduan_aktif",
             "prodi_id",
             unique=True,
-            postgresql_where=text("status = 'aktif'"),
+            postgresql_where=text("status = 'aktif' AND pemilik_id IS NULL"),
+        ),
+        Index(
+            "uq_panduan_versi",
+            "prodi_id",
+            "versi",
+            unique=True,
+            postgresql_where=text("pemilik_id IS NULL"),
+        ),
+        # Panduan pribadi: satu aktif dan versi unik per pemilik.
+        Index(
+            "uq_panduan_aktif_pemilik",
+            "pemilik_id",
+            unique=True,
+            postgresql_where=text("status = 'aktif' AND pemilik_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_panduan_versi_pemilik",
+            "pemilik_id",
+            "versi",
+            unique=True,
+            postgresql_where=text("pemilik_id IS NOT NULL"),
         ),
     )
     id: Mapped[uuid.UUID] = _uuid_pk()
     prodi_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("prodi.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    # NULL = panduan prodi (perilaku lama). Terisi = panduan pribadi pemilik.
+    pemilik_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("orang.id", ondelete="RESTRICT"), index=True
     )
     versi: Mapped[int] = mapped_column(Integer, nullable=False)
     judul: Mapped[str] = mapped_column(String(300), nullable=False)

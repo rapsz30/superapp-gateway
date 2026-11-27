@@ -4,7 +4,7 @@ import json
 import re
 from typing import Any
 
-from groq import APIConnectionError, BadRequestError
+from openai import APIConnectionError, BadRequestError
 
 from config.settings import settings
 from services.prompt_service import TEMA_BAWAAN
@@ -124,8 +124,8 @@ def _rapikan(data: Any, tema: list[str], kandidat: dict | None) -> dict:
 
 class ObrolanService:
     def __init__(self):
-        self.client = settings.get_groq_client()
-        self.model = settings.GROQ_MODEL
+        self.client = settings.get_openai_client()
+        self.model = settings.OPENAI_MODEL
 
     def balas(
         self, pesan: list[dict], prodi: str = "", mata_kuliah: list[str] | None = None,
@@ -147,8 +147,8 @@ class ObrolanService:
                     response_format={"type": "json_object"},
                     temperature=0.6,
                     max_completion_tokens=2500,
-                    extra_body={"reasoning_effort": "low"},
                     timeout=25.0,
+                    **settings.opsi_model(self.model),
                 )
                 return _rapikan(json.loads(r.choices[0].message.content), daftar_tema, kandidat)
             except (APIConnectionError, BadRequestError, ValueError, TypeError) as e:
