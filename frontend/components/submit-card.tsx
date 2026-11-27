@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { ChevronDown, Loader2 } from 'lucide-react'
 import { SubmissionBadge } from '@/components/submission-badge'
 import { errorMessage } from '@/src/lib/api'
 import { pengajuanService, type Submission } from '@/src/services/pengajuan-service'
@@ -18,6 +18,7 @@ export function SubmitCard({ result, file = null, submission: latest, onChange, 
   const submission = latest?.status === 'dibatalkan' ? null : latest
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [expanded, setExpanded] = useState(!!result)
   const advisor = result?.pembimbing_akademik?.nama_lengkap
 
   async function run(action: () => Promise<Submission>) {
@@ -30,10 +31,19 @@ export function SubmitCard({ result, file = null, submission: latest, onChange, 
   const finished = submission && !running
   const bacaan = submission?.hasil_bacaan
   const rencana = submission?.rencana
-  return <section className="workflow-card submit-card" aria-live="polite">
+  const collapsible = !!submission && !result
+  const activeStep = submission?.langkah.find((step) => step.keadaan === 'aktif')
+  const summaryStep = submission?.pesan_galat ? 'Proses memerlukan perhatian' : activeStep?.label ?? 'Semua tahapan selesai'
+  return <section className={`workflow-card submit-card ${collapsible ? 'is-collapsible' : ''}`} aria-live="polite">
     <div className="submit-heading"><h2>{result ? 'Ajukan ke pembimbing akademik' : `Pengajuan rencana studi semester ${submission?.semester_target}`}</h2>{submission && <SubmissionBadge submission={submission} />}</div>
     {!submission && <p>Berkas KHS asli dan rencana studi dari preview ini akan dikirim bersama kepada {advisor ? <b>{advisor}</b> : 'pembimbing akademik Anda'}. Nilai yang Anda ubah akan ditandai agar diperiksa pembimbing.</p>}
-    {submission && <>
+    {collapsible && <div className="submit-collapse-row">
+      <span className="submit-collapse-summary">{summaryStep}</span>
+      <button type="button" className="submit-collapse-toggle" aria-expanded={expanded} aria-controls="submit-details" onClick={() => setExpanded((value) => !value)}>
+        {expanded ? 'Sembunyikan detail' : 'Lihat progres'}<ChevronDown className={expanded ? 'expanded' : undefined} aria-hidden="true" />
+      </button>
+    </div>}
+    {submission && <div id="submit-details" className="submit-details" hidden={collapsible && !expanded}>
       <div className="submit-advisor">
         <span>Pembimbing akademik</span>
         <b>{submission.dpa?.nama_lengkap ?? 'Belum ditentukan'}</b>
@@ -45,17 +55,16 @@ export function SubmitCard({ result, file = null, submission: latest, onChange, 
       {running && submission.tahap === 'periksa' && bacaan && <div className="info-callout"><span>
         <b>Periksa hasil bacaan KHS</b><br />
         IPK {bacaan.ipk ?? '-'} · SKS lulus {bacaan.sks_lulus ?? '-'} · perlu diulang: {bacaan.mk_ulang?.length ? bacaan.mk_ulang.join(', ') : 'tidak ada'}
-        {bacaan.nim_cocok === false && <><br /><b>NIM pada KHS tidak sama dengan NIM akun Anda.</b> Batalkan, lalu ajukan dengan KHS milik Anda.</>}
       </span></div>}
       {!hidePlan && rencana?.rencana_mk && <details className="info-callout" open={!!result}><summary><b>Rencana studi dari sistem ({rencana.total_sks ?? 0} SKS)</b></summary><span>
         {rencana.rencana_mk.map((mk) => <span key={mk.kode}>{mk.kode} {mk.nama}{mk.sks ? ` (${mk.sks} SKS)` : ''}<br /></span>)}
         {rencana.peringatan?.map((w) => <small key={w}>⚠ {w}<br /></small>)}
       </span></details>}
-    </>}
+    </div>}
     {error && <p className="form-error" role="alert">{error}</p>}
     <div className="upload-actions">
       {result && (!submission || finished) && <button type="button" className="primary" disabled={busy || !file} onClick={() => file && run(() => pengajuanService.submit(file, result.semester_target))}>{busy ? <><Loader2 className="spin" /> Mengirim...</> : submission ? 'Ajukan lagi' : 'Ajukan sekarang'}</button>}
-      {running && submission.tahap === 'periksa' && bacaan?.nim_cocok !== false && <button type="button" className="primary" disabled={busy} onClick={() => run(() => pengajuanService.confirmCheck(submission.id))}>Data sudah benar, lanjutkan</button>}
+      {running && submission.tahap === 'periksa' && <button type="button" className="primary" disabled={busy} onClick={() => run(() => pengajuanService.confirmCheck(submission.id))}>Data sudah benar, lanjutkan</button>}
       {running && <button type="button" className="outline-button" disabled={busy} onClick={() => run(() => pengajuanService.cancel(submission.id))}>Batalkan pengajuan</button>}
     </div>
     {result && !file && !submission && <small>Unggah ulang KHS dari awal untuk mengajukan.</small>}

@@ -1,8 +1,9 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Alert, App, Button, Card, Descriptions, Flex, Input, Spin, Table, Typography } from 'antd'
+import { Alert, App, Button, Card, Descriptions, Flex, Input, Table, Typography } from 'antd'
 import { ArrowLeftOutlined, CheckOutlined, RollbackOutlined } from '@ant-design/icons'
+import { BrandedLoading } from '@/components/brand'
 import { errorMessage } from '@/src/lib/api'
 import { dosenService } from '@/src/services/dosen-service'
 import { TagKeadaan, useMuat, waktu } from './bersama'
@@ -18,7 +19,7 @@ export function DetailPengajuan({ id }: { id: string }) {
   const [mengirim, setMengirim] = useState<'setuju' | 'revisi' | null>(null)
 
   if (!p) {
-    return memuat ? <Spin size="large" /> : <Alert type="error" showIcon title={galat || 'Pengajuan tidak ditemukan.'} action={<Button onClick={() => router.back()}>Kembali</Button>} />
+    return memuat ? <div className="page-loading"><BrandedLoading message="Memuat detail rencana studi..." /></div> : <Alert type="error" showIcon title={galat || 'Pengajuan tidak ditemukan.'} action={<Button onClick={() => router.back()}>Kembali</Button>} />
   }
 
   const sayaDpa = p.dpa?.id === dosen.id
@@ -59,12 +60,12 @@ export function DetailPengajuan({ id }: { id: string }) {
   }
 
   return (
-    <Flex vertical gap={16}>
-      <div><Button icon={<ArrowLeftOutlined />} onClick={() => router.back()}>Kembali</Button></div>
+    <Flex vertical gap={18} className="dosen-detail-page">
+      <div className="dosen-detail-back"><Button icon={<ArrowLeftOutlined />} onClick={() => router.push('/dosen/tinjau')}>Kembali ke antrean</Button></div>
       {galat && <Alert type="error" showIcon title={galat} />}
       {p.pesan_galat && <Alert type="error" showIcon title="Proses bermasalah" description={p.pesan_galat} />}
 
-      <Card title={p.mahasiswa?.nama_lengkap ?? 'Mahasiswa'} extra={<TagKeadaan p={p} />}>
+      <Card className="dosen-detail-identity" title={<div className="dosen-detail-title"><Typography.Text className="dosen-detail-eyebrow">RENCANA STUDI</Typography.Text><Typography.Title level={4}>{p.mahasiswa?.nama_lengkap ?? 'Mahasiswa'}</Typography.Title><Typography.Text type="secondary">Semester {p.semester_target} · {p.prodi?.nama ?? 'Program studi'}</Typography.Text></div>} extra={<TagKeadaan p={p} />}>
         <Descriptions column={{ xs: 1, md: 2 }} items={[
           { key: 'nim', label: 'NIM', children: p.mahasiswa?.nim ?? '—' },
           { key: 'prodi', label: 'Program studi', children: p.prodi?.nama ?? '—' },
@@ -78,8 +79,7 @@ export function DetailPengajuan({ id }: { id: string }) {
         {p.catatan_dpa && <Alert type="info" showIcon title="Catatan pembimbing akademik" description={p.catatan_dpa} />}
       </Card>
 
-      <Card title="Hasil bacaan KHS">
-        {bacaan.nim_cocok === false && <Alert type="error" showIcon title="NIM pada KHS berbeda dengan NIM akun mahasiswa." style={{ marginBottom: 12 }} />}
+      <Card className="dosen-detail-card" title="Ringkasan hasil bacaan KHS">
         <Descriptions column={{ xs: 1, md: 3 }} items={[
           { key: 'ipk', label: 'IPK', children: bacaan.ipk ?? '—' },
           { key: 'sks', label: 'SKS lulus', children: bacaan.sks_lulus ?? '—' },
@@ -88,7 +88,7 @@ export function DetailPengajuan({ id }: { id: string }) {
         ]} />
       </Card>
 
-      <Card title="Rencana studi yang direkomendasikan">
+      <Card className="dosen-detail-card" title="Rencana studi yang direkomendasikan">
         {!rencana?.rencana_mk?.length ? <Typography.Text type="secondary">Rencana belum tersedia.</Typography.Text> : (
           <Flex vertical gap={12}>
             {rencana.peringatan?.map((teks) => <Alert key={teks} type="warning" showIcon title={teks} />)}
@@ -111,7 +111,7 @@ export function DetailPengajuan({ id }: { id: string }) {
       </Card>
 
       {sayaDpa && menunggu && (
-        <Card title="Keputusan Anda">
+        <Card className="dosen-decision-card" title="Keputusan Anda">
           <Flex vertical gap={12}>
             <div>
               <Input.TextArea aria-label="Catatan untuk mahasiswa" rows={3} maxLength={2000} showCount value={catatan} status={wajibCatatan ? 'error' : undefined}

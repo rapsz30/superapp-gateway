@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { Alert, Button, Card, Col, Descriptions, Empty, Result, Row, Space, Spin, Statistic, Tabs, Tag, Typography } from 'antd'
+import { Alert, Button, Card, Col, Descriptions, Empty, Result, Row, Space, Statistic, Tabs, Tag, Typography } from 'antd'
 import { ApartmentOutlined, ArrowLeftOutlined, BookOutlined, TeamOutlined, UserSwitchOutlined } from '@ant-design/icons'
+import { BrandedLoading } from '@/components/brand'
 import { adminService } from '@/src/services/admin-service'
 import { useLoad, useStruktur } from './ui'
 import { TabBimbingan } from './tab-bimbingan'
@@ -28,7 +29,7 @@ export function ProdiDetail({ prodiId }: { prodiId: string }) {
     }
   }, [prodiId])
 
-  if (detail.loading || ringkasan.loading) return <div className="admin-loading"><Spin size="large" /></div>
+  if (detail.loading || ringkasan.loading) return <div className="page-loading"><BrandedLoading message="Memuat data program studi..." /></div>
   if (detail.error) return <Result status="error" title="Program studi tidak dapat dimuat" subTitle={detail.error} extra={<Button href="/admin/struktur">Kembali ke struktur</Button>} />
   if (!detail.data) return <Empty description="Program studi tidak ditemukan." />
 

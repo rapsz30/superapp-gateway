@@ -5,7 +5,8 @@ import { AntdProvider } from '@/components/admin/antd-provider'
 import { DosenShell } from '@/components/dosen/dosen-shell'
 
 export const metadata: Metadata = {
-  title: 'Ruang dosen — Student Gateway',
+  title: { default: 'Ruang Dosen', template: '%s | Student Gateway' },
+  description: 'Ruang kerja dosen untuk meninjau pengajuan dan membimbing aktivitas akademik mahasiswa.',
   robots: { index: false, follow: false },
 }
 

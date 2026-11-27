@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff } from 'lucide-react'
+import { BrandLogo } from '@/components/brand'
 import { errorMessage, tokenStore } from '@/src/lib/api'
 import { authService } from '@/src/services/auth-service'
 
@@ -84,7 +85,8 @@ export function LoginView() {
       </section>
       <section className="login-panel" aria-labelledby="login-title">
         <form className={changing ? 'login-form login-form-register' : 'login-form'} onSubmit={handleSubmit}>
-          <h2 id="login-title">{changing ? 'Buat kata sandi baru' : 'Masuk ke Student Gateway'}</h2>
+          <BrandLogo variant="horizontal" className="login-brand-logo" />
+          <h2 id="login-title">{changing ? 'Buat kata sandi baru' : 'Masuk'}</h2>
           {formNotice && <p className={`login-notice login-notice-${formNotice.type}`} role={formNotice.type === 'error' ? 'alert' : 'status'}>{formNotice.message}</p>}
           {!changing && (
             <>

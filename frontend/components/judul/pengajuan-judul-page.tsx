@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { JudulForm } from '@/components/judul/judul-form'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { errorMessage } from '@/src/lib/api'
 import { judulService, type ThesisAdvisorOption, type ThesisMine, type ThesisSubmissionInput } from '@/src/services/judul-service'
 
@@ -30,6 +31,7 @@ export function PengajuanJudulPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   useEffect(() => {
     let draft: FormDraft = {}
@@ -70,7 +72,7 @@ export function PengajuanJudulPage() {
     void load()
   }, [])
 
-  async function submit(event: React.FormEvent) {
+  function submit(event: React.FormEvent) {
     event.preventDefault()
     if (!isRevision && !selectedAdvisorId) {
       setError('Pilih dosen pembimbing sebelum mengirim pengajuan.')
@@ -80,10 +82,11 @@ export function PengajuanJudulPage() {
       setError('Data pengajuan yang akan direvisi tidak ditemukan. Buka ulang dari halaman obrolan.')
       return
     }
-    const advisor = advisors.find((item) => item.id === selectedAdvisorId)
-    const namaPembimbing = isRevision ? mine?.pengajuan?.pembimbing?.nama_lengkap : advisor?.nama_lengkap
-    if (!window.confirm(`Kirim judul ini${namaPembimbing ? ` kepada ${namaPembimbing}` : ''}?`)) return
+    setConfirmOpen(true)
+  }
 
+  async function kirimPengajuan() {
+    setConfirmOpen(false)
     setSaving(true)
     setError('')
     try {
@@ -105,19 +108,31 @@ export function PengajuanJudulPage() {
 
   if (!draftReady) return <div className="page-content judul-application-page"><div className="judul-advisor-loading"><Loader2 className="spin" /> Menyiapkan formulir...</div></div>
 
-  return <JudulForm
-    form={form}
-    themes={themes}
-    advisors={advisors}
-    selectedAdvisorId={selectedAdvisorId}
-    currentAdvisor={mine?.pengajuan?.pembimbing ?? mine?.pembimbing ?? null}
-    loading={loading}
-    saving={saving}
-    error={error}
-    isRevision={isRevision}
-    onChange={(key, value) => { setForm((current) => ({ ...current, [key]: value })); setError('') }}
-    onAdvisorChange={(id) => { setSelectedAdvisorId(id); setError('') }}
-    onSubmit={(event) => void submit(event)}
-    onBack={back}
-  />
+  const namaPembimbing = isRevision ? mine?.pengajuan?.pembimbing?.nama_lengkap : advisors.find((item) => item.id === selectedAdvisorId)?.nama_lengkap
+
+  return <>
+    <JudulForm
+      form={form}
+      themes={themes}
+      advisors={advisors}
+      selectedAdvisorId={selectedAdvisorId}
+      currentAdvisor={mine?.pengajuan?.pembimbing ?? mine?.pembimbing ?? null}
+      loading={loading}
+      saving={saving}
+      error={error}
+      isRevision={isRevision}
+      onChange={(key, value) => { setForm((current) => ({ ...current, [key]: value })); setError('') }}
+      onAdvisorChange={(id) => { setSelectedAdvisorId(id); setError('') }}
+      onSubmit={(event) => submit(event)}
+      onBack={back}
+    />
+    <ConfirmDialog
+      open={confirmOpen}
+      title={isRevision ? 'Kirim revisi judul?' : 'Kirim pengajuan judul?'}
+      description={<>Judul akan dikirim{namaPembimbing ? <> kepada <strong>{namaPembimbing}</strong></> : null}. Pastikan informasi pengajuan sudah benar sebelum melanjutkan.</>}
+      confirmLabel={isRevision ? 'Kirim revisi' : 'Kirim pengajuan'}
+      onCancel={() => setConfirmOpen(false)}
+      onConfirm={() => void kirimPengajuan()}
+    />
+  </>
 }

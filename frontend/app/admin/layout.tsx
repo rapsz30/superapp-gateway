@@ -4,7 +4,8 @@ import { AntdProvider } from '@/components/admin/antd-provider'
 import { AdminShell } from '@/components/admin/admin-shell'
 
 export const metadata: Metadata = {
-  title: 'Administrasi — Student Gateway',
+  title: { default: 'Administrasi', template: '%s | Student Gateway' },
+  description: 'Panel administrasi akademik Student Gateway.',
   robots: { index: false, follow: false },
 }
 

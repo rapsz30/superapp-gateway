@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Alert, App, Button, Card, Descriptions, Flex, Input, Spin, Tag, Typography } from 'antd'
+import { Alert, App, Button, Card, Descriptions, Flex, Input, Tag, Typography } from 'antd'
 import { ArrowLeftOutlined, CheckOutlined, RollbackOutlined } from '@ant-design/icons'
+import { BrandedLoading } from '@/components/brand'
 import { errorMessage } from '@/src/lib/api'
 import type { ThesisSubmission } from '@/src/services/judul-service'
 import { judulStaffService } from '@/src/services/judul-staff-service'
@@ -18,7 +19,7 @@ export function DetailJudulTa({ id }: { id: string }) {
   const [catatan, setCatatan] = useState('')
   const [mengirim, setMengirim] = useState(false)
 
-  if (!submission) return memuat ? <Spin size="large" /> : <Alert type="error" showIcon title={galat || 'Pengajuan tidak ditemukan.'} action={<Button onClick={() => router.back()}>Kembali</Button>} />
+  if (!submission) return memuat ? <div className="page-loading"><BrandedLoading message="Memuat detail tugas akhir..." /></div> : <Alert type="error" showIcon title={galat || 'Pengajuan tidak ditemukan.'} action={<Button onClick={() => router.back()}>Kembali</Button>} />
 
   const dapatDiputuskan = submission.pembimbing?.id === dosen.id && submission.status === 'diajukan' && submission.tahap === 'tinjau'
   async function putuskan(keputusan: 'setuju' | 'revisi') {
@@ -40,10 +41,12 @@ export function DetailJudulTa({ id }: { id: string }) {
     modal.confirm({ title: 'Setujui judul ini?', content: 'Setelah disetujui, pengajuan tidak dapat diproses ulang dari halaman ini.', okText: 'Setujui', cancelText: 'Batal', onOk: () => putuskan('setuju') })
   }
 
-  return <Flex vertical gap={16}>
-    <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => router.back()}>Kembali ke antrean</Button>
+  const selesai = submission.status !== 'diajukan' || submission.tahap !== 'tinjau'
+
+  return <Flex vertical gap={18} className="dosen-detail-page">
+    <div className="dosen-detail-back"><Button icon={<ArrowLeftOutlined />} onClick={() => router.push(selesai ? '/dosen/judul/riwayat' : '/dosen/judul')}>{selesai ? 'Kembali ke riwayat' : 'Kembali ke antrean'}</Button></div>
     {galat && <Alert type="warning" showIcon title={galat} />}
-    <Card title={<div><Typography.Title level={4} style={{ margin: 0 }}>{submission.judul}</Typography.Title><Tag color="blue">{submission.tema}</Tag></div>} extra={submission.status === 'disetujui' ? <Tag color="success">Disetujui</Tag> : <Tag color="processing">{submission.tahap === 'perbaikan' ? 'Menunggu perbaikan' : 'Menunggu tinjauan'}</Tag>}>
+    <Card className="dosen-detail-identity" title={<div className="dosen-detail-title"><Typography.Text className="dosen-detail-eyebrow">USULAN JUDUL TUGAS AKHIR</Typography.Text><Typography.Title level={3}>{submission.judul}</Typography.Title><Tag color="blue">{submission.tema}</Tag></div>} extra={submission.status === 'disetujui' ? <Tag color="success">Disetujui</Tag> : submission.status === 'dibatalkan' ? <Tag>Dibatalkan</Tag> : <Tag color={submission.tahap === 'perbaikan' ? 'warning' : 'processing'}>{submission.tahap === 'perbaikan' ? 'Menunggu perbaikan' : 'Menunggu tinjauan'}</Tag>}>
       <Descriptions column={{ xs: 1, md: 2 }} items={[
         { key: 'mahasiswa', label: 'Mahasiswa', children: submission.mahasiswa?.nama_lengkap ?? '—' },
         { key: 'nim', label: 'NIM', children: submission.mahasiswa?.nim ?? '—' },
@@ -53,7 +56,7 @@ export function DetailJudulTa({ id }: { id: string }) {
         { key: 'revisi', label: 'Revisi', children: `Ke-${submission.jumlah_revisi}` },
       ]} />
     </Card>
-    <Card title="Detail penelitian">
+    <Card className="dosen-detail-card" title="Detail penelitian">
       <Flex vertical gap={16}>
         <section><Typography.Text strong>Deskripsi</Typography.Text><Typography.Paragraph>{submission.deskripsi}</Typography.Paragraph></section>
         <section><Typography.Text strong>Metodologi</Typography.Text>{submission.metodologi ? <Typography.Paragraph style={{ whiteSpace: 'pre-line' }}>{submission.metodologi}</Typography.Paragraph> : <Typography.Text type="secondary">Belum diisi.</Typography.Text>}</section>
@@ -62,7 +65,7 @@ export function DetailJudulTa({ id }: { id: string }) {
       </Flex>
     </Card>
     {submission.catatan && <Alert type="warning" showIcon title="Catatan sebelumnya" description={submission.catatan} />}
-    {dapatDiputuskan && <Card title="Keputusan">
+    {dapatDiputuskan && <Card className="dosen-decision-card" title="Keputusan">
       <Flex vertical gap={12}><Input.TextArea value={catatan} onChange={(event) => setCatatan(event.target.value)} rows={4} maxLength={1000} showCount placeholder="Catatan wajib diisi bila meminta revisi." /><Flex gap={8} wrap><Button type="primary" icon={<CheckOutlined />} loading={mengirim} onClick={setujui}>Setujui judul</Button><Button icon={<RollbackOutlined />} loading={mengirim} disabled={!catatan.trim()} onClick={() => void putuskan('revisi')}>Minta revisi</Button></Flex></Flex>
     </Card>}
   </Flex>

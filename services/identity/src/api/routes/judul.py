@@ -260,7 +260,7 @@ def _mata_kuliah_unggul(db: Session, mahasiswa_id: uuid.UUID) -> list[str]:
         .limit(1)
     )
     d = (p.data_proses or {}) if p else {}
-    if not d.get("khs_ref") or d.get("nim_cocok") is False:
+    if not d.get("khs_ref"):
         return []
     try:
         ringkas = matkul.dapatkan_matkul().ringkasan_khs(str(d["khs_ref"]))

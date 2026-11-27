@@ -28,12 +28,3 @@ export function hitungKeyakinan(khs: KhsPreview): number {
 
   return Math.round((0.4 * fieldsRatio + 0.3 * rowsRatio + 0.3 * sksMatch) * 100) / 100;
 }
-
-const digits = (s: unknown) => String(s ?? "").replace(/\D+/g, "");
-
-/** NIM pada KHS dibandingkan NIM akun. Hanya dianggap beda bila keduanya terbaca dan berlainan. */
-export function nimCocok(nimKhs: unknown, nimAkun: unknown): boolean {
-  const a = digits(nimKhs);
-  const b = digits(nimAkun);
-  return a.length === 0 || b.length === 0 || a === b;
-}

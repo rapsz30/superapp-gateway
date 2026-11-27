@@ -1,16 +1,25 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Button, Card, Empty, Flex, Select, Spin, Statistic, Table, Tag, Typography, Row, Col } from 'antd'
+import { Alert, Button, Card, Empty, Flex, Select, Statistic, Table, Tag, Typography, Row, Col } from 'antd'
 import { ReloadOutlined } from '@ant-design/icons'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { BrandedLoading } from '@/components/brand'
 import { errorMessage } from '@/src/lib/api'
 import { judulStaffService, type ThesisThemeSummary } from '@/src/services/judul-staff-service'
 import { useDosen } from './dosen-shell'
 
 export function HalamanTemaJudul() {
   const dosen = useDosen()
-  const options = dosen.units.filter((unit) => unit.tipe === 'prodi' && unit.id).map((unit) => ({ value: unit.id!, label: unit.nama ?? unit.id! }))
+  const options = useMemo(() => {
+    const unique = new Map<string, { value: string; label: string }>()
+    for (const unit of dosen.units) {
+      if (unit.tipe === 'prodi' && unit.id && !unique.has(unit.id)) {
+        unique.set(unit.id, { value: unit.id, label: unit.nama ?? unit.id })
+      }
+    }
+    return Array.from(unique.values())
+  }, [dosen.units])
   const [prodiId, setProdiId] = useState<string | undefined>(options.length === 1 ? options[0].value : undefined)
   const [data, setData] = useState<ThesisThemeSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,11 +49,11 @@ export function HalamanTemaJudul() {
     {error && <Alert type="error" showIcon title={error} action={<Button size="small" onClick={() => void load()}>Coba lagi</Button>} />}
     <Card title={<div><Typography.Title level={4} style={{ margin: 0 }}>Tema judul</Typography.Title><Typography.Text type="secondary">Lihat tema tugas akhir yang paling banyak dipilih per program studi.</Typography.Text></div>} extra={<Button icon={<ReloadOutlined />} loading={loading} onClick={() => void load()}>Muat ulang</Button>}>
       {options.length > 0 && <Select aria-label="Program studi" allowClear value={prodiId} onChange={(value) => setProdiId(value)} placeholder="Semua program studi dalam cakupan" options={options} style={{ minWidth: 280, marginBottom: 18 }} />}
-      {loading && !data.length ? <div className="analitik-muat"><Spin size="large" /></div> : !data.length ? <Empty description="Belum ada pengajuan judul di prodi ini." /> : <>
+      {loading && !data.length ? <div className="analitik-muat"><BrandedLoading message="Memuat sebaran tema..." /></div> : !data.length ? <Empty description="Belum ada pengajuan judul di prodi ini." /> : <>
         <Row gutter={[16, 16]}>
           <Col xs={24} sm={8}><Card size="small"><Statistic title="Total judul" value={total} /></Card></Col>
           <Col xs={24} sm={8}><Card size="small"><Statistic title="Disetujui" value={approved} /></Card></Col>
-          <Col xs={24} sm={8}><Card size="small"><Statistic title="Tema teratas" value={top?.tema ?? '—'} valueStyle={{ fontSize: 18 }} /></Card></Col>
+          <Col xs={24} sm={8}><Card size="small"><Statistic title="Tema teratas" value={top?.tema ?? '—'} styles={{ content: { fontSize: 18 } }} /></Card></Col>
         </Row>
         <Card size="small" title="Tema terbanyak" style={{ marginTop: 18 }}>
           <ResponsiveContainer width="100%" height={Math.max(300, chartData.length * 42)}>

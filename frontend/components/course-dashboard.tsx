@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, ArrowRight, Loader2 } from 'lucide-react'
+import { AlertTriangle, ArrowRight, ChevronDown, Loader2 } from 'lucide-react'
 import { SubmissionBadge } from '@/components/submission-badge'
 import { SubmitCard } from '@/components/submit-card'
 import { errorMessage } from '@/src/lib/api'
@@ -35,6 +35,7 @@ export function CourseDashboard({ studentId, name, submission, loading, error, o
   const [historyError, setHistoryError] = useState('')
   const [chosen, setChosen] = useState<Submission | null>(null)
   const [approved, setApproved] = useState<Submission | null>(null)
+  const [historyExpanded, setHistoryExpanded] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -94,15 +95,22 @@ export function CourseDashboard({ studentId, name, submission, loading, error, o
 
     {shownPlan?.rencana?.rencana_mk?.length ? <PlanSection submission={shownPlan} onClose={chosen ? () => setChosen(null) : undefined} /> : null}
 
-    {(history.length > 0 || historyError) && <section className="workflow-card">
-      <h2>Riwayat pengajuan</h2>
+    {(history.length > 0 || historyError) && <section className={`workflow-card history-section ${historyExpanded ? 'is-expanded' : ''}`}>
+      <header className="history-section-head">
+        <div><h2>Riwayat pengajuan</h2><small>{history.length} pengajuan</small></div>
+        {history.length > 0 && <button type="button" className="history-section-toggle" aria-expanded={historyExpanded} aria-controls="course-submission-history" onClick={() => setHistoryExpanded((expanded) => { if (expanded) setChosen(null); return !expanded })}>
+          {historyExpanded ? 'Sembunyikan' : 'Tampilkan'}<ChevronDown className={historyExpanded ? 'expanded' : undefined} aria-hidden="true" />
+        </button>}
+      </header>
       {historyError && <p className="form-error" role="alert">{historyError} <button type="button" className="text-button" onClick={loadHistory}>Coba lagi</button></p>}
-      <ul className="history-list">{history.map((item) => <li key={item.id}>
-        <div><b>Semester {item.semester_target}</b><small>Diajukan {formatDate(item.diajukan_pada)}{item.catatan_dpa ? ` · Catatan: ${item.catatan_dpa}` : ''}</small></div>
-        <SubmissionBadge submission={item} />
-        <button type="button" className="outline-button" onClick={() => choose(item.id)} aria-label={`Lihat rencana pengajuan ${formatDate(item.diajukan_pada)}`}>Lihat rencana</button>
-      </li>)}</ul>
-      {chosen && !chosen.rencana?.rencana_mk?.length && <p role="status">Pengajuan tersebut belum memiliki rencana studi.</p>}
+      {historyExpanded && <div id="course-submission-history">
+        <ul className="history-list">{history.map((item) => <li key={item.id}>
+          <div><b>Semester {item.semester_target}</b><small>Diajukan {formatDate(item.diajukan_pada)}{item.catatan_dpa ? ` · Catatan: ${item.catatan_dpa}` : ''}</small></div>
+          <SubmissionBadge submission={item} />
+          <button type="button" className="outline-button" onClick={() => choose(item.id)} aria-label={`Lihat rencana pengajuan ${formatDate(item.diajukan_pada)}`}>Lihat rencana</button>
+        </li>)}</ul>
+        {chosen && !chosen.rencana?.rencana_mk?.length && <p role="status">Pengajuan tersebut belum memiliki rencana studi.</p>}
+      </div>}
     </section>}
   </div>
 }
@@ -146,6 +154,8 @@ function GradeSummary({ refreshKey }: { refreshKey: string }) {
   if (!summary || !data.sumber) return <section className="workflow-card"><h2>Ringkasan nilai</h2><p>Belum ada nilai untuk ditampilkan. Ringkasan muncul setelah KHS pada pengajuan Anda selesai dibaca.</p></section>
 
   const trend = summary.per_semester.filter((item) => item.semester > 0 && item.ip !== null)
+  const gradeTotal = summary.distribusi.reduce((total, item) => total + item.jumlah, 0)
+  const highestGradeCount = Math.max(1, ...summary.distribusi.map((item) => item.jumlah))
   const stats = [
     { label: 'IPK', value: formatGpa(summary.ipk), note: 'Skala 4,00' },
     { label: 'SKS lulus', value: summary.sks_lulus, note: `dari ${summary.sks_total} SKS diambil` },
@@ -159,9 +169,18 @@ function GradeSummary({ refreshKey }: { refreshKey: string }) {
 
     {summary.perhatian.length > 0 && <section className="workflow-card"><h2>Perlu perhatian</h2><ul className="grade-list">{summary.perhatian.map((course) => <GradeRow course={course} key={course.kode} />)}</ul></section>}
 
-    <div className="chart-grid">
+    <div className={`chart-grid ${trend.length ? 'has-trend' : 'only-distribution'}`}>
       {trend.length > 0 && <section className="workflow-card"><h2>IP per semester</h2><ul className="gpa-trend">{trend.map((item) => <li key={item.semester}><span>{formatGpa(item.ip)}</span><i style={{ height: `${Math.max(4, ((item.ip ?? 0) / 4) * 120)}px` }} aria-hidden="true" /><small>Smt {item.semester}</small></li>)}</ul></section>}
-      <section className="workflow-card"><h2>Sebaran nilai</h2><ul className="grade-distribution">{summary.distribusi.map((item) => <li key={item.nilai}><span className="grade-chip">{item.nilai}</span><small>{item.jumlah} mata kuliah</small></li>)}</ul></section>
+      <section className="workflow-card grade-distribution-card">
+        <div className="grade-distribution-heading"><h2>Sebaran nilai</h2><small>{gradeTotal} mata kuliah</small></div>
+        <ul className="grade-distribution-bars">{summary.distribusi.map((item) => {
+          const persentase = gradeTotal ? Math.round(item.jumlah / gradeTotal * 100) : 0
+          return <li key={item.nilai}>
+            <div className="grade-distribution-meta"><span className="grade-chip">{item.nilai}</span><span><b>{item.jumlah}</b> mata kuliah <small>{persentase}%</small></span></div>
+            <div className="grade-distribution-track" aria-hidden="true"><i style={{ width: `${item.jumlah / highestGradeCount * 100}%` }} /></div>
+          </li>
+        })}</ul>
+      </section>
     </div>
 
     <section className="workflow-card"><h2>Nilai per semester</h2>{[...summary.per_semester].reverse().map((item, index) => <details className="semester-grades" key={item.semester} open={index === 0}><summary><b>{semesterLabel(item.semester)}</b><small>IP {formatGpa(item.ip)} · {item.sks} SKS · {item.mk.length} mata kuliah</small></summary><ul className="grade-list">{item.mk.map((course, position) => <GradeRow course={course} key={`${course.kode}-${position}`} />)}</ul></details>)}</section>

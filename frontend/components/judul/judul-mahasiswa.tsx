@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ArrowRight, Archive, BookOpenCheck, ChevronLeft, ChevronRight, Loader2, MessageCircle, Sparkles, UserRound } from 'lucide-react'
+import { ArrowRight, Archive, BookOpenCheck, ChevronLeft, ChevronRight, FileText, Loader2, MessageCircle, MessageSquareText } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { errorMessage } from '@/src/lib/api'
 import { judulService, type ThesisChatSummary, type ThesisMine, type ThesisRecommendationSummary, type ThesisSubmission } from '@/src/services/judul-service'
 
@@ -39,6 +40,7 @@ export function JudulMahasiswa() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -109,7 +111,8 @@ export function JudulMahasiswa() {
   }
 
   async function batalkan() {
-    if (!mine?.pengajuan || !window.confirm('Batalkan pengajuan judul ini?')) return
+    if (!mine?.pengajuan) return
+    setCancelDialogOpen(false)
     setSaving(true)
     setError('')
     try {
@@ -122,25 +125,36 @@ export function JudulMahasiswa() {
     }
   }
 
-  return <Dashboard
-    mine={mine}
-    obrolan={obrolan}
-    obrolanTotal={obrolanTotal}
-    obrolanPage={obrolanPage}
-    riwayat={riwayat}
-    riwayatTotal={riwayatTotal}
-    riwayatPage={riwayatPage}
-    loading={loading}
-    historyLoading={historyLoading}
-    error={error}
-    saving={saving}
-    onRetry={() => void load()}
-    onStart={() => router.push('/judul/rekomendasi')}
-    onOpen={(query) => router.push(`/judul/rekomendasi?${query}`)}
-    onCancel={() => void batalkan()}
-    onObrolanPage={(page) => void pindahObrolan(page)}
-    onRiwayatPage={(page) => void pindahRiwayat(page)}
-  />
+  return <>
+    <Dashboard
+      mine={mine}
+      obrolan={obrolan}
+      obrolanTotal={obrolanTotal}
+      obrolanPage={obrolanPage}
+      riwayat={riwayat}
+      riwayatTotal={riwayatTotal}
+      riwayatPage={riwayatPage}
+      loading={loading}
+      historyLoading={historyLoading}
+      error={error}
+      saving={saving}
+      onRetry={() => void load()}
+      onStart={() => router.push('/judul/rekomendasi')}
+      onOpen={(query) => router.push(`/judul/rekomendasi?${query}`)}
+      onCancel={() => setCancelDialogOpen(true)}
+      onObrolanPage={(page) => void pindahObrolan(page)}
+      onRiwayatPage={(page) => void pindahRiwayat(page)}
+    />
+    <ConfirmDialog
+      open={cancelDialogOpen}
+      title="Batalkan pengajuan judul?"
+      description="Pengajuan ini akan dihentikan dan tidak lagi menunggu keputusan pembimbing."
+      confirmLabel="Batalkan pengajuan"
+      tone="danger"
+      onCancel={() => setCancelDialogOpen(false)}
+      onConfirm={() => void batalkan()}
+    />
+  </>
 }
 
 function Dashboard({ mine, obrolan, obrolanTotal, obrolanPage, riwayat, riwayatTotal, riwayatPage, loading, historyLoading, error, saving, onRetry, onStart, onOpen, onCancel, onObrolanPage, onRiwayatPage }: {
@@ -172,18 +186,12 @@ function Dashboard({ mine, obrolan, obrolanTotal, obrolanPage, riwayat, riwayatT
         <h1>Rancang tugas akhirmu.</h1>
         <p>Mulai dari minat, temukan ide yang kuat, lalu ajukan saat siap.</p>
       </div>
-      <button type="button" className="primary judul-start-button" onClick={onStart}><Sparkles /> Mulai brainstorm <ArrowRight /></button>
+      <button type="button" className="primary judul-start-button" onClick={onStart}><MessageSquareText aria-hidden="true" /> Mulai brainstorm <ArrowRight aria-hidden="true" /></button>
     </header>
 
     {error && <div className="judul-alert"><p>{error}</p><button type="button" className="outline-button" onClick={onRetry}>Coba lagi</button></div>}
 
     {loading ? <div className="workflow-card judul-loading-inline"><Loader2 className="spin" /> Memuat data judul tugas akhir...</div> : <>
-      <div className="judul-advisor-strip">
-        <span className="judul-advisor-icon"><UserRound /></span>
-        <div className="judul-advisor-copy"><small>Pembimbing tugas akhir</small><strong>{mine?.pembimbing?.nama_lengkap ?? 'Belum ditunjuk'}</strong></div>
-        <p>{mine?.pembimbing ? 'Judul yang diajukan akan masuk ke antrean pembimbing ini.' : 'Anda tetap bisa mencari ide. Hubungi kaprodi sebelum mengajukan judul.'}</p>
-      </div>
-
       {activeSubmission ? <section className="workflow-card judul-submission-card">
         <div className="judul-section-kicker"><BookOpenCheck /> PENGAJUAN SAYA</div>
         <div className="judul-submission-head"><div>
@@ -196,10 +204,9 @@ function Dashboard({ mine, obrolan, obrolanTotal, obrolanPage, riwayat, riwayatT
           <div className="judul-action-row">{activeSubmission.tahap === 'perbaikan' && <button type="button" className="primary" onClick={onStart}>Perbaiki dan kirim ulang</button>}{activeSubmission.status === 'diajukan' && <button type="button" className="outline-button" disabled={saving} onClick={onCancel}>Batalkan pengajuan</button>}</div>
         </div>
       </section> : <section className="judul-idea-banner">
-        <div className="judul-idea-mark"><Sparkles /></div>
+        <div className="judul-idea-mark"><FileText aria-hidden="true" /></div>
         <div className="judul-idea-copy"><span>LANGKAH PERTAMA</span><h2>Belum ada pengajuan judul</h2><p>Obrolkan minatmu dan kumpulkan beberapa kandidat sebelum memilih yang paling pas.</p></div>
         <button type="button" className="judul-idea-link" onClick={onStart}>Cari ide judul <ArrowRight /></button>
-        <div className="judul-idea-orbit" aria-hidden="true"><i /><i /><i /></div>
       </section>}
 
       <div className="judul-library-grid">

@@ -50,7 +50,7 @@ Dimasukkan identity saat memulai: `dosen_pa` (email, huruf kecil), `initiator`, 
 
 ## KHS milik orang lain
 
-NIM yang dibaca dari KHS dibandingkan NIM akun. Bila berbeda, `keyakinan` dipaksa 0 dan `nim_cocok = false`, sehingga proses berhenti di "Periksa" dan **tidak pernah sampai ke dosen** sebagai rencana orang yang salah. Layar menampilkan peringatan; satu-satunya tindakan adalah membatalkan.
+NIM pada KHS tidak dibandingkan dengan NIM akun. KHS demonstrasi tetap dapat dipakai bersama akun demo. Langkah "Periksa" hanya muncul bila keyakinan ekstraksi datanya rendah.
 
 ## Keamanan layanan-ke-layanan
 

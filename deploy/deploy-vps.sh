@@ -33,13 +33,22 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 echo "==> [1] Kemas commit"
-REV="$(git rev-parse --short HEAD)"
-if [[ -n "$(git status --porcelain)" ]]; then
+SUMBER=HEAD
+if [[ "${IKUT_BELUM_COMMIT:-}" == "1" ]]; then
+  # Salinan folder kerja (termasuk berkas baru; .gitignore tetap berlaku) lewat indeks sementara.
+  # Branch, indeks, dan folder kerja tidak diubah.
+  SUMBER="$(
+    export GIT_INDEX_FILE="$TMP/indeks"
+    git read-tree HEAD && git add -A && git commit-tree "$(git write-tree)" -p HEAD -m "salinan folder kerja"
+  )"
+  echo "    termasuk perubahan yang belum di-commit"
+elif [[ -n "$(git status --porcelain)" ]]; then
   echo "    PERINGATAN: ada perubahan belum di-commit; TIDAK ikut dikirim."
 fi
+REV="$(git rev-parse --short "$SUMBER")"
 ARSIP="$TMP/superapp-$REV.tar.gz"
 # Akhiran baris LF, apa pun pengaturan git di Windows.
-git -c core.autocrlf=false -c core.eol=lf archive --format=tar.gz -o "$ARSIP" HEAD
+git -c core.autocrlf=false -c core.eol=lf archive --format=tar.gz -o "$ARSIP" "$SUMBER"
 echo "    commit $REV  $(du -h "$ARSIP" | cut -f1)"
 # Daftar disimpan dulu: "tar | grep -q" dengan pipefail gagal palsu karena grep menutup pipa lebih awal.
 DAFTAR="$TMP/daftar.txt"
@@ -118,7 +127,8 @@ fi
 [[ "$masalah" == 0 ]] || { echo "DIBATALKAN: perbaiki berkas .env di server."; exit 1; }
 
 PROFIL=(); [[ "$PROXY" == "caddy" ]] && PROFIL=(--profile https)
-compose() { docker compose -f docker-compose.yml -f docker-compose.prod.yml "${PROFIL[@]}" "$@"; }
+# </dev/null wajib: skrip ini dibaca bash dari stdin, dan "compose exec" akan menelan sisanya (berhenti diam-diam).
+compose() { docker compose -f docker-compose.yml -f docker-compose.prod.yml "${PROFIL[@]}" "$@" </dev/null; }
 LAMA=""; [[ -L "$BASE/current" ]] && LAMA="$(readlink -f "$BASE/current")"
 
 cd "$REL"
@@ -173,4 +183,9 @@ else
   exit 1
 fi
 REMOTE
+# Pastikan rilis benar-benar aktif, jangan hanya percaya kode keluar.
+if [[ "$MODE" == "deploy" ]]; then
+  aktif="$(ssh "$SSH_HOST" "readlink '$REMOTE_DIR/current'")"
+  [[ "$aktif" == */"$REV" ]] || { echo "GAGAL: rilis aktif masih '$aktif', bukan $REV."; exit 1; }
+fi
 echo; echo "Selesai ($MODE, commit $REV)."

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Select } from 'antd'
 import { ArrowLeft, Check, Loader2, Send } from 'lucide-react'
 import type { ThesisAdvisorOption, ThesisSubmissionInput as FormState, ThesisPerson } from '@/src/services/judul-service'
 
@@ -35,7 +36,27 @@ export function JudulForm({ form, themes, advisors, selectedAdvisorId, currentAd
     <form onSubmit={onSubmit} className="judul-application-layout">
       <section className="judul-advisor-picker">
         <div className="judul-application-section-head"><span>01</span><div><h2>{isRevision ? 'Pembimbing saat ini' : 'Pilih dosen pembimbing'}</h2><p>{isRevision ? 'Revisi akan dikirim kembali kepada dosen yang meninjau pengajuan ini.' : 'Pilih salah satu dosen aktif di program studi Anda.'}</p></div></div>
-        {isRevision ? <div className="judul-current-advisor"><span className="judul-advisor-avatar">{currentAdvisor?.nama_lengkap?.slice(0, 1) ?? 'D'}</span><div><strong>{currentAdvisor?.nama_lengkap ?? 'Pembimbing pengajuan'}</strong><small>Pembimbing tugas akhir</small></div><Check /></div> : loading ? <div className="judul-advisor-loading"><Loader2 className="spin" /> Memuat daftar dosen...</div> : advisors.length ? <div className="judul-advisor-options" role="radiogroup" aria-label="Pilih dosen pembimbing">{advisors.map((advisor) => <button key={advisor.id} type="button" role="radio" aria-checked={selectedAdvisorId === advisor.id} className={`judul-advisor-option ${selectedAdvisorId === advisor.id ? 'selected' : ''}`} onClick={() => onAdvisorChange(advisor.id)}><span className="judul-advisor-avatar">{advisor.nama_lengkap.slice(0, 1)}</span><span className="judul-advisor-option-copy"><strong>{advisor.nama_lengkap}</strong><small>Dosen pembimbing tugas akhir</small></span><span className="judul-advisor-radio" /></button>)}</div> : <p className="judul-advisor-empty">Belum ada dosen pembimbing aktif yang tersedia. Hubungi kaprodi untuk bantuan.</p>}
+        {isRevision ? <div className="judul-current-advisor"><span className="judul-advisor-avatar">{currentAdvisor?.nama_lengkap?.slice(0, 1) ?? 'D'}</span><div><strong>{currentAdvisor?.nama_lengkap ?? 'Pembimbing pengajuan'}</strong><small>Pembimbing tugas akhir</small></div><Check /></div> : loading ? <div className="judul-advisor-loading"><Loader2 className="spin" /> Memuat daftar dosen...</div> : advisors.length ? <div className="judul-advisor-select-field">
+          <label htmlFor="judul-advisor-select">Dosen pembimbing</label>
+          <Select
+            id="judul-advisor-select"
+            aria-label="Pilih dosen pembimbing"
+            className="judul-advisor-select"
+            value={selectedAdvisorId || undefined}
+            placeholder="Cari dosen pembimbing..."
+            showSearch
+            optionFilterProp="label"
+            filterOption={(input, option) => String(option?.label ?? '').toLocaleLowerCase('id').includes(input.toLocaleLowerCase('id'))}
+            options={advisors.map((advisor) => ({ value: advisor.id, label: advisor.nama_lengkap }))}
+            optionRender={(option) => {
+              const advisor = advisors.find((item) => item.id === option.value)
+              return <div className="judul-advisor-dropdown-option"><span className="judul-advisor-avatar">{advisor?.nama_lengkap.slice(0, 1) ?? 'D'}</span><span><strong>{advisor?.nama_lengkap ?? String(option.label)}</strong><small>Dosen pembimbing tugas akhir</small></span></div>
+            }}
+            onChange={onAdvisorChange}
+            listHeight={280}
+          />
+          <small>{advisors.length} dosen tersedia. Ketik nama untuk mencari.</small>
+        </div> : <p className="judul-advisor-empty">Belum ada dosen pembimbing aktif yang tersedia. Hubungi kaprodi untuk bantuan.</p>}
       </section>
 
       <section className="judul-application-details">

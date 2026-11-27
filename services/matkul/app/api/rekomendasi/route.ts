@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import type { NilaiUII } from "@/src/lib/uii-grade";
 import { getMutu, getStatusLulus } from "@/src/lib/uii-grade";
 import { IdentityError, ambilKonteks } from "@/src/lib/identity";
-import { nimBerbeda, peringatanKonteks, type KonteksAkademik } from "@/src/lib/konteks";
+import { peringatanKonteks, type KonteksAkademik } from "@/src/lib/konteks";
 import { terapkanBatasSks } from "@/src/lib/proses/recommend";
 import { ambilBacaan } from "@/src/lib/proses/bacaan-db";
 import { bandingkanNilai, simpanPratinjau } from "@/src/lib/proses/pratinjau";
@@ -100,15 +100,6 @@ export async function POST(req: Request) {
           return NextResponse.json({ error: e.message, kode: e.kode }, { status: e.status });
         }
         throw e;
-      }
-      if (nimBerbeda(khs.mahasiswa?.nim, konteks.mahasiswa?.nim)) {
-        return NextResponse.json(
-          {
-            error: "NIM pada KHS tidak sama dengan NIM akun Anda. Unggah KHS milik Anda sendiri.",
-            kode: "nim_tidak_cocok",
-          },
-          { status: 422 }
-        );
       }
       peringatan.push(...peringatanKonteks(khs, konteks));
       panduanText = String(konteks.panduan.teks ?? "").trim();

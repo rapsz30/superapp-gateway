@@ -99,6 +99,62 @@
 .admin-layout .admin-header .ant-typography { color: inherit; }
 .admin-header > :last-child { margin-left: auto; }
 .admin-content { min-height: 0; padding: 24px; overflow: auto; }
+.admin-content:has(.judul-ta-page), .admin-content:has(.dosen-detail-page) { background: #f6f8fc; }
+.admin-content:has(.judul-ta-page) > .admin-content-heading { max-width: 1440px; margin: 0 auto 8px; }
+.admin-content:has(.judul-ta-page) > .judul-ta-page, .admin-content:has(.dosen-detail-page) > .dosen-detail-page { max-width: 1440px; margin: 0 auto; }
+.judul-ta-page { color: #172744; }
+.judul-ta-overview { display:flex; align-items:center; gap:16px; padding:20px 22px; border:1px solid #e7ecf5; border-radius:14px; background:linear-gradient(115deg,#fff 0%,#f8faff 100%); }
+.judul-ta-overview-icon { display:grid; place-items:center; width:46px; height:46px; flex:0 0 46px; border-radius:13px; background:#eaf0ff; color:#2858e8; font-size:19px; }
+.judul-ta-overview-copy { display:flex; min-width:0; flex:1; flex-direction:column; gap:3px; }
+.judul-ta-eyebrow, .dosen-detail-eyebrow { color:#8290a6 !important; font-size:10px; font-weight:700; letter-spacing:.1em; }
+.judul-ta-overview-copy .ant-typography { margin:0; }
+.judul-ta-overview-copy h4.ant-typography { color:#172744; font-size:19px; letter-spacing:-.02em; }
+.judul-ta-overview-copy > .ant-typography:last-child { font-size:12px; }
+.judul-ta-overview-count { display:grid; justify-items:end; gap:2px; padding-left:20px; border-left:1px solid #e8edf5; }
+.judul-ta-overview-count strong { color:#172744; font-size:23px; line-height:1; }
+.judul-ta-overview-count span { color:#7b879b; font-size:11px; }
+.judul-ta-table-card, .dosen-detail-page > .ant-card { border-color:#e7ecf4; border-radius:14px; box-shadow:0 5px 18px rgba(26,48,89,.035); }
+.judul-ta-table-card .ant-card-head { min-height:64px; }
+.judul-ta-table-card .ant-card-head-title .ant-typography { line-height:1.5; }
+.judul-ta-table-card .ant-card-body { padding-top:8px; }
+.judul-ta-student { display:grid; gap:3px; }
+.judul-ta-action { display:inline-flex; align-items:center; gap:8px; color:#2858e8; font-weight:600; text-decoration:none; white-space:nowrap; }
+.judul-ta-action:hover { color:#1741c4; }
+.judul-ta-action span { font-size:16px; }
+.dosen-detail-page { color:#172744; }
+.dosen-detail-back { display:flex; }
+.dosen-detail-back .ant-btn { border-color:#e1e7f0; border-radius:9px; color:#52617a; }
+.dosen-detail-identity { background:linear-gradient(120deg,#fff 0%,#fbfcff 100%); }
+.dosen-detail-identity .ant-card-head { min-height:100px; }
+.dosen-detail-title { display:grid; justify-items:start; gap:6px; padding:5px 0; }
+.dosen-detail-title h3.ant-typography, .dosen-detail-title h4.ant-typography { margin:0; color:#172744; letter-spacing:-.025em; line-height:1.35; }
+.dosen-detail-title h3.ant-typography { font-size:20px; white-space:normal; }
+.dosen-detail-title h4.ant-typography { font-size:19px; }
+.dosen-detail-title .ant-tag { margin:0; }
+.dosen-detail-page .ant-card-head-title { white-space:normal; }
+.dosen-detail-page .ant-card-head { border-bottom-color:#edf0f5; }
+.dosen-detail-page .ant-descriptions-item-label { color:#8490a3; }
+.dosen-detail-page .ant-descriptions-item-content { color:#263752; }
+.dosen-detail-card .ant-card-head-title, .dosen-decision-card .ant-card-head-title { color:#263752; font-weight:650; }
+.dosen-decision-card { border-color:#d9e4fb !important; background:#fbfcff; }
+.dosen-decision-card .ant-card-head { background:#f7f9ff; }
+.dosen-detail-page .ant-table-wrapper { overflow-x:auto; }
+@media (max-width:700px) {
+  .admin-content:has(.judul-ta-page), .admin-content:has(.dosen-detail-page) { padding:16px 12px 28px; }
+  .judul-ta-overview { align-items:flex-start; gap:12px; padding:16px; }
+  .judul-ta-overview-icon { width:38px; height:38px; flex-basis:38px; border-radius:11px; font-size:16px; }
+  .judul-ta-overview-copy h4.ant-typography { font-size:16px; }
+  .judul-ta-overview-copy > .ant-typography:last-child { line-height:1.45; }
+  .judul-ta-overview-count { padding-left:12px; }
+  .judul-ta-overview-count strong { font-size:19px; }
+  .judul-ta-overview-count span { max-width:76px; text-align:right; }
+  .judul-ta-table-card .ant-card-head { align-items:flex-start; }
+  .judul-ta-table-card .ant-card-head-wrapper { align-items:flex-start; gap:8px; }
+  .judul-ta-table-card .ant-card-extra { padding-top:12px; }
+  .dosen-detail-identity .ant-card-head-wrapper { align-items:flex-start; gap:8px; }
+  .dosen-detail-identity .ant-card-extra { padding-top:16px; }
+  .dosen-detail-title h3.ant-typography { font-size:17px; }
+}
 .admin-sider-bottom { position: static; margin-top: auto; padding: 16px; display: grid; gap: 8px; }
 .admin-sider-bottom a { color: #595959; padding: 8px; white-space: nowrap; }
 .admin-sider-bottom a, .admin-sider-bottom .ant-btn { display: flex; align-items: center; justify-content: flex-start; gap: 9px; min-height: 38px; padding: 8px; border-radius: 8px; font-size: 14px; }
@@ -242,7 +298,8 @@
 .admin-layout { font-family: 'Inter', 'Segoe UI', sans-serif; background: #f7f9fc; }
 .admin-layout .ant-layout-sider { border-inline-end: 1px solid #e8edf5; }
 .admin-brand { height: 72px; gap: 10px; justify-content: flex-start; padding: 0 20px; border-bottom: 1px solid #edf1f6; color: #172744; font-size: 15px; letter-spacing: -.02em; }
-.admin-brand-mark { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 34px; border-radius: 11px; background: linear-gradient(135deg, #2858e8, #4c7cf3); color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .02em; box-shadow: 0 5px 12px rgba(40, 88, 232, .2); }
+.admin-brand-logo { display:block; width:144px; height:64px; flex:0 1 auto; object-fit:contain; object-position:left center; }
+.admin-brand-logo-mark { width:36px; height:36px; flex:0 0 36px; object-position:center; }
 .admin-brand-name { overflow: hidden; white-space: nowrap; font-weight: 700; }
 .admin-layout .ant-menu { padding: 14px 10px; border-inline-end: 0; background: transparent; }
 .admin-layout .ant-menu-item, .admin-layout .ant-menu-submenu-title { margin: 3px 0; width: 100%; height: 42px; line-height: 42px; color: #667594; font-weight: 600; }
@@ -287,6 +344,13 @@
 .adm-table th { background: #f7f9fc; padding-block: 12px; font-size: 12px; }
 .adm-table td { padding-block: 12px; }
 .admin-loading { min-height: 100dvh; background: #f7f9fc; }
+.admin-loading .brand-loading { min-height:100dvh; }
+.admin-layout .admin-brand { min-width:0; }
+.admin-layout .admin-brand-name { margin-left:2px; }
+@media (max-width: 576px) {
+  .admin-brand { padding-inline:14px; }
+  .admin-brand-logo:not(.admin-brand-logo-mark) { width:132px; }
+}
 
 @media (max-width: 900px) {
   .admin-content { padding: 24px 20px 36px; }

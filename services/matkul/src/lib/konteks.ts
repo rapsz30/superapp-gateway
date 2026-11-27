@@ -25,18 +25,6 @@ export type KonteksAkademik = {
   };
 };
 
-const digits = (s: unknown) => String(s ?? "").replace(/\D+/g, "");
-
-/**
- * true bila NIM pada KHS jelas milik orang lain. Hanya salah bila keduanya ada dan berbeda;
- * bila salah satu kosong, tidak diblokir (ekstraksi AI bisa gagal membaca NIM).
- */
-export function nimBerbeda(nimKhs: unknown, nimAkun: unknown): boolean {
-  const a = digits(nimKhs);
-  const b = digits(nimAkun);
-  return a.length > 0 && b.length > 0 && a !== b;
-}
-
 const buangKataUmum = (s: string) =>
   s
     .toLowerCase()

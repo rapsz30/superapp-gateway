@@ -2,9 +2,10 @@
 import { createContext, useContext, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Avatar, Button, Flex, Layout, Menu, Result, Spin, Tag, Typography, type MenuProps } from 'antd'
+import { Avatar, Button, Flex, Layout, Menu, Result, Tag, Typography, type MenuProps } from 'antd'
 import { BarChartOutlined, CheckSquareOutlined, HistoryOutlined, HomeOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, ProfileOutlined, SettingOutlined, TeamOutlined } from '@ant-design/icons'
 import { useCurrentUser } from '@/src/hooks/use-current-user'
+import { BrandLogo, BrandedLoading } from '@/components/brand'
 import { authService, type AuthUser } from '@/src/services/auth-service'
 
 const { Header, Sider, Content } = Layout
@@ -14,8 +15,11 @@ const PEMBIMBING = [
   { key: '/dosen/bimbingan', label: 'Mahasiswa bimbingan', icon: <TeamOutlined /> },
   { key: '/dosen/riwayat', label: 'Riwayat keputusan', icon: <HistoryOutlined /> },
 ]
-const KAPRODI = [
+const TUGAS_AKHIR = [
   { key: '/dosen/judul', label: 'Judul perlu ditinjau', icon: <CheckSquareOutlined /> },
+  { key: '/dosen/judul/riwayat', label: 'Riwayat tugas akhir', icon: <HistoryOutlined /> },
+]
+const KAPRODI = [
   { key: '/dosen/pembimbing-ta', label: 'Pembimbing TA', icon: <TeamOutlined /> },
   { key: '/dosen/tema-judul', label: 'Tema judul', icon: <BarChartOutlined /> },
   { key: '/dosen/prodi', label: 'Pengajuan rencana studi', icon: <ProfileOutlined /> },
@@ -38,7 +42,7 @@ export function DosenShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
 
-  if (loading) return <div className="admin-loading"><Spin size="large" /></div>
+  if (loading) return <div className="admin-loading"><BrandedLoading message="Memuat sesi pengguna..." /></div>
 
   const pa = !!user?.roles.includes('dosen_pa')
   const kaprodi = !!user?.roles.includes('kaprodi')
@@ -48,13 +52,13 @@ export function DosenShell({ children }: { children: React.ReactNode }) {
   }
 
   const menu: MenuProps['items'] = [
-    ...((pa || kaprodi) ? [{ type: 'group' as const, key: 'judul', label: 'Tugas akhir', children: KAPRODI.filter((item) => item.key === '/dosen/judul') }] : []),
+    ...((pa || kaprodi) ? [{ type: 'group' as const, key: 'judul', label: 'Tugas akhir', children: TUGAS_AKHIR }] : []),
     ...(pa ? [{ type: 'group' as const, key: 'pa', label: 'Pembimbing akademik', children: PEMBIMBING }] : []),
-    ...((kaprodi || pengelola) ? [{ type: 'group' as const, key: 'kp', label: 'Pengelola program studi', children: KAPRODI.filter((item) => (item.key !== '/dosen/pembimbing-ta' || kaprodi) && (item.key !== '/dosen/judul' || kaprodi)) }] : []),
+    ...((kaprodi || pengelola) ? [{ type: 'group' as const, key: 'kp', label: 'Pengelola program studi', children: KAPRODI.filter((item) => item.key !== '/dosen/pembimbing-ta' || kaprodi) }] : []),
   ]
-  const halaman = [...PEMBIMBING, ...KAPRODI].find((item) => pathname.startsWith(item.key))
+  const halaman = [...TUGAS_AKHIR, ...PEMBIMBING, ...KAPRODI].find((item) => pathname === item.key || pathname.startsWith(`${item.key}/`))
   const judul = halaman?.label ?? (pathname.startsWith('/dosen/pengajuan/') ? 'Detail pengajuan' : 'Ruang dosen')
-  const terlarang = (!pa && !kaprodi && pathname.startsWith('/dosen/judul')) || (!pa && PEMBIMBING.some((i) => pathname.startsWith(i.key))) || (!kaprodi && pathname.startsWith('/dosen/pembimbing-ta')) || (!kaprodi && !pengelola && KAPRODI.some((i) => i.key !== '/dosen/judul' && pathname.startsWith(i.key)))
+  const terlarang = (!pa && !kaprodi && pathname.startsWith('/dosen/judul')) || (!pa && PEMBIMBING.some((i) => pathname.startsWith(i.key))) || (!kaprodi && pathname.startsWith('/dosen/pembimbing-ta')) || (!kaprodi && !pengelola && KAPRODI.some((i) => pathname.startsWith(i.key)))
 
   function keluar() {
     authService.logout()
@@ -65,7 +69,7 @@ export function DosenShell({ children }: { children: React.ReactNode }) {
     <DosenContext.Provider value={user}>
       <Layout className="admin-layout">
         <Sider trigger={null} collapsible collapsed={collapsed} onCollapse={setCollapsed} breakpoint="lg" collapsedWidth={0} width={230} theme="light">
-          <div className="admin-brand"><span className="admin-brand-mark">RD</span><span className="admin-brand-name">Ruang dosen</span></div>
+          <div className="admin-brand"><BrandLogo variant="mark" className="admin-brand-logo admin-brand-logo-mark" />{!collapsed && <span className="admin-brand-name">Ruang dosen</span>}</div>
           <Menu mode="inline" selectedKeys={halaman ? [halaman.key] : []} items={menu} onClick={({ key }) => router.push(key)} />
           <div className="admin-sider-bottom">
             {kaprodi && <Link href="/admin/beranda"><SettingOutlined /> Kelola prodi</Link>}

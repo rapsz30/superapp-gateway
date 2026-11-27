@@ -221,7 +221,7 @@ def _jalankan_lokal(pengajuan_id: uuid.UUID, langkah: str, catatan: str | None =
             if langkah == "ekstraksi":
                 h = klien.ekstraksi(p.khs_file_id or "", p.semester_target, str(p.id))
                 _simpan_hasil_ekstraksi(p, h)
-                yakin = h.get("nim_cocok", True) and float(h.get("keyakinan") or 0) >= AMBANG_KEYAKINAN
+                yakin = float(h.get("keyakinan") or 0) >= AMBANG_KEYAKINAN
                 p.tahap = "rekomendasi" if yakin else "periksa"
                 db.commit()
                 langkah = "rekomendasi" if yakin else ""
@@ -423,7 +423,7 @@ def ringkasan_saya(saya: Saya, db: DB) -> dict:
         if _sinkron(db, p):
             db.commit()
         d = p.data_proses or {}
-        if p.status == "dibatalkan" or not d.get("khs_ref") or d.get("nim_cocok") is False:
+        if p.status == "dibatalkan" or not d.get("khs_ref"):
             continue
         try:
             ringkasan = matkul.dapatkan_matkul().ringkasan_khs(str(d["khs_ref"]))
@@ -459,9 +459,6 @@ def periksa(pid: uuid.UUID, saya: Saya, db: DB, background: BackgroundTasks) -> 
         db.commit()
     if p.status != "diajukan" or p.tahap != "periksa":
         raise galat(409, "Pengajuan ini tidak sedang menunggu pemeriksaan Anda.")
-    if (p.data_proses or {}).get("nim_cocok") is False:
-        raise galat(409, "NIM pada KHS tidak sama dengan NIM akun Anda. Batalkan, lalu ajukan dengan KHS milik Anda.")
-
     if p.mode == "alurkerja":
         klien = alurkerja.dapatkan_klien()
         try:

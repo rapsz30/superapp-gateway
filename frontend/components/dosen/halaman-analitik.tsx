@@ -1,8 +1,9 @@
 'use client'
 import { ReloadOutlined } from '@ant-design/icons'
-import { Alert, Button, Card, Empty, Flex, Spin, Statistic, Table, Tabs, Typography } from 'antd'
+import { Alert, Button, Card, Empty, Flex, Statistic, Table, Tabs, Typography } from 'antd'
 import { useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { BrandedLoading } from '@/components/brand'
 import { waktu, useMuat } from './bersama'
 import { analitikService, type DashboardCard, type TabAnalitik } from '@/src/services/analitik-service'
 
@@ -31,7 +32,7 @@ export function HalamanAnalitik() {
 function IsiDashboard({ tab }: { tab: TabAnalitik }) {
   const { data, galat, memuat, muat } = useMuat(`analitik-${tab}`, () => analitikService.dashboard(tab), 60_000)
 
-  if (!data) return galat ? <Alert type="error" showIcon title={galat} action={<Button size="small" onClick={() => void muat()}>Coba lagi</Button>} /> : <div className="analitik-muat"><Spin size="large" /></div>
+  if (!data) return galat ? <Alert type="error" showIcon title={galat} action={<Button size="small" onClick={() => void muat()}>Coba lagi</Button>} /> : <div className="analitik-muat"><BrandedLoading message="Memuat analitik..." /></div>
 
   return (
     <Flex vertical gap={16}>

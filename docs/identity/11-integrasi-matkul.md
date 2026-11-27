@@ -82,7 +82,7 @@ Untuk mahasiswa: mengembalikan konteks dirinya. Untuk staf: wajib `?prodi_id=` d
 
 | Kasus | Perilaku |
 |---|---|
-| NIM pada KHS ≠ NIM akun (keduanya terbaca) | **422** `nim_tidak_cocok` (mencegah memakai KHS orang lain) |
+| NIM pada KHS berbeda dari NIM akun | Tetap diproses; akun demo dapat memakai data KHS demonstrasi. |
 | NIM tidak terbaca di KHS atau akun | lolos (ekstraksi AI bisa gagal membaca NIM) |
 | Prodi pada KHS tidak mirip prodi akun | lolos dengan `peringatan`; rekomendasi tetap memakai panduan prodi akun |
 | Prodi belum punya panduan aktif | **409** `panduan_belum_ada` |

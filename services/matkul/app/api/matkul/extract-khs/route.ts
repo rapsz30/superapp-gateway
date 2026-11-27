@@ -3,7 +3,7 @@ import { sidikBerkas } from "@/src/lib/proses/bacaan";
 import { bacaKhs } from "@/src/lib/proses/bacaan-db";
 import { ambilPratinjau } from "@/src/lib/proses/pratinjau";
 import { evaluateRows } from "@/src/lib/proses/recommend";
-import { hitungKeyakinan, nimCocok } from "@/src/lib/proses/keyakinan";
+import { hitungKeyakinan } from "@/src/lib/proses/keyakinan";
 import { ambilKonteksPengajuan, periksaTokenLayanan } from "@/src/lib/proses/layanan";
 import { calcRingkasan } from "@/src/lib/uii-grade";
 import { newId, query } from "@/src/lib/proses/db";
@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 /**
  * POST /api/matkul/extract-khs  (token layanan)
  * { khs_file_id, semester_target, id_pengajuan }
- *   -> { khs_ref, ipk, sks_lulus, mk_lulus, mk_ulang, keyakinan, prodi, nim_cocok }
+ *   -> { khs_ref, ipk, sks_lulus, mk_lulus, mk_ulang, keyakinan, prodi }
  *
  * `id_pengajuan` mengaitkan KHS dengan prodi mahasiswa: panduan aktif prodi itu diambil dari identity dan
  * DISIMPAN bersama KHS, sehingga rekomendasi dan semua revisi memakai versi panduan yang sama.
@@ -41,16 +41,12 @@ export async function POST(req: Request) {
     if (!khs) {
       return NextResponse.json({ error: "Teks PDF kosong. Jika scan, perlu OCR." }, { status: 400 });
     }
-    // KHS milik orang lain: keyakinan dipaksa 0 sehingga proses berhenti di langkah "Periksa" dan tidak
-    // pernah sampai ke dosen sebagai rencana orang yang salah.
-    const cocok = nimCocok(khs.mahasiswa.nim, konteks.mahasiswa?.nim);
     const pemilik = konteks.mahasiswa?.nim?.trim() || null;
-    // Mahasiswa yang sudah melihat hasil pratinjau berkas ini tidak diminta memeriksa bacaan lagi.
-    const sudahDilihat =
-      cocok && pemilik
-        ? await ambilPratinjau({ sidik: sidikBerkas(file.data), pemilik, panduanId: konteks.panduan.id })
-        : null;
-    const keyakinan = !cocok ? 0 : sudahDilihat ? 1 : hitungKeyakinan(khs);
+    // Akun demo dapat memakai KHS dengan identitas yang berbeda; kualitas bacaan dinilai dari isi KHS.
+    const sudahDilihat = pemilik
+      ? await ambilPratinjau({ sidik: sidikBerkas(file.data), pemilik, panduanId: konteks.panduan.id })
+      : null;
+    const keyakinan = sudahDilihat ? 1 : hitungKeyakinan(khs);
 
     const rows = evaluateRows(khs);
     const mk_lulus = rows.filter((r) => r.lulus).map((r) => r.kode);
@@ -87,7 +83,7 @@ export async function POST(req: Request) {
       mk_ulang,
       keyakinan,
       prodi: konteks.prodi.nama,
-      nim_cocok: cocok,
+      nim_cocok: true, // kompatibilitas dengan worker AlurKerja versi lama; tidak dipakai untuk validasi.
     });
   } catch (e: unknown) {
     const err = e instanceof Error ? e : new Error(String(e));

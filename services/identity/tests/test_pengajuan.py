@@ -45,7 +45,7 @@ class MatkulPalsu:
         self._cek("ekstraksi", khs_file_id, semester_target, id_pengajuan)
         return {
             "khs_ref": "khs_1", "ipk": 3.1, "sks_lulus": 40, "mk_lulus": ["IF101"], "mk_ulang": ["IF103"],
-            "keyakinan": self.keyakinan if self.nim_cocok else 0, "prodi": "Informatika", "nim_cocok": self.nim_cocok,
+            "keyakinan": self.keyakinan, "prodi": "Informatika", "nim_cocok": self.nim_cocok,
         }
 
     def rekomendasi(self, khs_ref, semester_target):
@@ -595,12 +595,11 @@ def test_lokal_keyakinan_rendah_menunggu_pemeriksaan(client, siap):
     assert ambil(client, siap, pid)["tahap"] == "tinjau"
 
 
-def test_lokal_nim_tidak_cocok_berhenti_di_pemeriksaan(client, siap):
+def test_lokal_nim_tidak_cocok_tidak_menghalangi_rekomendasi(client, siap):
     siap["matkul"].nim_cocok = False
     pid = ajukan(client, siap).json()["id"]
-    assert ambil(client, siap, pid)["tahap"] == "periksa"
-    assert client.post(f"/pengajuan/{pid}/periksa", headers=siap["h_mhs"]).status_code == 409
-    assert "rekomendasi" not in [n for n, _ in siap["matkul"].panggilan]
+    assert ambil(client, siap, pid)["tahap"] == "tinjau"
+    assert "rekomendasi" in [n for n, _ in siap["matkul"].panggilan]
 
 
 def test_lokal_dpa_memutuskan_revisi_lalu_setuju(client, siap):
@@ -705,11 +704,14 @@ def test_ringkasan_hanya_untuk_pemilik(client, siap):
     assert _ringkasan(client, siap, "h_dosen").json()["ringkasan"] is None
 
 
-def test_ringkasan_mengabaikan_batal_dan_khs_orang_lain(client, siap):
+def test_ringkasan_mengabaikan_batal_tapi_menerima_nim_demo_berbeda(client, siap):
     siap["matkul"].nim_cocok = False
     pid = ajukan(client, siap).json()["id"]
-    assert _ringkasan(client, siap).json()["ringkasan"] is None
+    ringkasan = _ringkasan(client, siap).json()
+    assert ringkasan["ringkasan"]["ipk"] == 3.1
+    assert ringkasan["sumber"]["pengajuan_id"] == pid
     client.post(f"/pengajuan/{pid}/batalkan", headers=siap["h_mhs"])
+    siap["matkul"].panggilan.clear()
     siap["matkul"].nim_cocok = True
     pid = ajukan(client, siap).json()["id"]
     client.post(f"/pengajuan/{pid}/batalkan", headers=siap["h_mhs"])

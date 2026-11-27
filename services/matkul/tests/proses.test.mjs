@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MAKS_SKS_SEMESTER, evaluateRows, gabungKandidat, hanyaBatasSks, isiSampaiBatas, mataKuliahBaru, terapkanBatasSks } from "../src/lib/proses/recommend.ts";
-import { hitungKeyakinan, nimCocok } from "../src/lib/proses/keyakinan.ts";
+import { hitungKeyakinan } from "../src/lib/proses/keyakinan.ts";
 import { bacaTeksPdf } from "../src/lib/proses/pdf.ts";
 import { bangunRingkasanAkademik } from "../src/lib/proses/ringkasan.ts";
 import { bacaSekali } from "../src/lib/proses/bacaan.ts";
@@ -101,13 +101,6 @@ test("kolom kosong dan SKS tidak cocok menurunkan keyakinan di bawah ambang 0,9"
   k.mahasiswa.nim = null;
   k.mahasiswa.sksKumulatif = 99;
   assert.ok(hitungKeyakinan(k) < 0.9);
-});
-
-test("NIM: sama lolos, beda ditolak, salah satu kosong tidak memblokir", () => {
-  assert.equal(nimCocok("2011 0001", "20110001"), true);
-  assert.equal(nimCocok("20110002", "20110001"), false);
-  assert.equal(nimCocok(null, "20110001"), true);
-  assert.equal(nimCocok("20110001", ""), true);
 });
 
 // ---------- privasi: nama dan NIM tidak boleh keluar ke AlurKerja ----------

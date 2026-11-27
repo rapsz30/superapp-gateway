@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { Award, BookOpen, ChevronDown, ChevronLeft, ChevronRight, FileText, Home, ListChecks, LogOut, Menu, Settings, ShieldCheck, UserRound, X } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { AppContent } from '@/components/app-content'
+import { BrandLogo, BrandedLoading } from '@/components/brand'
 import { useLanguage } from '@/components/language-provider'
 import { useCurrentUser } from '@/src/hooks/use-current-user'
 import { authService } from '@/src/services/auth-service'
@@ -27,7 +28,7 @@ export function MatkulShell({ children, module = 'matkul' }: { children: ReactNo
   const [languageOpen, setLanguageOpen] = useState(false)
 
   if (loading && !user) {
-    return <div className="app app-sidebar-collapsed"><main className="main"><div className="page-content"><div className="processing-state"><strong>Memuat sesi pengguna...</strong></div></div></main></div>
+    return <main className="route-loading"><BrandedLoading message="Memuat sesi pengguna..." /></main>
   }
 
   if (!user) return null
@@ -44,7 +45,7 @@ export function MatkulShell({ children, module = 'matkul' }: { children: ReactNo
 
   return <div className={`app ${collapsed ? 'app-sidebar-collapsed' : ''}`}>
     <aside className={`sidebar ${mobileOpen ? 'sidebar-open' : ''} ${collapsed ? 'sidebar-collapsed' : ''}`}>
-      <div className="sidebar-top"><div className="brand"><div className="brand-mark"><BookOpen /></div><span>Student<br />Gateway</span></div><button className="icon-button mobile-close" onClick={() => setMobileOpen(false)} aria-label="Tutup menu"><X /></button></div>
+      <div className="sidebar-top"><div className="brand"><BrandLogo variant={collapsed ? 'mark' : 'horizontal'} className={collapsed ? 'brand-logo brand-logo-mark' : 'brand-logo'} /></div><button className="icon-button mobile-close" onClick={() => setMobileOpen(false)} aria-label="Tutup menu"><X /></button></div>
       <div className="menu-label">{t('Menu')}</div>
       <nav className="nav-list" aria-label="Navigasi utama">
         {navItems.map(({ label, icon: Icon }, index) => <div key={label}>
