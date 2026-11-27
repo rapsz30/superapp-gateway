@@ -6,6 +6,9 @@ services:
   microcred-api:
     ports:
       - "127.0.0.1:18000:8000"
+    environment:
+      # Kode Micro-cred tidak mengantrekan job ke worker, jadi penilaian dijalankan oleh API sendiri.
+      AUTO_PROCESS_JOBS: "true"
   identity-api:
     ports:
       - "127.0.0.1:18002:8002"

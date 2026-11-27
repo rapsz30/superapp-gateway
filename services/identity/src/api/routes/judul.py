@@ -281,9 +281,10 @@ def rekomendasi(body: MinatIn, saya: Saya, db: DB) -> dict:
     prodi = db.get(Prodi, _prodi_mahasiswa(saya))
     unggul = _mata_kuliah_unggul(db, saya.orang_id)
     try:
-        hasil = layanan_judul.dapatkan_judul().rekomendasi(
-            body.minat, prodi.nama if prodi else "", unggul, list(TEMA_JUDUL)
-        )
+        with layanan_judul.atas_nama(saya.akun.id):
+            hasil = layanan_judul.dapatkan_judul().rekomendasi(
+                body.minat, prodi.nama if prodi else "", unggul, list(TEMA_JUDUL)
+            )
     except JudulGalat as exc:
         log.error("Rekomendasi judul gagal: %s", exc)
         raise galat(502, "Rekomendasi belum dapat disusun. Coba lagi beberapa saat lagi.") from None

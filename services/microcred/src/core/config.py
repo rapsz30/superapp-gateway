@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     allowed_roles: tuple[str, ...] = Field(
         default=("student", "advisor", "admin"), validation_alias="ALLOWED_ROLES"
     )
+    identity_url: str = Field(
+        default="",
+        validation_alias="IDENTITY_URL",
+        description="Bila diisi, token diperiksa ke layanan identity",
+    )
     database_url: str = Field(
         default="postgresql+asyncpg://microcred:postgres-password@localhost:5432/microcred",
         validation_alias="DATABASE_URL",

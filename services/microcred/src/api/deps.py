@@ -7,6 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.auth import Role, TokenError, create_access_token, decode_access_token
 from src.core.config import get_settings
+from src.core.identity import IdentityError, fetch_identity_user
 from src.domain import User
 from src.infrastructure.db.session import get_session
 
@@ -19,6 +20,14 @@ async def get_current_user(
     """Resolve the authenticated user from a bearer token."""
     if credentials is None:
         raise _unauthorized("Missing bearer token")
+
+    identity_url = get_settings().identity_url
+    if identity_url:
+        # Mode gateway: akun berasal dari identity. Token Micro-cred lama tidak diterima.
+        try:
+            return await fetch_identity_user(identity_url, credentials.credentials)
+        except IdentityError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
     try:
         payload = decode_access_token(credentials.credentials)

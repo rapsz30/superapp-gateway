@@ -15,12 +15,19 @@ from sqlalchemy.ext.asyncio import (
 from src.api.deps import get_db_session
 from src.api.main import app
 from src.core.auth import create_access_token
+from src.core.config import get_settings
 from src.domain.reference_data import QUESTION_TEMPLATES, ROLE_DEFINITIONS
 from src.infrastructure.db.base import Base
 from src.infrastructure.db.models import (
     QuestionTemplate,
     RoleCatalog,
 )
+
+
+@pytest.fixture(autouse=True)
+def _local_token_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tes memakai token lokal walau container mengisi IDENTITY_URL."""
+    monkeypatch.setattr(get_settings(), "identity_url", "")
 
 
 @pytest.fixture()

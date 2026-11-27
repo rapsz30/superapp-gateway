@@ -8,6 +8,7 @@ and exponential backoff.
 from __future__ import annotations
 
 import asyncio
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Protocol
@@ -65,6 +66,18 @@ class GPTClientProtocol(Protocol):
         ...
 
 
+def model_options(model: str, max_tokens: int) -> dict[str, Any]:
+    """Output limit parameters per model family.
+
+    Model gpt-5 ke atas menolak `max_tokens`, dan hanya menerima `temperature` selain 1 bila
+    `reasoning_effort` "none". Model lama menolak `reasoning_effort`.
+    """
+    if not re.match(r"(gpt-([5-9]|\d{2})|o\d)", model):
+        return {"max_tokens": max_tokens}
+    # Ruang lebih longgar agar JSON tidak terpotong.
+    return {"max_completion_tokens": max_tokens * 2, "reasoning_effort": "none"}
+
+
 class OpenAIClient:
     """Async OpenAI API client with retry logic."""
 
@@ -111,7 +124,7 @@ class OpenAIClient:
             "model": self.model,
             "messages": messages,
             "temperature": temperature,
-            "max_tokens": max_tokens,
+            **model_options(self.model, max_tokens),
         }
 
         last_error: Exception | None = None

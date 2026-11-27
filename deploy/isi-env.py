@@ -21,7 +21,7 @@ from pathlib import Path
 ALURKERJA_URL = "https://alurkerja.ahlanapp.cloud"
 TENANT_LIVE = "3d84b499-09c2-4288-b3bb-7d9e83e4fdbe"
 DASAR = Path(__file__).resolve().parent / "env"
-CONTOH = ("ganti", "replace", "postgres-password", "change-me")
+CONTOH = ("ganti", "replace", "postgres-password", "change-me", "placeholder")
 
 
 class Env:
@@ -71,6 +71,20 @@ def tanya(env: Env, kunci: str, label: str, rahasia: bool = True) -> str:
             return env.ambil(kunci)
         else:
             print("  Wajib diisi.")
+
+
+def tanya_opsional(env: Env, kunci: str, label: str) -> bool:
+    """Seperti tanya(), tetapi boleh dilewati. True bila kunci terisi."""
+    ada = not env.kosong(kunci)
+    petunjuk = "Enter = pakai yang sudah ada" if ada else "Enter = lewati"
+    while True:
+        isi = getpass.getpass(f"{label} [{petunjuk}]: ").strip()
+        if "'" in isi:
+            print("  Tidak boleh memuat tanda kutip tunggal.")
+            continue
+        if isi:
+            env.set(kunci, isi)
+        return bool(isi) or ada
 
 
 def uji_camunda(pengguna: str, sandi: str) -> str:
@@ -129,9 +143,17 @@ def main() -> None:
     konektor.set("LLM_PROVIDER", "openai")
     konektor.set("LLM_MODEL", "gpt-6-luna")
 
+    # Micro-credential. Tidak ada worker antrean, jadi penilaian dijalankan oleh API sendiri.
+    micro.set("OPENAI_MODEL", "gpt-6-luna")
+    micro.set("AUTO_PROCESS_JOBS", "true")
+
     print("Rahasia internal sudah dibuat. Sekarang yang harus Anda ketik (tidak tampil di layar).\n")
     tanya(matkul, "OPENAI_API_KEY", "Kunci OpenAI")
     tanya(judul, "OPENAI_API_KEY", "Kunci OpenAI (judul)")
+    tanya(micro, "OPENAI_API_KEY", "Kunci OpenAI (micro-credential)")
+    if tanya_opsional(micro, "RESEND_API_KEY", "Kunci Resend untuk email hasil asesmen"):
+        if micro.kosong("RESEND_FROM_EMAIL"):
+            micro.set("RESEND_FROM_EMAIL", "onboarding@resend.dev")
     print("\nAkun layanan Camunda untuk superapp:")
     pengguna = tanya(identity, "ALURKERJA_USERNAME", "  Nama pengguna", rahasia=False)
     sandi = tanya(identity, "ALURKERJA_PASSWORD", "  Sandi")

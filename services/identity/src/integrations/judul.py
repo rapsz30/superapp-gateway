@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any
 
 import httpx
@@ -13,14 +16,28 @@ class JudulGalat(Exception):
     """Layanan judul tidak dapat dihubungi atau gagal menyusun rekomendasi."""
 
 
+_akun: ContextVar[str | None] = ContextVar("akun_judul", default=None)
+
+
+@contextmanager
+def atas_nama(akun_id: object) -> Iterator[None]:
+    """Panggilan di dalam blok ini dicatat sebagai pemakaian AI milik akun tersebut."""
+    tanda = _akun.set(str(akun_id))
+    try:
+        yield
+    finally:
+        _akun.reset(tanda)
+
+
 class JudulKlien:
     def __init__(self, url: str, http: httpx.Client | None = None) -> None:
         self.url = url.rstrip("/")
         self.http = http or httpx.Client(timeout=55.0)  # di bawah batas 60 detik gateway
 
     def _kirim(self, jalur: str, isi: dict[str, Any]) -> dict[str, Any]:
+        akun = _akun.get()
         try:
-            r = self.http.post(f"{self.url}{jalur}", json=isi)
+            r = self.http.post(f"{self.url}{jalur}", json=isi, headers={"X-User-Id": akun} if akun else {})
         except httpx.HTTPError as exc:
             raise JudulGalat(f"Layanan judul tidak dapat dihubungi: {type(exc).__name__}") from exc
         if r.status_code != 200:

@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     login_jendela_detik: int = 900
     # Rahasia bersama dengan verifier gateway untuk endpoint /internal. Kosong = endpoint nonaktif.
     internal_token: str = ""
+    # Rahasia khusus untuk mencatat pemakaian AI (matkul, judul, micro-credential). Sengaja terpisah dari
+    # INTERNAL_TOKEN: pemegangnya hanya bisa menambah catatan. Kosong = pencatatan nonaktif.
+    ai_catat_token: str = ""
+    # Harga per satu juta token (USD) untuk perkiraan biaya. Kosong = biaya tidak ditampilkan.
+    ai_harga_masuk_per_juta: str = ""
+    ai_harga_keluar_per_juta: str = ""
     # Layanan matkul (langkah AI proses). Identity hanya menyimpan berkas KHS lewat endpoint upload-nya.
     matkul_url: str = "http://matkul:3000"
     matkul_service_token: str = ""

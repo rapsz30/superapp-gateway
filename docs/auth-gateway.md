@@ -8,7 +8,7 @@
 > Rute tulis `/api/identity/{fakultas,jurusan,prodi,orang,akun}` dan `/api/identity/audit`
 > hanya untuk `superadmin` (ditegakkan verifier dan layanan).
 
-Micro-cred menerbitkan token JWT. NGINX (lewat `auth_request`) memverifikasinya untuk semua layanan dengan aturan **default tolak**. Micro-cred tetap memverifikasi token sendiri (dua lapis), sehingga header `Authorization` diteruskan apa adanya.
+Micro-cred menerbitkan token JWT. NGINX (lewat `auth_request`) memverifikasinya untuk semua layanan dengan aturan **default tolak**. Micro-cred tetap memeriksa token sendiri (dua lapis), sehingga header `Authorization` diteruskan apa adanya. Bila `IDENTITY_URL` diisi (bawaan di `docker-compose.yml`), pemeriksaan itu dilakukan dengan memanggil `GET /auth/saya` di identity, lalu peran dipetakan: `mahasiswa` ke `student`, `dosen_pa` ke `advisor`, `superadmin` ke `admin`. Token Micro-cred lama tidak diterima pada mode ini.
 
 ## Alur
 

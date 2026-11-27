@@ -111,12 +111,15 @@ def _konteks_mahasiswa(db: Session, saya: Pengguna) -> tuple[str, list[str]]:
     return prodi.nama if prodi else "", _mata_kuliah_unggul(db, saya.orang_id)
 
 
-def _tanya_ai(pesan: list[dict], prodi: str, unggul: list[str], kandidat: dict | None = None) -> dict:
+def _tanya_ai(
+    akun_id: uuid.UUID, pesan: list[dict], prodi: str, unggul: list[str], kandidat: dict | None = None
+) -> dict:
     try:
-        return layanan_judul.dapatkan_judul().balas(
-            [{"peran": p["peran"], "isi": p["isi"][:2000]} for p in pesan[-MAKS_KONTEKS:]],
-            prodi, unggul, list(TEMA_JUDUL), kandidat,
-        )
+        with layanan_judul.atas_nama(akun_id):
+            return layanan_judul.dapatkan_judul().balas(
+                [{"peran": p["peran"], "isi": p["isi"][:2000]} for p in pesan[-MAKS_KONTEKS:]],
+                prodi, unggul, list(TEMA_JUDUL), kandidat,
+            )
     except JudulGalat as exc:
         log.error("Obrolan judul gagal: %s", exc)
         raise galat(502, "AI belum dapat membalas. Coba kirim lagi beberapa saat lagi.") from None
@@ -176,9 +179,10 @@ def buat(body: BuatIn, saya: Saya, db: DB) -> dict:
         )
     else:
         mahasiswa_id = saya.orang_id
+        akun_id = saya.akun.id
         db.rollback()
         pertama = _pesan("mahasiswa", body.pesan)
-        hasil = _tanya_ai([pertama], prodi, unggul)
+        hasil = _tanya_ai(akun_id, [pertama], prodi, unggul)
         o = ObrolanJudul(
             mahasiswa_id=mahasiswa_id, topik=body.pesan[:300], kandidat=[], pesan=[pertama, _balasan(hasil)])
     db.add(o)
@@ -203,8 +207,9 @@ def kirim(oid: uuid.UUID, body: PesanIn, saya: Saya, db: DB) -> dict:
         # Latar minat dari brainstorm ikut dikirim agar pembahasan tidak mulai dari nol.
         latar = " | ".join(p["isi"] for p in o.pesan if p["peran"] == "mahasiswa" and not p["kandidat_id"])
         utas = [{"peran": "mahasiswa", "isi": f"Latar minat saya: {latar or o.topik}"[:2000]}] + utas[-(MAKS_KONTEKS - 1):]
+    akun_id = saya.akun.id
     db.rollback()
-    hasil = _tanya_ai(utas, prodi, unggul, kandidat)
+    hasil = _tanya_ai(akun_id, utas, prodi, unggul, kandidat)
     o = _muat(db, saya, oid, kunci=True)
     o.pesan = o.pesan + [baru, _balasan(hasil, body.kandidat_id)]
     o.diubah = datetime.now(UTC)
@@ -225,9 +230,13 @@ def buat_kandidat(oid: uuid.UUID, saya: Saya, db: DB) -> dict:
     diskusi = "\n".join(baris)[-2300:]
     if o.kandidat:
         diskusi += "\nSudah pernah diusulkan, jangan diulang: " + "; ".join(k["judul"][:100] for k in o.kandidat[-5:])
+    akun_id = saya.akun.id
     db.rollback()
     try:
-        hasil = layanan_judul.dapatkan_judul().rekomendasi(topik, prodi, unggul, list(TEMA_JUDUL), diskusi[:3000])
+        with layanan_judul.atas_nama(akun_id):
+            hasil = layanan_judul.dapatkan_judul().rekomendasi(
+                topik, prodi, unggul, list(TEMA_JUDUL), diskusi[:3000]
+            )
     except JudulGalat as exc:
         log.error("Kandidat judul gagal: %s", exc)
         raise galat(502, "Kandidat belum dapat disusun. Coba lagi beberapa saat lagi.") from None

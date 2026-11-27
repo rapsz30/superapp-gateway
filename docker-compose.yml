@@ -14,6 +14,9 @@ services:
       context: ./services/microcred
       dockerfile: infra/docker/Dockerfile.api
     env_file: ./services/microcred/.env
+    environment:
+      # Akun kampus diperiksa ke identity, jadi Micro-cred tidak memegang JWT_SECRET identity.
+      IDENTITY_URL: http://identity-api:8002
     depends_on:
       db:
         condition: service_healthy

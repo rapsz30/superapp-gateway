@@ -449,3 +449,21 @@ class ObrolanJudul(Base):
     kandidat: Mapped[list] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
     dibuat: Mapped[datetime] = _dibuat()
     diubah: Mapped[datetime] = _dibuat()
+
+
+class AiPemakaian(Base):
+    """Satu panggilan AI dari layanan mana pun. Isi prompt dan jawaban sengaja tidak disimpan."""
+
+    __tablename__ = "ai_pemakaian"
+    __table_args__ = (Index("ix_ai_pemakaian_waktu", "waktu"),)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    waktu: Mapped[datetime] = _dibuat()
+    layanan: Mapped[str] = mapped_column(String(20), nullable=False)
+    fitur: Mapped[str] = mapped_column(String(40), nullable=False)
+    model: Mapped[str] = mapped_column(String(60), nullable=False)
+    # Tanpa foreign key: catatan tetap ada walau akun berubah.
+    akun_id: Mapped[uuid.UUID | None] = mapped_column()
+    token_masuk: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    token_keluar: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    durasi_ms: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    berhasil: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))

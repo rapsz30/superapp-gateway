@@ -16,6 +16,11 @@ import httpx
 from src.core.config import get_settings
 
 
+# Memulai proses dan menyelesaikan tugas menunggu listener notifikasi AlurKerja, yang di server bisa lebih
+# dari 20 detik. Bila identity menyerah lebih dulu, prosesnya tetap terbuat di AlurKerja dan menjadi yatim.
+BATAS_TULIS = 50.0
+
+
 class AlurKerjaGalat(Exception):
     """AlurKerja tidak dapat dihubungi atau menolak permintaan."""
 
@@ -69,6 +74,8 @@ class AlurKerjaKlien:
         self.http = http or httpx.Client(auth=(username, password), timeout=15.0, verify=ca_bundle or True)
 
     def _kirim(self, metode: str, jalur: str, **kw) -> httpx.Response:
+        if metode != "GET":
+            kw.setdefault("timeout", BATAS_TULIS)
         try:
             return self.http.request(metode, f"{self.url}/engine-rest{jalur}", **kw)
         except httpx.HTTPError as exc:

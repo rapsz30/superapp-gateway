@@ -61,7 +61,7 @@ def _skema() -> Iterator[None]:
 def _bersih(_skema) -> Iterator[None]:
     tabel = (
         "audit_log, refresh_token, pengajuan, bimbingan, keanggotaan_prodi, penugasan, panduan_akademik, "
-        "akun, orang, prodi, jurusan, fakultas"
+        "akun, orang, prodi, jurusan, fakultas, ai_pemakaian"
     )
     with get_engine().begin() as conn:
         conn.execute(text(f"TRUNCATE {tabel} RESTART IDENTITY CASCADE"))
