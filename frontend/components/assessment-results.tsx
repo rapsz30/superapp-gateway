@@ -159,6 +159,7 @@ export function AssessmentResults({
 }) {
   const [activeCourseTab, setActiveCourseTab] = useState<'foundation' | 'target'>('foundation')
   const [emailStatus, setEmailStatus] = useState<string | null>(null)
+  const [emailError, setEmailError] = useState(false)
   const [sendingEmail, setSendingEmail] = useState(false)
 
   const breakdown = result.score_breakdown ?? {}
@@ -180,15 +181,39 @@ export function AssessmentResults({
     document.getElementById(`course-tab-${next}`)?.focus()
   }
 
+  function buildMailtoHref(): string {
+    const subject = `Ringkasan Hasil Asesmen ${trackName}`
+    const lines = [
+      `Halo ${studentName},`,
+      '',
+      `Berikut ringkasan hasil asesmen Micro-Credential (${trackName}):`,
+      `- Skor Total: ${overallScore.toFixed(1)} / ${maxScore}`,
+      `- Skor Teori: ${theoScore.toFixed(1)}`,
+      `- Skor Esai: ${essayScore.toFixed(1)}`,
+      `- Skor Profil: ${profileScore.toFixed(1)}`,
+    ]
+    if (result.summary) {
+      lines.push('', 'Ringkasan Kompetensi:', result.summary.slice(0, 1000))
+    }
+    return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(lines.join('\n'))}`
+  }
+
   async function handleSendEmail() {
     if (sendingEmail) return
     setSendingEmail(true)
     setEmailStatus(null)
+    setEmailError(false)
     try {
       const res = await microcredService.emailSummary(result.assessment_id)
       setEmailStatus(`Ringkasan hasil asesmen telah dikirim ke ${res.to_email}.`)
     } catch (caught) {
-      setEmailStatus(errorMessage(caught, 'Gagal mengirim email ringkasan.'))
+      const rawMessage = errorMessage(caught, 'Gagal mengirim email ringkasan.')
+      setEmailError(true)
+      if (rawMessage.toLowerCase().includes('testing mode')) {
+        setEmailStatus('Pengiriman email otomatis dibatasi (Resend masih dalam mode testing). Anda tetap dapat mengirim ringkasan melalui aplikasi email Anda.')
+      } else {
+        setEmailStatus(rawMessage)
+      }
     } finally {
       setSendingEmail(false)
     }
@@ -212,7 +237,18 @@ export function AssessmentResults({
             <Mail /> {sendingEmail ? 'Mengirim...' : 'Kirim ke email'}
           </button>
         </div>
-        {emailStatus && <p className="account-settings-feedback" role="status" style={{ marginTop: '12px' }}>{emailStatus}</p>}
+        {emailStatus && (
+          <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
+            <p className={emailError ? 'account-settings-error' : 'account-settings-feedback'} role={emailError ? 'alert' : 'status'} style={{ margin: 0 }}>
+              {emailStatus}
+            </p>
+            {emailError && (
+              <a className="outline-button" href={buildMailtoHref()}>
+                <Mail /> Buka di aplikasi email
+              </a>
+            )}
+          </div>
+        )}
       </section>
 
       <section className="assessment-result-section" aria-labelledby="score-summary-title">

@@ -94,6 +94,11 @@ class SummaryEmailService:
                 user_id=user_id,
                 error=str(exc),
             )
+            err_msg = str(exc)
+            if "403" in err_msg and "testing emails" in err_msg.lower():
+                raise SummaryEmailSendError(
+                    "Failed to send summary email: Resend is in testing mode and only allows sending to the account owner email until a domain is verified."
+                ) from exc
             raise SummaryEmailSendError("Failed to send summary email") from exc
 
         sent_at = datetime.now(UTC).isoformat()
