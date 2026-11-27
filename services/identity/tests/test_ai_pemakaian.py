@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 
 from sqlalchemy import select
@@ -45,8 +47,11 @@ def test_isian_tidak_sah_ditolak(client):
     assert _catat(client, token_masuk=-1).status_code == 422
 
 
-def test_ringkasan_hanya_superadmin(client, db):
-    buat_orang_akun(db, "Kaprodi", "kp@uji.ac.id", peran="dosen_pa")
+def test_ringkasan_hanya_superadmin(client, db, kampus):
+    buat_orang_akun(
+        db, "Kaprodi", "kp@uji.ac.id", peran="kaprodi", unit_tipe="prodi",
+        unit_id=uuid.UUID(kampus["prodi1"]["id"]),
+    )
     assert client.get("/ai-pemakaian", headers=masuk(client, "kp@uji.ac.id")).status_code == 403
     assert client.get("/ai-pemakaian").status_code == 401
 
@@ -75,3 +80,5 @@ def test_ringkasan_menjumlahkan(client, db, monkeypatch):
     lama = client.get("/ai-pemakaian?dari=2020-01-01&sampai=2020-01-31", headers=h).json()
     assert lama["total"]["panggilan"] == 0 and lama["per_pengguna"] == []
     assert client.get("/ai-pemakaian?dari=2026-02-01&sampai=2026-01-01", headers=h).status_code == 400
+
+

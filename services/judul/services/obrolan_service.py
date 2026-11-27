@@ -2,11 +2,13 @@
 
 import json
 import re
+import time
 from typing import Any
 
 from openai import APIConnectionError, BadRequestError
 
 from config.settings import settings
+from ai_usage import catat
 from services.prompt_service import TEMA_BAWAAN
 
 MAKS_PERCOBAAN = 3
@@ -140,6 +142,7 @@ class ObrolanService:
             {"role": "user" if p["peran"] == "mahasiswa" else "assistant", "content": p["isi"]} for p in pesan
         ]
         for percobaan in range(1, MAKS_PERCOBAAN + 1):
+            mulai = time.monotonic()
             try:
                 r = self.client.chat.completions.create(
                     messages=percakapan,
@@ -150,8 +153,11 @@ class ObrolanService:
                     timeout=25.0,
                     **settings.opsi_model(self.model),
                 )
+                catat("obrolan_judul", r.model or self.model, r.usage.prompt_tokens if r.usage else 0,
+                      r.usage.completion_tokens if r.usage else 0, int((time.monotonic() - mulai) * 1000), True)
                 return _rapikan(json.loads(r.choices[0].message.content), daftar_tema, kandidat)
             except (APIConnectionError, BadRequestError, ValueError, TypeError) as e:
+                catat("obrolan_judul", self.model, durasi_ms=int((time.monotonic() - mulai) * 1000), berhasil=False)
                 print(f"Percobaan obrolan {percobaan} gagal: {type(e).__name__}")
                 if percobaan == MAKS_PERCOBAAN:
                     raise RuntimeError("AI tidak menghasilkan balasan yang sah.") from e

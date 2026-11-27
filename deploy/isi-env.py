@@ -128,6 +128,11 @@ def main() -> None:
     micro.set("APP_ENV", "production")
     internal = acak(identity, "INTERNAL_TOKEN")
     matkul.set("INTERNAL_TOKEN", internal)
+    ai_catat = acak(identity, "AI_CATAT_TOKEN")
+    for env in (matkul, judul, micro):
+        env.set("AI_CATAT_TOKEN", ai_catat)
+    judul.set("IDENTITY_URL", "http://identity-api:8002")
+    micro.set("IDENTITY_URL", "http://identity-api:8002")
     layanan = acak(identity, "MATKUL_SERVICE_TOKEN")
     matkul.set("MATKUL_SERVICE_TOKEN", layanan)
     konektor.set("GATEWAY_TOKEN", layanan)

@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { opsiModel } from "../model.ts";
 import type { NilaiUII } from "../uii-grade.ts";
 import { getMutu, getStatusLulus } from "../uii-grade.ts";
+import { catatPemakaianAi } from "../ai-catat.ts";
 
 // Logika dipindahkan apa adanya dari app/api/rekomendasi/route.ts.
 // Satu-satunya tambahan: semesterTarget bisa ditentukan pemanggil, dan blok
@@ -213,13 +214,21 @@ ATURAN:
 - "rekomendasi_semester_depan" HANYA berisi mata kuliah BARU (belum pernah diambil, dan bukan mata kuliah yang sudah lulus), sesuai urutan kurikulum di panduan akademik untuk Semester ${semesterTarget}.${aturanRevisi}
 `.trim();
 
-  const completion = await openai().chat.completions.create({
+  const mulaiAi = Date.now();
+  let completion;
+  try {
+    completion = await openai().chat.completions.create({
     ...opsiModel(process.env.LLM_MODEL || process.env.OPENAI_MODEL || "gpt-6-luna", 0.3, 1500),
     messages: [
       { role: "system", content: "Kamu asisten akademik yang patuh panduan akademik." },
       { role: "user", content: prompt },
     ],
-  });
+    });
+    catatPemakaianAi("rekomendasi_matkul", { layanan: "matkul", model: completion.model || process.env.LLM_MODEL || process.env.OPENAI_MODEL || "gpt-6-luna", token_masuk: completion.usage?.prompt_tokens ?? 0, token_keluar: completion.usage?.completion_tokens ?? 0, durasi_ms: Date.now() - mulaiAi, berhasil: true });
+  } catch (e) {
+    catatPemakaianAi("rekomendasi_matkul", { layanan: "matkul", model: process.env.LLM_MODEL || process.env.OPENAI_MODEL || "gpt-6-luna", token_masuk: 0, token_keluar: 0, durasi_ms: Date.now() - mulaiAi, berhasil: false });
+    throw e;
+  }
 
   const parsed = safeJson(completion.choices[0]?.message?.content?.trim() ?? "{}");
 

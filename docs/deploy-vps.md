@@ -52,6 +52,7 @@ Berkasnya ada di `~/superapp/env/` (sesuai `REMOTE_DIR`). Buat secret **baru** d
 - Sertifikat buatan sendiri: taruh root CA di `~/superapp/env/rootCA.pem` dan set `ALURKERJA_CA_BUNDLE=/certs/rootCA.pem`.
 - Biarkan `ALURKERJA_ADMIN_CLIENT_SECRET` kosong (sinkron akun dimatikan).
 - AlurKerja belum ada: kosongkan `ALURKERJA_URL` di identity (mode lokal, keputusan lewat web). Connector akan gagal tersambung sampai alamatnya diisi.
+- Pantauan pemakaian AI memakai `AI_CATAT_TOKEN` yang sama di identity, matkul, judul, dan micro-credential. Skrip `isi-env.py` membuat dan menyalinnya otomatis. Harga token `AI_HARGA_MASUK_PER_JUTA` dan `AI_HARGA_KELUAR_PER_JUTA` bersifat opsional; biarkan kosong sampai harga yang dipakai sudah dikonfirmasi. Pencatatan tidak menyimpan prompt atau jawaban.
 
 ## 4. Deploy
 
@@ -96,4 +97,4 @@ Pemulihan ini belum pernah diuji.
 
 ## Belum ditangani
 
-Pembatasan laju, rute AI langsung, dan micro-credential (ditunda atas keputusan pemilik proyek). Rute pendaftaran publik micro-credential ikut terbuka di server.
+Pembatasan laju dan rute AI langsung. Rute pendaftaran publik micro-credential ikut terbuka di server.

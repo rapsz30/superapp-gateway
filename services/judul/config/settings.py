@@ -25,6 +25,8 @@ class Settings:
 
     # OpenAI Settings (sama bawaan dengan layanan matkul)
     OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-6-luna")
+    IDENTITY_URL: str = os.getenv("IDENTITY_URL", "http://identity-api:8002")
+    AI_CATAT_TOKEN: str = os.getenv("AI_CATAT_TOKEN", "")
 
     @staticmethod
     def opsi_model(model: str) -> dict:

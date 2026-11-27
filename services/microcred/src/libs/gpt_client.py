@@ -16,6 +16,7 @@ from typing import Any, Protocol
 import httpx
 import structlog
 from src.core.config import get_settings
+from src.libs.ai_usage import catat
 
 logger = structlog.get_logger()
 
@@ -143,8 +144,14 @@ class OpenAIClient:
                 latency_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
 
                 if response.status_code == 200:
-                    data = response.json()
-                    return self._parse_response(data, latency_ms)
+                    try:
+                        data = response.json()
+                        parsed = self._parse_response(data, latency_ms)
+                    except Exception:
+                        catat(self.model, durasi_ms=latency_ms, berhasil=False)
+                        raise
+                    catat(parsed.model, parsed.prompt_tokens, parsed.completion_tokens, latency_ms, True)
+                    return parsed
 
                 if response.status_code == 429:
                     # Rate limited - retry with backoff
@@ -153,6 +160,7 @@ class OpenAIClient:
                         f"Rate limited (attempt {attempt + 1}): {error_message}"
                     )
                     last_error = error
+                    catat(self.model, durasi_ms=latency_ms, berhasil=False)
                     await logger.awarning(
                         "gpt_rate_limited",
                         error=error_message,
@@ -167,6 +175,7 @@ class OpenAIClient:
                         status_code=response.status_code,
                     )
                     last_error = error
+                    catat(self.model, durasi_ms=latency_ms, berhasil=False)
                     await logger.awarning(
                         "gpt_server_error",
                         status_code=response.status_code,
@@ -176,12 +185,14 @@ class OpenAIClient:
                 else:
                     # Client error - don't retry
                     error_body = self._extract_error_message(response)
+                    catat(self.model, durasi_ms=latency_ms, berhasil=False)
                     raise GPTAPIError(
                         f"API error {response.status_code}: {error_body}",
                         status_code=response.status_code,
                     )
 
             except httpx.TimeoutException:
+                catat(self.model, durasi_ms=int((datetime.now(UTC) - start_time).total_seconds() * 1000), berhasil=False)
                 last_error = GPTTimeoutError(f"Request timed out (attempt {attempt + 1})")
                 await logger.awarning(
                     "gpt_timeout",
@@ -190,6 +201,7 @@ class OpenAIClient:
                 )
 
             except httpx.RequestError as e:
+                catat(self.model, durasi_ms=int((datetime.now(UTC) - start_time).total_seconds() * 1000), berhasil=False)
                 last_error = GPTClientError(f"Request failed: {e}")
                 await logger.awarning(
                     "gpt_request_error",

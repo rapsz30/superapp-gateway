@@ -2,6 +2,8 @@ import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.types import ASGIApp, Scope, Receive, Send
+from ai_usage import akun_id
 
 from config.settings import settings
 from models.schemas import ChatInput, UserInput
@@ -15,6 +17,23 @@ app = FastAPI(
     description=settings.API_DECRIPTION,
     version=settings.API_VERSION,
 )
+
+
+class UserContextMiddleware:
+    def __init__(self, app: ASGIApp): self.app = app
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        headers = dict(scope.get("headers", []))
+        value = headers.get(b"x-user-id", b"").decode("utf-8", "ignore") or None
+        token = akun_id.set(value)
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            akun_id.reset(token)
+
+
+app.add_middleware(UserContextMiddleware)
 
 # Middleware CORS
 

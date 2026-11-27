@@ -8,6 +8,7 @@ import { peringatanKonteks, type KonteksAkademik } from "@/src/lib/konteks";
 import { terapkanBatasSks } from "@/src/lib/proses/recommend";
 import { ambilBacaan } from "@/src/lib/proses/bacaan-db";
 import { bandingkanNilai, simpanPratinjau } from "@/src/lib/proses/pratinjau";
+import { catatPemakaianAi, denganPemilik } from "@/src/lib/ai-catat";
 
 
 export const runtime = "nodejs";
@@ -204,12 +205,36 @@ ATURAN:
 - "rekomendasi_semester_depan" HANYA berisi mata kuliah BARU (belum pernah diambil, dan bukan mata kuliah yang sudah lulus), sesuai urutan kurikulum di panduan akademik untuk Semester ${semesterTarget}.
 `.trim();
 
-    const completion = await openai.chat.completions.create({
-      ...opsiModel(process.env.OPENAI_MODEL || "gpt-6-luna", 0.3, 1500),
-      messages: [
-        { role: "system", content: "Kamu asisten akademik yang patuh panduan akademik." },
-        { role: "user", content: prompt },
-      ],
+    const mulaiAi = Date.now();
+    const completion = await denganPemilik({ akunId: req.headers.get("x-user-id") ?? undefined }, async () => {
+      try {
+        const hasil = await openai.chat.completions.create({
+          ...opsiModel(process.env.OPENAI_MODEL || "gpt-6-luna", 0.3, 1500),
+          messages: [
+            { role: "system", content: "Kamu asisten akademik yang patuh panduan akademik." },
+            { role: "user", content: prompt },
+          ],
+        });
+        catatPemakaianAi("rekomendasi_pratinjau", {
+          layanan: "matkul",
+          model: hasil.model || process.env.OPENAI_MODEL || "gpt-6-luna",
+          token_masuk: hasil.usage?.prompt_tokens ?? 0,
+          token_keluar: hasil.usage?.completion_tokens ?? 0,
+          durasi_ms: Date.now() - mulaiAi,
+          berhasil: true,
+        });
+        return hasil;
+      } catch (e) {
+        catatPemakaianAi("rekomendasi_pratinjau", {
+          layanan: "matkul",
+          model: process.env.OPENAI_MODEL || "gpt-6-luna",
+          token_masuk: 0,
+          token_keluar: 0,
+          durasi_ms: Date.now() - mulaiAi,
+          berhasil: false,
+        });
+        throw e;
+      }
     });
 
     const parsed = safeJson(completion.choices[0]?.message?.content?.trim() ?? "{}");

@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { opsiModel } from "./model.ts";
+import { catatPemakaianAi } from "./ai-catat.ts";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -75,13 +76,21 @@ ${text}
 """
 `.trim();
 
-  const res = await client.chat.completions.create({
+  const mulai = Date.now();
+  let res;
+  try {
+    res = await client.chat.completions.create({
     ...opsiModel(process.env.OPENAI_MODEL || "gpt-6-luna", 0, 4000),
     messages: [
       { role: "system", content: "Keluarkan HANYA JSON valid sesuai format. Tanpa markdown." },
       { role: "user", content: prompt },
     ],
-  });
+    });
+    catatPemakaianAi("baca_khs", { layanan: "matkul", model: res.model || process.env.OPENAI_MODEL || "gpt-6-luna", token_masuk: res.usage?.prompt_tokens ?? 0, token_keluar: res.usage?.completion_tokens ?? 0, durasi_ms: Date.now() - mulai, berhasil: true });
+  } catch (e) {
+    catatPemakaianAi("baca_khs", { layanan: "matkul", model: process.env.OPENAI_MODEL || "gpt-6-luna", token_masuk: 0, token_keluar: 0, durasi_ms: Date.now() - mulai, berhasil: false });
+    throw e;
+  }
 
   const content = res.choices[0]?.message?.content ?? "{}";
   const parsed = safeJsonParse(content);

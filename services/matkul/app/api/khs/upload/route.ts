@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sidikBerkas } from "@/src/lib/proses/bacaan";
 import { bacaKhs } from "@/src/lib/proses/bacaan-db";
+import { denganPemilik } from "@/src/lib/ai-catat";
 
 export const runtime = "nodejs";
 
@@ -92,7 +93,7 @@ export async function POST(req: Request) {
     const buf = Buffer.from(await file.arrayBuffer());
 
     // Hasil bacaan disimpan dan dipakai lagi oleh proses pengajuan, sehingga KHS yang sama dibaca satu kali.
-    const khs = await bacaKhs(buf);
+    const khs = await denganPemilik({ akunId: req.headers.get("x-user-id") ?? undefined }, () => bacaKhs(buf));
     if (!khs) {
       return NextResponse.json(
         { ok: false, error: "Teks PDF kosong. Jika scan, perlu OCR." },

@@ -97,6 +97,14 @@ export interface AuditEntry {
   waktu: string
 }
 
+export interface AiPemakaian {
+  dari: string; sampai: string; harga: { masuk_per_juta: number; keluar_per_juta: number } | null
+  total: { panggilan: number; gagal: number; token_masuk: number; token_keluar: number; biaya_usd: number | null }
+  per_hari: { tanggal: string; panggilan: number; gagal: number; token_masuk: number; token_keluar: number }[]
+  per_fitur: { layanan: string; fitur: string; model: string; rata_durasi_ms: number; panggilan: number; gagal: number; token_masuk: number; token_keluar: number }[]
+  per_pengguna: { akun_id: string | null; nama: string | null; email: string | null; panggilan: number; gagal: number; token_masuk: number; token_keluar: number }[]
+}
+
 export interface ImporBaris {
   baris?: number
   status: 'ok' | 'gagal'
@@ -225,6 +233,7 @@ export const adminService = {
   // ---- Audit ----
   daftarAudit: (query: { aksi?: string; pelaku_id?: string; objek_id?: string; halaman?: number; ukuran?: number }) =>
     get<Page<AuditEntry>>('/audit', query),
+  pemakaianAi: (query: { dari?: string; sampai?: string }) => get<AiPemakaian>('/ai-pemakaian', query),
 
   // ---- Ringkasan beranda ----
   ringkasan: () => get<AdminRingkasan>('/ringkasan'),

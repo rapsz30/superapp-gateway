@@ -29,6 +29,7 @@ from src.libs.gpt_client import (
     GPTClientProtocol,
     OpenAIClient,
 )
+from src.libs.ai_usage import akun_id_ai
 
 if TYPE_CHECKING:
     pass
@@ -216,6 +217,18 @@ class GPTEssayScoringService:
         AC2: GPT responses parsed into rubric metrics.
         AC3: Failures logged and job marked failed.
         """
+        owner = (await self.session.execute(select(Assessment.owner_id).where(Assessment.id == assessment_id))).scalar_one_or_none()
+        token_owner = akun_id_ai.set(owner)
+        try:
+            return await self._score_assessment_essays(assessment_id, job_id)
+        finally:
+            akun_id_ai.reset(token_owner)
+
+    async def _score_assessment_essays(
+        self,
+        assessment_id: str,
+        job_id: str,
+    ) -> EssayScoringResult:
         # Update job status to in_progress
         await self._update_job_status(
             job_id,

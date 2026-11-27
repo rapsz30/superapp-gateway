@@ -3,6 +3,7 @@ import { newId, query } from "./db.ts";
 import { ambilPratinjau } from "./pratinjau.ts";
 import { ringkasanDosen } from "./ringkasan-dosen.ts";
 import { evaluateRows, recommendCourses, type KhsPreview, type RecommendResult } from "./recommend.ts";
+import { denganPemilik } from "../ai-catat.ts";
 
 const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -61,22 +62,24 @@ export async function buatRencana(opts: {
     file_id: string | null;
     pemilik: string | null;
     panduan_id: string | null;
-  }>("SELECT data, panduan_teks, maks_sks, file_id, pemilik, panduan_id FROM matkul_khs WHERE ref = $1", [opts.khs_ref]);
+    pengajuan_id: string | null;
+  }>("SELECT data, panduan_teks, maks_sks, file_id, pemilik, panduan_id, pengajuan_id FROM matkul_khs WHERE ref = $1", [opts.khs_ref]);
   if (!row) return null;
   // Panduan disimpan bersama KHS saat ekstraksi (versi yang berlaku saat proses dimulai), bukan dibaca ulang.
   if (!row.panduan_teks) throw new Error("KHS ini belum terkait panduan prodi (ekstraksi tanpa id_pengajuan).");
+  const panduanText = row.panduan_teks;
 
   // Pengajuan pertama memakai rencana yang sudah dilihat mahasiswa; revisi selalu disusun baru.
   const pratinjau = opts.parent ? null : await pratinjauUntuk(row, opts.semester_target);
 
-  const result = pratinjau?.data ?? await recommendCourses({
+  const result = pratinjau?.data ?? await denganPemilik({ pengajuanId: row.pengajuan_id ?? undefined }, () => recommendCourses({
     khs: row.data,
-    panduanText: row.panduan_teks,
+    panduanText,
     maksSksPanduan: row.maks_sks,
     semesterTarget: opts.semester_target,
     catatanDosen: opts.catatan_dosen,
     rencanaSebelumnya: opts.parent?.data,
-  });
+  }));
 
   const rencana_ref = newId("rnc");
   await query(

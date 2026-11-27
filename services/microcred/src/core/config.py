@@ -23,6 +23,7 @@ class Settings(BaseSettings):
         validation_alias="IDENTITY_URL",
         description="Bila diisi, token diperiksa ke layanan identity",
     )
+    ai_catat_token: str = Field(default="", validation_alias="AI_CATAT_TOKEN")
     database_url: str = Field(
         default="postgresql+asyncpg://microcred:postgres-password@localhost:5432/microcred",
         validation_alias="DATABASE_URL",

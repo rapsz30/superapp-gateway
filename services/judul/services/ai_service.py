@@ -3,6 +3,7 @@
 import json
 from typing import Dict, Any
 import time
+from ai_usage import catat
 
 from openai import APIConnectionError, BadRequestError
 
@@ -61,6 +62,7 @@ class AIService:
         return recommendations_with_refs
 
     def _call_openai_api(self, prompt: str) -> str:
+        mulai = time.monotonic()
         try:
             chat_completion = self.client.chat.completions.create(
                 messages=[
@@ -76,9 +78,14 @@ class AIService:
                 max_completion_tokens=4000,
                 **settings.opsi_model(self.model),
             )
+            catat("rekomendasi_judul", chat_completion.model or self.model,
+                  chat_completion.usage.prompt_tokens if chat_completion.usage else 0,
+                  chat_completion.usage.completion_tokens if chat_completion.usage else 0,
+                  int((time.monotonic() - mulai) * 1000), True)
             return chat_completion.choices[0].message.content
 
         except Exception as e:
+            catat("rekomendasi_judul", self.model, durasi_ms=int((time.monotonic() - mulai) * 1000), berhasil=False)
             print(f"Error calling OpenAI API : {e}")
             raise
 

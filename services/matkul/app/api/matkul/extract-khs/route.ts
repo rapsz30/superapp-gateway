@@ -7,6 +7,7 @@ import { hitungKeyakinan } from "@/src/lib/proses/keyakinan";
 import { ambilKonteksPengajuan, periksaTokenLayanan } from "@/src/lib/proses/layanan";
 import { calcRingkasan } from "@/src/lib/uii-grade";
 import { newId, query } from "@/src/lib/proses/db";
+import { denganPemilik } from "@/src/lib/ai-catat";
 
 export const runtime = "nodejs";
 
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
     const konteks = await ambilKonteksPengajuan(id_pengajuan);
 
     // Memakai hasil bacaan pratinjau bila berkasnya sama persis; dibaca sekarang bila belum pernah.
-    const khs = await bacaKhs(file.data);
+    const khs = await denganPemilik({ pengajuanId: id_pengajuan }, () => bacaKhs(file.data));
     if (!khs) {
       return NextResponse.json({ error: "Teks PDF kosong. Jika scan, perlu OCR." }, { status: 400 });
     }

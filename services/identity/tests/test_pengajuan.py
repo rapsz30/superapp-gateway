@@ -15,6 +15,7 @@ from src.integrations import matkul as modul_matkul
 from src.integrations.alurkerja import AlurKerjaKlien
 from src.integrations.matkul import MatkulGalat
 from src.models import Pengajuan
+from src.core.config import get_settings
 from tests.conftest import INTERNAL_TOKEN, TEKS_PANDUAN, buat_orang_akun, buat_pdf, masuk
 from tests.test_hak_akses import siapkan_dunia
 
@@ -236,6 +237,20 @@ def ajukan(client, d, semester=3, isi=KHS_PDF, nama="khs.pdf", headers=None):
     )
 
 
+def test_catatan_ai_pakai_pengajuan_id_dan_menampilkan_mahasiswa(client, siap, monkeypatch):
+    """Catatan dari worker proses dipetakan ke akun mahasiswa pemilik pengajuan."""
+    token = "t" * 40
+    monkeypatch.setattr(get_settings(), "ai_catat_token", token)
+    pengajuan = ajukan(client, siap).json()
+    catatan = client.post("/internal/ai-pemakaian", json={
+        "layanan": "matkul", "fitur": "rekomendasi_matkul", "model": "gpt-6-luna",
+        "pengajuan_id": pengajuan["id"],
+    }, headers={"X-AI-Token": token})
+    assert catatan.status_code == 204
+    hasil = client.get("/ai-pemakaian", headers=siap["admin"]).json()
+    assert any(p["email"] == "mhs@k.ac.id" and p["panggilan"] == 1 for p in hasil["per_pengguna"])
+
+
 def ambil(client, d, pid, who="h_mhs"):
     r = client.get(f"/pengajuan/{pid}", headers=d[who])
     assert r.status_code == 200, r.text
@@ -309,14 +324,14 @@ def test_keyakinan_rendah_menunggu_pemeriksaan_mahasiswa(client, siap, camunda):
     assert client.post(f"/pengajuan/{pid}/periksa", headers=siap["h_mhs"]).status_code == 409
 
 
-def test_khs_milik_orang_lain_tidak_bisa_dikonfirmasi(client, siap, camunda):
+def test_khs_dengan_nim_berbeda_tetap_bisa_dikonfirmasi(client, siap, camunda):
     pid = ajukan(client, siap).json()["id"]
     camunda.worker_ekstraksi("inst-1", keyakinan=0, nim_cocok=False)
     d = ambil(client, siap, pid)
     assert d["tahap"] == "periksa" and d["hasil_bacaan"]["nim_cocok"] is False
     r = client.post(f"/pengajuan/{pid}/periksa", headers=siap["h_mhs"])
-    assert r.status_code == 409 and "NIM" in r.json()["detail"]
-    assert camunda.proses["inst-1"]["aktif"] == ["Task_Periksa"]  # tidak diteruskan
+    assert r.status_code == 200 and r.json()["tahap"] == "rekomendasi"
+    assert camunda.proses["inst-1"]["aktif"] == ["Task_Rekom"]
 
 
 def test_siklus_revisi_dari_catatan_dosen(client, siap, camunda):

@@ -5,7 +5,7 @@
   "scripts": {
     "dev:pb": ".\\tools\\pocketbase_0.35.0_windows_amd64\\pocketbase.exe serve",
     "dev:next": "next dev",
-    "test": "node --test tests/konteks.test.mjs tests/proses.test.mjs",
+    "test": "node --test tests/konteks.test.mjs tests/proses.test.mjs tests/ai-catat.test.mjs",
     "dev": "concurrently \"pnpm dev:pb\" \"pnpm dev:next\""
   },
   "dependencies": {
